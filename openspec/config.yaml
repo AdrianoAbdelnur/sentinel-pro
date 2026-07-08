@@ -1,0 +1,33 @@
+project: sentinel-pro
+persistence: hybrid
+strict_tdd: true
+context: |
+  Greenfield Next.js 16 implementation of Sentinel Pro.
+  Reference behavior comes from Example-sentinel.
+  Reference architecture comes from Example-sentinel/docs/01..05.
+  UI must remain provider-agnostic.
+  Application owns use cases and view-model composition.
+  Integrations encapsulate provider-specific behavior.
+testing:
+  runner:
+    command: npm test
+    framework: Vitest
+  layers:
+    unit: Vitest
+    integration: React Testing Library
+    e2e: none
+  coverage:
+    available: true
+    command: npm run test:coverage
+  quality:
+    linter: npm run lint
+    typecheck: npm run typecheck
+    formatter: none
+phases:
+  proposal: required
+  spec: required
+  design: required
+  tasks: required
+  apply: required
+  verify: required
+  archive: required
