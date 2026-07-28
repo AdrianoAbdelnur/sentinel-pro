@@ -1,4 +1,4 @@
-## Project
+ï»¿## Project
 
 Sentinel Pro is a new greenfield implementation of the Sentinel domain.
 It must reuse the validated business behavior from `D:\CopiaD\backUp\Proyectos Web\Example-sentinel`, but it MUST NOT inherit that project's structural debt.
@@ -172,9 +172,9 @@ If the change is tiny and truly local, explicitly state why full SDD is unnecess
 TDD is the default.
 
 Apply the cycle:
-1. RED — write a failing test
-2. GREEN — write the minimum code to pass
-3. REFACTOR — improve without changing behavior
+1. RED â€” write a failing test
+2. GREEN â€” write the minimum code to pass
+3. REFACTOR â€” improve without changing behavior
 
 Minimum expectation:
 - new business rules get tests
@@ -252,6 +252,25 @@ Split by responsibility:
 
 If a page file starts becoming a system, the architecture is already failing.
 
+## Component Size and Organization Rules
+
+This project MUST keep components small, focused, and easy to maintain.
+
+Prefer:
+- one clear responsibility per component
+- composition through small child components
+- extracting hooks, presenters, and mappers before a component grows uncontrolled
+- moving business logic out of UI files into `application/*` or dedicated adapters
+
+Reject:
+- giant components
+- page files that accumulate rendering, fetching, mapping, and business decisions together
+- components approaching hundreds of lines without a very strong reason
+- any component over 800 lines unless the user explicitly approves an exception
+
+If a component starts growing too much, stop and split it before continuing.
+Size is not just style here; it is an architectural constraint for maintainability.
+
 ## Documentation Rules
 
 Keep documentation aligned with reality.
@@ -295,3 +314,7 @@ Until replaced by more specific project docs, assume the bootstrap order is:
 4. choose testing stack and strict TDD workflow
 5. model the first internal contracts
 6. implement the first vertical slice through SDD + TDD
+
+
+
+
