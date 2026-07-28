@@ -137,6 +137,27 @@ export type BuildLiveBottomPanelViewModelInput = {
   tabs: LiveBottomPanelTab[];
 };
 
+export type LiveState = {
+  fleets: LiveFleetState[];
+  liveVehicles: LiveVehicleState[];
+};
+
+export type LiveDataSource = {
+  readLiveState: () => LiveState;
+  readBottomPanelTabs: () => LiveBottomPanelTab[];
+};
+
+export type BuildLivePageViewModelInput = {
+  liveState: LiveState;
+  selectedVehicleIds: string[];
+  searchTerm: string;
+  activeTab: LiveBottomPanelTab["key"];
+  tabs: LiveBottomPanelTab[];
+  expandedFleetIds?: string[];
+  onlyActiveOrOnline?: boolean;
+  playback?: LivePlaybackOverlayViewModel;
+};
+
 export type ResolveVehiclePlaybackResult =
   | {
       kind: "playable";
