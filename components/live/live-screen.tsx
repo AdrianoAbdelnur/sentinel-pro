@@ -9,6 +9,7 @@ import {
 } from "@/application/live";
 
 import { LiveBottomPanel } from "./live-bottom-panel";
+import { LiveMapPanel } from "./live-map-panel";
 import { LiveSidebar } from "./live-sidebar";
 
 type LiveScreenProps = {
@@ -92,8 +93,8 @@ export function LiveScreen({ liveState, tabs }: LiveScreenProps) {
       />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 items-center justify-center bg-zinc-900/40 px-6 text-center text-sm text-zinc-500">
-          Map view arrives in a later change.
+        <div className="min-h-0 flex-1">
+          <LiveMapPanel map={page.map} />
         </div>
 
         <div className="h-64 shrink-0">

@@ -1,6 +1,15 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { vi } from "vitest";
 
 import type { LiveBottomPanelTab, LiveState } from "@/application/live";
+
+// Leaflet cannot run under jsdom. These tests are about screen behavior, so the
+// map is replaced by a stub; the real map is covered by live-map.test.tsx.
+vi.mock("./live-map", () => ({
+  LiveMap: ({ markers }: { markers: { vehicleId: string }[] }) => (
+    <div data-testid="live-map-stub" data-marker-count={markers.length} />
+  ),
+}));
 
 import { LiveScreen } from "./live-screen";
 
@@ -171,6 +180,26 @@ describe("LiveScreen", () => {
     expect(screen.queryByText("North Fleet")).not.toBeInTheDocument();
     expect(screen.getByText("South Fleet")).toBeInTheDocument();
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
+  });
+
+  it("shows the map empty state while nothing is selected", () => {
+    renderScreen();
+
+    expect(
+      screen.getByText(/select at least one vehicle to view it on the map/i),
+    ).toBeInTheDocument();
+  });
+
+  it("replaces the map empty state once a mappable vehicle is selected", () => {
+    renderScreen();
+    fireEvent.click(fleetToggle("North Fleet"));
+
+    fireEvent.click(vehicleCheckbox("Unit 101"));
+
+    expect(
+      screen.queryByText(/select at least one vehicle to view it on the map/i),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: /live map/i })).toBeInTheDocument();
   });
 
   it("keeps the selection when the active tab changes", () => {
