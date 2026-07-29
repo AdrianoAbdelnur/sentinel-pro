@@ -17,7 +17,6 @@ export default function LivePage() {
   const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
 
   const { staleAfterMs } = readLiveRuntimeConfig();
-  // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 
   return (

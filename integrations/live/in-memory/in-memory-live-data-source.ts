@@ -65,7 +65,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     telemetry: {
       deviceId: "device-101",
       online: true,
-      gpsAgoMs: 30_000, // 30s ago
+      gpsAgoMs: 30_000,
       latitude: -34.6037,
       longitude: -58.3816,
       speedKmH: 46,
@@ -96,7 +96,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     telemetry: {
       deviceId: "device-102",
       online: false,
-      gpsAgoMs: 20_000, // fresh, and irrelevant: the flag wins
+      gpsAgoMs: 20_000,
       speedKmH: 55,
       ignitionOn: true,
       network: "4G",
@@ -123,7 +123,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
     telemetry: {
       deviceId: "device-201",
-      gpsAgoMs: 2 * 60_000, // inside the 5 min threshold
+      gpsAgoMs: 2 * 60_000,
       latitude: -31.4201,
       longitude: -64.1888,
       speedKmH: 0,
@@ -153,7 +153,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
     telemetry: {
       deviceId: "device-202",
-      gpsAgoMs: 9 * 60_000, // past the 5 min threshold
+      gpsAgoMs: 9 * 60_000,
       speedKmH: 55,
       ignitionOn: true,
       network: "3G",

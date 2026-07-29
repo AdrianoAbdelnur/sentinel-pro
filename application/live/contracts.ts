@@ -44,12 +44,12 @@ export type LiveFleetNode = {
 
 export type LiveVehicleNode = {
   vehicleId: string;
-  plate?: string; // primary identifier when present
-  label: string; // secondary identifier
+  plate?: string;
+  label: string;
   status: VehicleStatus;
-  speedKmH?: number; // absent whenever status is "offline"
-  lastReportAt?: string; // ISO-8601, from telemetry.gpsAt
-  provider?: string; // Device.provider, verbatim
+  speedKmH?: number;
+  lastReportAt?: string;
+  provider?: string;
   isSelected: boolean;
   hasValidGps: boolean;
   canOpenLive: boolean;
@@ -139,8 +139,8 @@ export type BuildLiveSidebarViewModelInput = {
   nowMs: number;
   staleAfterMs: number;
   expandedFleetIds?: string[];
-  status?: LiveStatusFilter; // defaults to "all" (no status narrowing)
-  provider?: string; // undefined = no provider narrowing
+  status?: LiveStatusFilter;
+  provider?: string;
 };
 
 export type BuildLiveBottomPanelViewModelInput = {

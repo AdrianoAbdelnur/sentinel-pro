@@ -4,7 +4,7 @@ import type { LiveFleetState, LiveVehicleState } from "./contracts";
 import { buildLiveSidebarViewModel } from "./build-live-sidebar-view-model";
 
 const NOW = Date.parse("2026-07-29T12:00:00.000Z");
-const STALE_AFTER_MS = 5 * 60 * 1000; // 5 minutes
+const STALE_AFTER_MS = 5 * 60 * 1000;
 
 const fleets: LiveFleetState[] = [
   {
