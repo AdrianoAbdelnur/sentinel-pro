@@ -48,13 +48,17 @@ export function LiveMap({ markers }: LiveMapProps) {
   );
 }
 
+// Leaflet's divIcon accepts an HTML string, not a React element, so this is the
+// one place the project builds markup by hand. Styling still goes through
+// Tailwind classes; only the rotation angle — genuinely dynamic — is passed as a
+// CSS custom property. See the styling rule in AGENTS.md.
 export function buildMarkerHtml(marker: LiveMapMarker): string {
   const rotation =
     typeof marker.headingDeg === "number"
-      ? `transform:rotate(${marker.headingDeg}deg);`
+      ? ` style="--marker-rotation:${marker.headingDeg}deg"`
       : "";
 
-  return `<span style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:9999px;background:rgba(16,185,129,0.25);"><span style="${rotation}color:#10b981;font-size:14px;line-height:1;">&#9650;</span></span>`;
+  return `<span class="flex size-[22px] items-center justify-center rounded-full bg-emerald-500/25"><span class="text-sm leading-none text-emerald-500 rotate-[var(--marker-rotation,0deg)]"${rotation}>&#9650;</span></span>`;
 }
 
 function FitBounds({ markers }: LiveMapProps) {

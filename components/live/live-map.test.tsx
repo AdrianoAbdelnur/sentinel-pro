@@ -119,11 +119,23 @@ describe("LiveMap", () => {
 });
 
 describe("buildMarkerHtml", () => {
-  it("rotates the icon by the marker heading", () => {
-    expect(buildMarkerHtml(markers[0])).toContain("rotate(90deg)");
+  it("passes the marker heading as a CSS custom property", () => {
+    expect(buildMarkerHtml(markers[0])).toContain("--marker-rotation:90deg");
   });
 
-  it("renders no rotation when the heading is absent", () => {
-    expect(buildMarkerHtml(markers[1])).not.toContain("rotate(");
+  it("sets no rotation property when the heading is absent", () => {
+    // The class always references the custom property with a 0deg fallback;
+    // what must be absent is the style attribute that would define it.
+    expect(buildMarkerHtml(markers[1])).not.toContain("style=");
+  });
+
+  it("styles the marker with classes rather than inline styles", () => {
+    const html = buildMarkerHtml(markers[0]);
+
+    expect(html).toContain('class="');
+    // The rotation angle is the only value allowed through a style attribute.
+    expect(html.match(/style="[^"]*"/g)).toEqual([
+      'style="--marker-rotation:90deg"',
+    ]);
   });
 });

@@ -56,7 +56,7 @@ describe("LiveMap (unmocked Leaflet)", () => {
 
     const icons = Array.from(container.querySelectorAll(".leaflet-marker-icon"));
     const rotated = icons.filter((icon) =>
-      icon.innerHTML.includes("rotate(90deg)"),
+      icon.innerHTML.includes("--marker-rotation:90deg"),
     );
 
     expect(icons).toHaveLength(2);

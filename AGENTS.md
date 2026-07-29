@@ -268,10 +268,19 @@ Reject:
 - giant components
 - page files that accumulate rendering, fetching, mapping, and business decisions together
 - components approaching hundreds of lines without a very strong reason
-- any component over 800 lines unless the user explicitly approves an exception
 
 If a component starts growing too much, stop and split it before continuing.
 Size is not just style here; it is an architectural constraint for maintainability.
+
+### File size
+
+Around 700 lines is the point where a file is already too big. This is a guideline, not a hard gate: 730 lines is not worth arguing about, 1200 is not acceptable. Treat the number as a signal to split, not as a budget to spend.
+
+### Styling
+
+Use Tailwind utility classes. Do NOT use inline styles.
+
+The one legitimate exception is a third-party API that accepts only an HTML string or a raw style value and cannot render a React component — Leaflet's `divIcon` is the known case. Even then, keep the inline surface minimal: express what you can as classes, and pass only the genuinely dynamic value (for example a rotation angle) through a CSS custom property.
 
 ## Documentation Rules
 
