@@ -1,10 +1,6 @@
-# live-page-shell Specification
+# Delta for live-page-shell
 
-## Purpose
-
-Define how the live operator screen is composed and delivered from internal view models, without provider knowledge in the delivery layer.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Page composition unifies the operator surfaces
 
@@ -31,6 +27,7 @@ The system MUST compose sidebar, bottom panel, and playback contract, passing sc
 - GIVEN scalar status and provider values
 - WHEN composition runs
 - THEN the sidebar receives both values
+
 ### Requirement: Live data is read through an explicit port
 
 The system MUST read normalized operational data through a replaceable port. Tabs MUST expose their stable application keys, columns MUST allow arbitrary stable string keys, and neither contract MUST carry labels. Delivery MUST use Spanish copy for known keys and raw-key fallback for unknown columns.
@@ -57,6 +54,7 @@ The system MUST read normalized operational data through a replaceable port. Tab
 - GIVEN a bottom-panel key
 - WHEN it renders
 - THEN known keys use Spanish copy and an unknown column uses its raw key
+
 ### Requirement: Delivery renders view models without deriving business state
 
 The live screen MUST NOT recompute selection, filtering, or availability. It MUST own copy for rendered map and bottom-panel codes. Playback codes MAY exist in application contracts, but playback-notice UI is deferred until a playback monitor exists. The sidebar MUST retain `w-72`.

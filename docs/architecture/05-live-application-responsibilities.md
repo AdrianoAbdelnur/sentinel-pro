@@ -22,7 +22,9 @@ type LivePageViewModel = {
 - Map depends on selected vehicles with valid GPS.
 - Bottom panel depends on selected vehicles, even when some data is partial.
 - Double click to open playback is an explicit action, not a side effect of selection.
-- Offline vehicles do not open playback; they show a functional notice.
+- Offline vehicles do not open playback; the application returns a functional
+  notice code. Visible playback notices remain deferred until the playback
+  monitor is implemented.
 - Vehicles with no playable video do not create empty tiles.
 - Fleet counts (`online`/`total`) and the sidebar's provider list are computed
   against each fleet's full roster, before any status/provider/search
@@ -89,6 +91,11 @@ Every empty state and notice is a named code union
 `LivePlaybackNoticeCode`) so delivery can key an exhaustive record off it. The
 Spanish lives in `components/live/live-copy.ts`; see
 `06-live-delivery-layer.md` for the copy rules.
+
+Bottom-panel tab and column contracts are different: tab keys are a closed
+application union, while column keys are arbitrary stable strings. Delivery
+translates known column keys and renders an unknown column's raw key rather
+than requiring an exhaustive compile-time column dictionary.
 
 ## Injected clock and threshold
 

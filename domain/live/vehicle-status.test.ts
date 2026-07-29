@@ -40,6 +40,18 @@ describe("resolveVehicleStatus", () => {
     ).toBe("en-route");
   });
 
+  it("trusts explicit online true even when the report timestamp is stale", () => {
+    const record = telemetry({
+      online: true,
+      gpsAt: new Date(NOW - (STALE_AFTER_MS + 60_000)).toISOString(),
+      speedKmH: 46,
+    });
+
+    expect(
+      resolveVehicleStatus({ telemetry: record, nowMs: NOW, staleAfterMs: STALE_AFTER_MS }),
+    ).toBe("en-route");
+  });
+
   it("returns stopped when online is true and speed is zero", () => {
     const record = telemetry({ online: true, speedKmH: 0 });
 

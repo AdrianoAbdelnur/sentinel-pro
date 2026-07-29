@@ -1,7 +1,12 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { vi } from "vitest";
 
-import type { LiveBottomPanelTab, LiveState } from "@/application/live";
+import * as liveApplication from "@/application/live";
+import {
+  buildLivePageViewModel,
+  type LiveBottomPanelTab,
+  type LiveState,
+} from "@/application/live";
 
 vi.mock("./live-map", () => ({
   LiveMap: ({ markers }: { markers: { vehicleId: string }[] }) => (
@@ -13,6 +18,7 @@ import {
   BOTTOM_PANEL_EMPTY_STATE_COPY,
   BOTTOM_PANEL_TAB_COPY,
   MAP_EMPTY_STATE_COPY,
+  PLAYBACK_NOTICE_COPY,
   VEHICLE_STATUS_COPY,
 } from "./live-copy";
 import {
@@ -295,6 +301,34 @@ describe("LiveScreen", () => {
     expect(
       screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
+  });
+
+  it("does not render a playback notice before the playback monitor exists", () => {
+    const pageWithNotice = buildLivePageViewModel({
+      liveState,
+      selectedVehicleIds: [],
+      searchTerm: "",
+      activeTab: "status",
+      tabs,
+      nowMs: NOW,
+      staleAfterMs: STALE_AFTER_MS,
+      playback: {
+        isOpen: false,
+        notice: { code: "vehicle-offline" },
+      },
+    });
+    const buildPageSpy = vi
+      .spyOn(liveApplication, "buildLivePageViewModel")
+      .mockReturnValueOnce(pageWithNotice);
+
+    renderScreen();
+
+    expect(buildPageSpy).toHaveBeenCalled();
+    expect(
+      screen.queryByText(PLAYBACK_NOTICE_COPY["vehicle-offline"]),
+    ).not.toBeInTheDocument();
+
+    buildPageSpy.mockRestore();
   });
 
   it("replaces the map empty state once a mappable vehicle is selected", () => {

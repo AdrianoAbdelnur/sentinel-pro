@@ -1,10 +1,6 @@
-# live-operator-panels Specification
+# Delta for live-operator-panels
 
-## Purpose
-
-Define the application behavior that composes the live sidebar and bottom panel from normalized internal state.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Sidebar composition stays operational and provider-agnostic
 
@@ -85,6 +81,7 @@ The system MUST compose provider-agnostic fleets with full-roster `online/total`
 - GIVEN status is `stopped` at zero speed
 - WHEN composition runs
 - THEN node speed is `0`
+
 ### Requirement: Bottom panel composition preserves selected-vehicle context
 
 The system MUST compose key-only tabs and columns for selected vehicles. Empty state MUST carry only a code; missing cells MUST be `null`.
@@ -108,6 +105,8 @@ The system MUST compose key-only tabs and columns for selected vehicles. Empty s
 - GIVEN the source supplies keys only
 - WHEN composition runs
 - THEN no tab or column label is introduced
+
+## ADDED Requirements
 
 ### Requirement: Scalar status and provider filters narrow the sidebar
 

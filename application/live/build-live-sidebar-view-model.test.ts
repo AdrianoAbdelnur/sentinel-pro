@@ -238,6 +238,66 @@ describe("buildLiveSidebarViewModel", () => {
     ]);
   });
 
+  it("does not match a vehicle by its internal code", () => {
+    const result = build({
+      liveVehicles: [
+        {
+          ...liveVehicles[0],
+          vehicle: {
+            ...liveVehicles[0].vehicle,
+            internalCode: "SECRET-UNIT-CODE",
+          },
+        },
+      ],
+      searchTerm: "secret-unit-code",
+    });
+
+    expect(result.fleets).toEqual([]);
+  });
+
+  it.each([
+    {
+      field: "provider",
+      searchTerm: "secret-provider",
+      liveVehicle: {
+        ...liveVehicles[0],
+        device: {
+          ...liveVehicles[0].device!,
+          provider: "SECRET-PROVIDER",
+        },
+      },
+    },
+    {
+      field: "device identifier",
+      searchTerm: "secret-device-id",
+      liveVehicle: {
+        ...liveVehicles[0],
+        device: {
+          ...liveVehicles[0].device!,
+          id: "SECRET-DEVICE-ID",
+        },
+      },
+    },
+    {
+      field: "unrelated customer identifier",
+      searchTerm: "secret-customer-id",
+      liveVehicle: {
+        ...liveVehicles[0],
+        vehicle: {
+          ...liveVehicles[0].vehicle,
+          customerId: "SECRET-CUSTOMER-ID",
+        },
+      },
+    },
+  ])("does not match a vehicle by its $field", ({ liveVehicle, searchTerm }) => {
+    const result = build({
+      liveVehicles: [liveVehicle],
+      searchTerm,
+    });
+
+    expect(result.fleets).toEqual([]);
+  });
+
   it("keeps the fleet checkbox tied to all vehicles while search narrows the visible ones", () => {
     const result = build({
       searchTerm: "unit 101",

@@ -88,6 +88,31 @@ describe("LiveSidebar collapse", () => {
 });
 
 describe("LiveSidebar", () => {
+  it("keeps controls fixed while only the fleet-list region owns vertical scrolling", () => {
+    const { container } = renderSidebar({
+      fleets: [
+        {
+          fleetId: "fleet-north",
+          label: "North Fleet",
+          isExpanded: false,
+          isSelected: false,
+          counts: { online: 1, total: 2 },
+          vehicles: [],
+        },
+      ],
+    });
+
+    const shell = container.querySelector("aside");
+    const listRegion = container.querySelector(".overflow-y-auto");
+    const searchbox = screen.getByRole("searchbox");
+
+    expect(shell).toHaveClass("w-72");
+    expect(shell).not.toHaveClass("overflow-y-auto");
+    expect(listRegion).toBeInTheDocument();
+    expect(listRegion).toHaveClass("min-h-0", "flex-1", "overflow-y-auto");
+    expect(listRegion).not.toContainElement(searchbox);
+  });
+
   it("shows a Spanish empty state when no fleet matches", () => {
     renderSidebar({ fleets: [] });
 

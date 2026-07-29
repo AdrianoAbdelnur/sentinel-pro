@@ -47,7 +47,7 @@ export function LiveFleetNode({
           >
             <path d="M2 0 L7 4 L2 8 Z" />
           </svg>
-          <span className="truncate text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-300">
+          <span className="truncate text-xs font-semibold text-slate-300">
             {fleet.label}
           </span>
         </button>

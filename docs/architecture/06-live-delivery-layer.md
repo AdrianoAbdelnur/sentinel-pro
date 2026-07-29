@@ -62,6 +62,12 @@ never `Partial<Record<...>>`. That is the whole mechanism: adding a code to a
 union in `application/live` is a `tsc` error until someone writes the Spanish
 for it.
 
+Bottom-panel columns are not a closed code union. Their contract accepts
+arbitrary stable string keys, so known keys use `BOTTOM_PANEL_COLUMN_COPY` and
+unknown keys render their raw value. Playback notice copy is defined for the
+application codes, but `LiveScreen` intentionally does not render those notices
+until the playback monitor exists.
+
 | String | Home |
 |--------|------|
 | Keyed by an application code | `live-copy.ts` |
@@ -121,6 +127,11 @@ The provider badge is the one exception to colour carrying meaning: every
 provider renders in the same monochrome pill. Per-provider colours would put
 provider identity into the visual language, which
 `02-provider-agnostic-live-principles.md` forbids.
+
+The expanded shell remains `w-72`. Fleet labels preserve source casing on one
+truncated line with compact `text-xs` typography and normal tracking; widening
+the sidebar or forcing uppercase would spend map width without improving the
+underlying contract.
 
 ## Rendering constraints
 

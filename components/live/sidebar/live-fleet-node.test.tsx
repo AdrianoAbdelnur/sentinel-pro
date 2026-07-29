@@ -62,6 +62,17 @@ describe("LiveFleetNode", () => {
     expect(screen.getByText("North Fleet")).toBeInTheDocument();
   });
 
+  it("keeps a long mixed-case fleet label compact on one truncated line", () => {
+    const label = "AB Construcciones (Río Segundo)";
+    renderNode({ label });
+
+    const fleetLabel = screen.getByText(label);
+
+    expect(fleetLabel).toHaveClass("truncate", "text-xs");
+    expect(fleetLabel).not.toHaveClass("uppercase", "tracking-[0.14em]");
+    expect(fleetLabel).toHaveTextContent(label);
+  });
+
   it("renders the online/total counts", () => {
     renderNode({ counts: { online: 1, total: 13 } });
 
