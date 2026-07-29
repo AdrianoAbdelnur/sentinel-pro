@@ -178,6 +178,32 @@ describe("buildLiveSidebarViewModel", () => {
     ]);
   });
 
+  it("keeps the fleet checkbox tied to all vehicles while search narrows the visible ones", () => {
+    const result = build({
+      searchTerm: "unit 101",
+      selectedVehicleIds: ["vehicle-1", "vehicle-2"],
+    });
+
+    expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
+      "vehicle-1",
+    ]);
+    // Both vehicles of the fleet are selected, so the fleet stays selected even
+    // though the search hides one of them.
+    expect(result.fleets[0].isSelected).toBe(true);
+  });
+
+  it("does not select the fleet when a hidden vehicle is unselected", () => {
+    const result = build({
+      searchTerm: "unit 101",
+      selectedVehicleIds: ["vehicle-1"],
+    });
+
+    expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
+      "vehicle-1",
+    ]);
+    expect(result.fleets[0].isSelected).toBe(false);
+  });
+
   it("returns no fleets when nothing matches the search term", () => {
     expect(build({ searchTerm: "nothing-matches" }).fleets).toEqual([]);
   });

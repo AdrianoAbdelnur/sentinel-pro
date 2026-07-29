@@ -63,15 +63,17 @@ const liveState: LiveState = {
       telemetry: { deviceId: "device-102", online: false },
     },
     {
+      // Inactive and offline: the only-active-or-online filter must drop it,
+      // and with it the whole South Fleet.
       vehicle: {
         id: "vehicle-201",
         customerId: "customer-1",
         fleetId: "fleet-south",
         label: "Unit 201",
         plate: "DEF456",
-        isActive: true,
+        isActive: false,
       },
-      telemetry: { deviceId: "device-201", online: true },
+      telemetry: { deviceId: "device-201", online: false },
     },
   ],
 };
@@ -180,6 +182,16 @@ describe("LiveScreen", () => {
     expect(screen.queryByText("North Fleet")).not.toBeInTheDocument();
     expect(screen.getByText("South Fleet")).toBeInTheDocument();
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
+  });
+
+  it("drops fleets left empty by the only-active-or-online filter", () => {
+    renderScreen();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: /only active or online/i }));
+
+    // Unit 201 is inactive and offline, so South Fleet has nothing left to show.
+    expect(screen.getByText("North Fleet")).toBeInTheDocument();
+    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
   });
 
   it("shows the map empty state while nothing is selected", () => {
