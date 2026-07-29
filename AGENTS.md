@@ -93,15 +93,17 @@ Reject:
 ## Architectural Source of Truth
 
 When implementing live-related features, the baseline architectural intent is the set of docs in:
-- `docs/01-auditoria-tecnica-inicial.md`
-- `docs/02-principio-arquitectonico-provider-agnostic.md`
-- `docs/03-contrato-operacional-live-monitor.md`
-- `docs/04-contrato-live-monitor-y-live-tile.md`
-- `docs/05-responsabilidades-de-live-por-capa.md`
+- `docs/architecture/01-target-structure.md`
+- `docs/architecture/02-provider-agnostic-live-principles.md`
+- `docs/architecture/03-live-core-domain.md`
+- `docs/architecture/04-live-playback-contract.md`
+- `docs/architecture/05-live-application-responsibilities.md`
 
 Interpretation rule:
-- `01` explains what was wrong in the old project
-- `02-05` define the direction for the new one
+- `01` defines the target folder and boundary structure for this repository
+- `02-05` define the direction for the live module
+
+The equivalent numbered docs under `Example-sentinel/docs` describe the OLD project. Use them as behavioral reference only, never as the structural source of truth for this repository.
 
 If existing code conflicts with those docs, prefer the docs unless the user explicitly changes the architecture.
 
