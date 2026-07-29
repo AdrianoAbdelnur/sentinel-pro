@@ -4,7 +4,11 @@ import type {
   LiveMonitor,
   LiveTile,
   Vehicle,
+  VehicleStatus,
 } from "@/domain/live";
+
+// Re-exported so delivery never imports `@/domain/live` directly.
+export type { VehicleStatus };
 
 export type LiveVehicleState = {
   vehicle: Vehicle;
@@ -12,13 +16,18 @@ export type LiveVehicleState = {
   telemetry?: DeviceTelemetry;
 };
 
+// `"all"` means "no status narrowing" and stays out of `VehicleStatus`.
+export type LiveStatusFilter = "all" | VehicleStatus;
+
 export type LiveSidebarViewModel = {
   search: {
     term: string;
-    placeholder: string;
   };
   filters: {
-    onlyActiveOrOnline: boolean;
+    status: LiveStatusFilter;
+    provider?: string;
+    availableProviders: string[];
+    isNarrowed: boolean;
   };
   fleets: LiveFleetNode[];
 };
@@ -28,20 +37,22 @@ export type LiveFleetNode = {
   label: string;
   isExpanded: boolean;
   isSelected: boolean;
-  counts?: {
-    total?: number;
-    online?: number;
-    offline?: number;
+  counts: {
+    online: number;
+    total: number;
   };
   vehicles: LiveVehicleNode[];
 };
 
 export type LiveVehicleNode = {
   vehicleId: string;
-  label: string;
-  secondaryLabel?: string;
+  plate?: string; // primary identifier when present
+  label: string; // secondary identifier
+  status: VehicleStatus;
+  speedKmH?: number; // absent whenever status is "offline"
+  lastReportAt?: string; // ISO-8601, from telemetry.gpsAt
+  provider?: string; // Device.provider, verbatim
   isSelected: boolean;
-  isOnline: boolean;
   hasValidGps: boolean;
   canOpenLive: boolean;
 };
@@ -55,36 +66,36 @@ export type LiveMapMarker = {
   speedKmH?: number;
 };
 
+export type LiveMapEmptyStateCode = "no-selection" | "no-mappable-selection";
+
 export type LiveMapViewModel = {
   markers: LiveMapMarker[];
   emptyState?: {
-    code: "no-selection" | "no-mappable-selection";
-    message: string;
+    code: LiveMapEmptyStateCode;
   };
   capabilities?: {
     canFitBounds?: boolean;
   };
 };
 
+export type LiveBottomPanelEmptyStateCode = "no-selection";
+
 export type LiveBottomPanelViewModel = {
   activeTab: "status" | "event" | "normalAlarm" | "aiAlarm" | "driverSwipe";
   tabs: LiveBottomPanelTab[];
   emptyState?: {
-    code: "no-selection";
-    message: string;
+    code: LiveBottomPanelEmptyStateCode;
   };
 };
 
 export type LiveBottomPanelTab = {
   key: "status" | "event" | "normalAlarm" | "aiAlarm" | "driverSwipe";
-  label: string;
   columns: LiveTableColumn[];
   rows: LiveTableRow[];
 };
 
 export type LiveTableColumn = {
   key: string;
-  label: string;
 };
 
 export type LiveTableRow = {
@@ -92,9 +103,10 @@ export type LiveTableRow = {
   cells: Record<string, string | number | boolean | null>;
 };
 
+export type LivePlaybackNoticeCode = "vehicle-offline" | "vehicle-no-video";
+
 export type LivePlaybackNotice = {
-  code: "vehicle-offline" | "vehicle-no-video";
-  message: string;
+  code: LivePlaybackNoticeCode;
 };
 
 export type LivePlaybackOverlayViewModel = {
@@ -126,8 +138,13 @@ export type BuildLiveSidebarViewModelInput = {
   liveVehicles: LiveVehicleState[];
   selectedVehicleIds: string[];
   searchTerm: string;
+  // Required, never defaulted here: an optional clock or threshold would let a
+  // caller resolve status by a different rule than the rest of the screen.
+  nowMs: number;
+  staleAfterMs: number;
   expandedFleetIds?: string[];
-  onlyActiveOrOnline?: boolean;
+  status?: LiveStatusFilter; // defaults to "all" (no status narrowing)
+  provider?: string; // undefined = no provider narrowing
 };
 
 export type BuildLiveBottomPanelViewModelInput = {
@@ -153,8 +170,12 @@ export type BuildLivePageViewModelInput = {
   searchTerm: string;
   activeTab: LiveBottomPanelTab["key"];
   tabs: LiveBottomPanelTab[];
+  // Required, for the same reason as on `BuildLiveSidebarViewModelInput`.
+  nowMs: number;
+  staleAfterMs: number;
   expandedFleetIds?: string[];
-  onlyActiveOrOnline?: boolean;
+  status?: LiveStatusFilter;
+  provider?: string;
   playback?: LivePlaybackOverlayViewModel;
 };
 

@@ -6,6 +6,9 @@ import { buildLiveMapViewModel } from "./build-live-map-view-model";
 import { buildLivePageViewModel } from "./build-live-page-view-model";
 import { buildLiveSidebarViewModel } from "./build-live-sidebar-view-model";
 
+const NOW = Date.parse("2026-07-29T12:00:00.000Z");
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
 const liveState: LiveState = {
   fleets: [
     { fleetId: "fleet-north", label: "North Fleet", vehicleIds: ["vehicle-1"] },
@@ -34,12 +37,13 @@ const input: BuildLivePageViewModelInput = {
   liveState,
   selectedVehicleIds: ["vehicle-1"],
   searchTerm: "",
+  nowMs: NOW,
+  staleAfterMs: STALE_AFTER_MS,
   activeTab: "status",
   tabs: [
     {
       key: "status",
-      label: "Status",
-      columns: [{ key: "speed", label: "Speed" }],
+      columns: [{ key: "speed" }],
       rows: [{ vehicleId: "vehicle-1", cells: { speed: 45 } }],
     },
   ],
@@ -64,6 +68,8 @@ describe("buildLivePageViewModel", () => {
         liveVehicles: liveState.liveVehicles,
         selectedVehicleIds: input.selectedVehicleIds,
         searchTerm: input.searchTerm,
+        nowMs: input.nowMs,
+        staleAfterMs: input.staleAfterMs,
       }),
     );
   });
@@ -95,7 +101,7 @@ describe("buildLivePageViewModel", () => {
   it("keeps the playback overlay it was given", () => {
     const playback = {
       isOpen: true,
-      notice: { code: "vehicle-offline", message: "Vehicle offline." },
+      notice: { code: "vehicle-offline" },
     } as const;
 
     expect(buildLivePageViewModel({ ...input, playback }).playback).toEqual(
@@ -104,14 +110,26 @@ describe("buildLivePageViewModel", () => {
   });
 
   it("forwards sidebar-only options without touching the other surfaces", () => {
+    // vehicle-1 is online with no reported speed, which resolves to "stopped".
     const result = buildLivePageViewModel({
       ...input,
       expandedFleetIds: ["fleet-north"],
-      onlyActiveOrOnline: true,
+      status: "stopped",
     });
 
     expect(result.sidebar.fleets[0].isExpanded).toBe(true);
-    expect(result.sidebar.filters.onlyActiveOrOnline).toBe(true);
+    expect(result.sidebar.filters.status).toBe("stopped");
     expect(result.bottomPanel).toEqual(buildLivePageViewModel(input).bottomPanel);
+  });
+
+  it("flows the status and provider filters to the sidebar unchanged", () => {
+    const result = buildLivePageViewModel({
+      ...input,
+      status: "offline",
+      provider: "demo",
+    });
+
+    expect(result.sidebar.filters.status).toBe("offline");
+    expect(result.sidebar.filters.provider).toBe("demo");
   });
 });

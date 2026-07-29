@@ -49,7 +49,6 @@ describe("buildLiveMapViewModel", () => {
       markers: [],
       emptyState: {
         code: "no-selection",
-        message: "Select at least one vehicle to view it on the map.",
       },
     });
   });
@@ -64,7 +63,6 @@ describe("buildLiveMapViewModel", () => {
       markers: [],
       emptyState: {
         code: "no-mappable-selection",
-        message: "The selected vehicles do not have valid GPS coordinates.",
       },
     });
   });

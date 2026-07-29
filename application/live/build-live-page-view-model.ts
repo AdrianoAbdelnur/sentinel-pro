@@ -14,8 +14,11 @@ export function buildLivePageViewModel({
   searchTerm,
   activeTab,
   tabs,
+  nowMs,
+  staleAfterMs,
   expandedFleetIds,
-  onlyActiveOrOnline,
+  status,
+  provider,
   playback = CLOSED_PLAYBACK,
 }: BuildLivePageViewModelInput): LivePageViewModel {
   const { fleets, liveVehicles } = liveState;
@@ -26,8 +29,11 @@ export function buildLivePageViewModel({
       liveVehicles,
       selectedVehicleIds,
       searchTerm,
+      nowMs,
+      staleAfterMs,
       expandedFleetIds,
-      onlyActiveOrOnline,
+      status,
+      provider,
     }),
     map: buildLiveMapViewModel({
       selectedVehicleIds,

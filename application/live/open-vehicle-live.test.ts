@@ -108,7 +108,6 @@ describe("openVehicleLive", () => {
       kind: "show-notice",
       notice: {
         code: "vehicle-offline",
-        message: "Vehicle offline. No live transmission available.",
       },
     });
   });
@@ -130,7 +129,6 @@ describe("openVehicleLive", () => {
       kind: "show-notice",
       notice: {
         code: "vehicle-no-video",
-        message: "Vehicle has no live video available.",
       },
     });
   });
