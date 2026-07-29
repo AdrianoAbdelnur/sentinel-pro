@@ -29,7 +29,6 @@ export function buildLiveBottomPanelViewModel({
       tabs: composedTabs,
       emptyState: {
         code: "no-selection",
-        message: "Select at least one vehicle to view its data.",
       },
     };
   }

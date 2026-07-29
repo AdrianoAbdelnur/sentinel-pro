@@ -37,7 +37,7 @@ export type Device = {
 
 export type DeviceTelemetry = {
   deviceId: string;
-  online: boolean;
+  online?: boolean;
   gpsAt?: string;
   latitude?: number;
   longitude?: number;

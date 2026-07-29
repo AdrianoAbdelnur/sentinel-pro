@@ -27,11 +27,7 @@ const liveVehicles: LiveVehicleState[] = [
 const tabs: LiveBottomPanelTab[] = [
   {
     key: "status",
-    label: "Status",
-    columns: [
-      { key: "speed", label: "Speed" },
-      { key: "ignition", label: "Ignition" },
-    ],
+    columns: [{ key: "speed" }, { key: "ignition" }],
     rows: [
       { vehicleId: "vehicle-1", cells: { speed: 45, ignition: true } },
       { vehicleId: "vehicle-2", cells: { speed: 0 } },
@@ -39,8 +35,7 @@ const tabs: LiveBottomPanelTab[] = [
   },
   {
     key: "event",
-    label: "Event",
-    columns: [{ key: "lastEvent", label: "Last event" }],
+    columns: [{ key: "lastEvent" }],
     rows: [{ vehicleId: "vehicle-1", cells: { lastEvent: "Harsh braking" } }],
   },
 ];
@@ -63,7 +58,6 @@ describe("buildLiveBottomPanelViewModel", () => {
 
     expect(result.emptyState).toEqual({
       code: "no-selection",
-      message: "Select at least one vehicle to view its data.",
     });
   });
 

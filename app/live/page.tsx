@@ -1,0 +1,42 @@
+import type { Metadata } from "next";
+
+import { LiveScreen } from "@/components/live/live-screen";
+import { inMemoryLiveDataSource } from "@/integrations/live/in-memory/in-memory-live-data-source";
+
+import { readLiveRuntimeConfig } from "./live-runtime-config";
+
+export const metadata: Metadata = {
+  title: "Live · Sentinel Pro",
+  description: "Operational live monitoring for fleets and vehicles.",
+};
+
+export const dynamic = "force-dynamic";
+
+export default function LivePage() {
+  const liveState = inMemoryLiveDataSource.readLiveState();
+  const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
+
+  const { staleAfterMs } = readLiveRuntimeConfig();
+  const nowMs = Date.now();
+
+  return (
+    <main className="flex min-h-0 flex-1 flex-col bg-slate-950 text-slate-100">
+      <header className="flex shrink-0 items-center gap-2.5 border-b border-slate-800 px-4 py-2.5">
+        <span
+          aria-hidden
+          className="size-1.5 animate-pulse rounded-full bg-teal-400"
+        />
+        <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
+          Monitoreo en vivo
+        </h1>
+      </header>
+
+      <LiveScreen
+        liveState={liveState}
+        tabs={tabs}
+        nowMs={nowMs}
+        staleAfterMs={staleAfterMs}
+      />
+    </main>
+  );
+}

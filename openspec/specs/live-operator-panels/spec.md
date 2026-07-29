@@ -26,7 +26,31 @@ The system MUST compose the sidebar from fleet and vehicle operational state wit
 
 - GIVEN a search term matches a fleet or one of its vehicles
 - WHEN the sidebar view model is composed
-- THEN matching fleets are expanded and only matching vehicles remain visible
+- THEN matching fleets are expanded and non-matching fleets are dropped
+
+#### Scenario: A vehicle-level match narrows the fleet
+
+- GIVEN a search term matches some vehicles of a fleet but not the fleet label
+- WHEN the sidebar view model is composed
+- THEN only the matching vehicles of that fleet remain visible
+
+#### Scenario: A fleet-label match keeps the whole fleet visible
+
+- GIVEN a search term matches the fleet label itself
+- WHEN the sidebar view model is composed
+- THEN every vehicle of that fleet remains visible, even those that do not match the term
+
+#### Scenario: Search matches labels and plates only
+
+- GIVEN a search term
+- WHEN vehicles are matched against it
+- THEN it is compared against the vehicle label, the vehicle plate, and the fleet label, ignoring case and surrounding whitespace, and never against `internalCode`
+
+#### Scenario: Fleet selection state ignores search filtering
+
+- GIVEN a search term hides some selected vehicles of a fleet
+- WHEN the sidebar view model is composed
+- THEN the fleet checkbox state still reflects all of its vehicles, not only the visible ones
 
 ### Requirement: Bottom panel composition preserves selected-vehicle context
 

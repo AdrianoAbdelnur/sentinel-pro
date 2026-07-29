@@ -93,15 +93,17 @@ Reject:
 ## Architectural Source of Truth
 
 When implementing live-related features, the baseline architectural intent is the set of docs in:
-- `docs/01-auditoria-tecnica-inicial.md`
-- `docs/02-principio-arquitectonico-provider-agnostic.md`
-- `docs/03-contrato-operacional-live-monitor.md`
-- `docs/04-contrato-live-monitor-y-live-tile.md`
-- `docs/05-responsabilidades-de-live-por-capa.md`
+- `docs/architecture/01-target-structure.md`
+- `docs/architecture/02-provider-agnostic-live-principles.md`
+- `docs/architecture/03-live-core-domain.md`
+- `docs/architecture/04-live-playback-contract.md`
+- `docs/architecture/05-live-application-responsibilities.md`
 
 Interpretation rule:
-- `01` explains what was wrong in the old project
-- `02-05` define the direction for the new one
+- `01` defines the target folder and boundary structure for this repository
+- `02-05` define the direction for the live module
+
+The equivalent numbered docs under `Example-sentinel/docs` describe the OLD project. Use them as behavioral reference only, never as the structural source of truth for this repository.
 
 If existing code conflicts with those docs, prefer the docs unless the user explicitly changes the architecture.
 
@@ -266,10 +268,27 @@ Reject:
 - giant components
 - page files that accumulate rendering, fetching, mapping, and business decisions together
 - components approaching hundreds of lines without a very strong reason
-- any component over 800 lines unless the user explicitly approves an exception
 
 If a component starts growing too much, stop and split it before continuing.
 Size is not just style here; it is an architectural constraint for maintainability.
+
+### File size
+
+Around 700 lines is the point where a file is already too big. This is a guideline, not a hard gate: 730 lines is not worth arguing about, 1200 is not acceptable. Treat the number as a signal to split, not as a budget to spend.
+
+### Comments
+
+Do NOT write comments in source files. None. Not rationale, not design references, not descriptions of what the code does.
+
+If something needs explaining, it goes in `docs/`. Code that needs a comment to be understood should be rewritten with clearer names instead.
+
+The only exception is a machine-readable directive a tool requires, such as `eslint-disable-next-line`. Those are configuration, not prose.
+
+### Styling
+
+Use Tailwind utility classes. Do NOT use inline styles.
+
+The one legitimate exception is a third-party API that accepts only an HTML string or a raw style value and cannot render a React component — Leaflet's `divIcon` is the known case. Even then, keep the inline surface minimal: express what you can as classes, and pass only the genuinely dynamic value (for example a rotation angle) through a CSS custom property.
 
 ## Documentation Rules
 

@@ -49,7 +49,6 @@ describe("buildLiveMapViewModel", () => {
       markers: [],
       emptyState: {
         code: "no-selection",
-        message: "Select at least one vehicle to view it on the map.",
       },
     });
   });
@@ -64,9 +63,37 @@ describe("buildLiveMapViewModel", () => {
       markers: [],
       emptyState: {
         code: "no-mappable-selection",
-        message: "The selected vehicles do not have valid GPS coordinates.",
       },
     });
+  });
+
+  it("returns one marker per selected vehicle when several have valid GPS", () => {
+    const thirdVehicle: LiveVehicleState = {
+      vehicle: {
+        id: "vehicle-3",
+        customerId: "customer-1",
+        fleetId: "fleet-1",
+        label: "Unit 103",
+        isActive: true,
+      },
+      telemetry: {
+        deviceId: "device-3",
+        online: true,
+        latitude: -34.9011,
+        longitude: -56.1645,
+      },
+    };
+
+    const result = buildLiveMapViewModel({
+      selectedVehicleIds: ["vehicle-1", "vehicle-2", "vehicle-3"],
+      liveVehicles: [...liveVehicles, thirdVehicle],
+    });
+
+    expect(result.markers.map((marker) => marker.vehicleId)).toEqual([
+      "vehicle-1",
+      "vehicle-3",
+    ]);
+    expect(result.emptyState).toBeUndefined();
   });
 
   it("returns one marker per selected vehicle with valid GPS", () => {

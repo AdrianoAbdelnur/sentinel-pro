@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #020617; /* slate-950 */
+  --foreground: #f1f5f9; /* slate-100 */
 }
 
 @theme inline {
@@ -12,15 +12,40 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  /* The layout loads Geist and exposes it as --font-geist-sans. Hardcoding a
+     stack here would silently override it, which is what used to happen. */
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* The native scrollbar is a light, chunky OS widget that reads as foreign
+   inside a dark console. Firefox gets the standard properties; WebKit gets
+   the pseudo-elements, which allow the thinner, borderless treatment. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e293b transparent; /* slate-800 on transparent */
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #1e293b; /* slate-800 */
+  border-radius: 9999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: #334155; /* slate-700 */
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
 }
