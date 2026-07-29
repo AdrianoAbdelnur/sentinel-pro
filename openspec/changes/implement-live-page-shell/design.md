@@ -4,6 +4,8 @@
 
 Add one page-level composition use case in `application/live`, feed it from an in-memory source behind a read port, and render the result through small presentational components. Exactly one client component owns interaction state; everything below it is a pure function of its props.
 
+`buildLivePageViewModel` composes three surfaces, not two: sidebar, bottom panel, and map. The map is included because the pre-existing `LivePageViewModel` type requires it, even though this change does not render it — map rendering lands in `implement-live-map-rendering`.
+
 ## Architecture Decisions
 
 ### Decision: One client island, presentational children

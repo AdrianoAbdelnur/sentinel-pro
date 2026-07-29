@@ -34,9 +34,11 @@ Split the map surface into two components: a presentational panel that owns the 
 
 **Choice**: `live-screen.test.tsx` mocks `./live-map` with a stub. `live-map-panel.test.tsx` covers empty states for real.
 
-**Alternatives considered**: Running Leaflet under jsdom.
+**Alternatives considered**: Rendering the real map inside the screen tests.
 
-**Rationale**: Leaflet requires layout APIs jsdom does not implement. Mocking keeps the screen tests about screen behavior, and the panel's real logic — which state to show — stays genuinely covered.
+**Rationale**: The screen tests are about selection, search and tab behavior. Mounting a real map in each of them would slow them down and couple screen assertions to Leaflet's DOM.
+
+**Correction**: an earlier version of this document justified the mock by claiming Leaflet cannot run under jsdom. That claim is false and was never verified. Leaflet mounts correctly under this project's jsdom, producing a real map container, tile images, markers and the attribution control. The mock is a scoping choice, not a technical necessity — which is why `live-map.test.tsx` carries at least one unmocked assertion for the attribution requirement, where a self-configured stub would prove nothing.
 
 ## Data Flow
 
@@ -83,7 +85,7 @@ No application contract changes. `LiveMapViewModel` and `LiveMapMarker` already 
 | Component | Marker count, label, rotation, attribution | Mock `react-leaflet` primitives and assert on the props they receive |
 | Build | No SSR `window` error | `npm run build` in verification |
 
-Leaflet itself is not exercised in tests. The map component is verified through the props it hands to `react-leaflet`, which keeps the tests about our logic rather than the library's.
+The map component is mostly verified through the props it hands to `react-leaflet`, which keeps those tests about our logic rather than the library's. The attribution requirement is the exception: it is asserted against a real, unmocked render, because a mocked tile layer would only echo back the string the test itself supplied.
 
 ## Migration / Rollout
 
