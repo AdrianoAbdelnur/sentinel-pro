@@ -4,10 +4,9 @@ import type { LiveMapMarker } from "@/application/live";
 
 import { LiveMap } from "./live-map";
 
-// This suite renders the real Leaflet stack — no react-leaflet mocks. The mocked
-// suite in live-map.test.tsx can only prove that props were forwarded to a stub
-// the test configured itself, which is worthless for a requirement like
-// attribution that must actually reach the user.
+// Renders the real Leaflet stack, no react-leaflet mocks. The mocked suite in
+// live-map.test.tsx can only prove props reached a stub it configured itself,
+// which proves nothing for a requirement like attribution reaching the user.
 
 const markers: LiveMapMarker[] = [
   {

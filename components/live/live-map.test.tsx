@@ -5,7 +5,29 @@ import type { LiveMapMarker } from "@/application/live";
 
 const mapSpies = vi.hoisted(() => ({
   fitBounds: vi.fn(),
+  invalidateSize: vi.fn(),
+  getContainer: vi.fn(() => document.createElement("div")),
 }));
+
+// jsdom has no ResizeObserver, and InvalidateOnResize guards on its absence.
+// Without this stand-in the resize handling is silently skipped, untested.
+const resizeObserverSpies = vi.hoisted(() => ({
+  observe: vi.fn(),
+  disconnect: vi.fn(),
+  callbacks: [] as ResizeObserverCallback[],
+}));
+
+vi.stubGlobal(
+  "ResizeObserver",
+  class {
+    constructor(callback: ResizeObserverCallback) {
+      resizeObserverSpies.callbacks.push(callback);
+    }
+    observe = resizeObserverSpies.observe;
+    disconnect = resizeObserverSpies.disconnect;
+    unobserve = vi.fn();
+  },
+);
 
 vi.mock("leaflet/dist/leaflet.css", () => ({}));
 
@@ -115,6 +137,42 @@ describe("LiveMap", () => {
     render(<LiveMap markers={[]} />);
 
     expect(mapSpies.fitBounds).not.toHaveBeenCalled();
+  });
+});
+
+describe("LiveMap resize handling", () => {
+  beforeEach(() => {
+    mapSpies.invalidateSize.mockClear();
+    resizeObserverSpies.observe.mockClear();
+    resizeObserverSpies.disconnect.mockClear();
+    resizeObserverSpies.callbacks.length = 0;
+  });
+
+  it("observes its own container", () => {
+    render(<LiveMap markers={markers} />);
+
+    expect(resizeObserverSpies.observe).toHaveBeenCalledTimes(1);
+  });
+
+  it("tells Leaflet to remeasure when the container resizes", () => {
+    render(<LiveMap markers={markers} />);
+
+    expect(mapSpies.invalidateSize).not.toHaveBeenCalled();
+
+    // Simulate the panel collapse that shrinks or grows the map's container.
+    resizeObserverSpies.callbacks.forEach((callback) =>
+      callback([], {} as ResizeObserver),
+    );
+
+    expect(mapSpies.invalidateSize).toHaveBeenCalledWith({ animate: false });
+  });
+
+  it("stops observing when unmounted", () => {
+    const { unmount } = render(<LiveMap markers={markers} />);
+
+    unmount();
+
+    expect(resizeObserverSpies.disconnect).toHaveBeenCalledTimes(1);
   });
 });
 

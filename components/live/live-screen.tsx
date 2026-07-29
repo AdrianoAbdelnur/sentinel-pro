@@ -10,21 +10,36 @@ import {
 
 import { LiveBottomPanel } from "./live-bottom-panel";
 import { LiveMapPanel } from "./live-map-panel";
-import { LiveSidebar } from "./live-sidebar";
+import { LiveSidebar } from "./sidebar/live-sidebar";
+import { useLiveSidebarFilters } from "./use-live-sidebar-filters";
 
 type LiveScreenProps = {
   liveState: LiveState;
   tabs: LiveBottomPanelTab[];
+  // The server render's clock and threshold, threaded down as props so this
+  // island cannot resolve a different status on hydration than on the server.
+  nowMs: number;
+  staleAfterMs: number;
 };
 
-export function LiveScreen({ liveState, tabs }: LiveScreenProps) {
+export function LiveScreen({ liveState, tabs, nowMs, staleAfterMs }: LiveScreenProps) {
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
   const [expandedFleetIds, setExpandedFleetIds] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [onlyActiveOrOnline, setOnlyActiveOrOnline] = useState(false);
   const [activeTab, setActiveTab] = useState<LiveBottomPanelTab["key"]>(
     tabs[0]?.key ?? "status",
   );
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(false);
+
+  const {
+    searchTerm,
+    status,
+    provider,
+    setSearchTerm,
+    setStatus,
+    setProvider,
+  } = useLiveSidebarFilters();
 
   const page = buildLivePageViewModel({
     liveState,
@@ -32,8 +47,11 @@ export function LiveScreen({ liveState, tabs }: LiveScreenProps) {
     searchTerm,
     activeTab,
     tabs,
+    nowMs,
+    staleAfterMs,
     expandedFleetIds,
-    onlyActiveOrOnline,
+    status,
+    provider,
   });
 
   const vehicleLabels = useMemo(
@@ -85,8 +103,11 @@ export function LiveScreen({ liveState, tabs }: LiveScreenProps) {
     <div className="flex min-h-0 flex-1">
       <LiveSidebar
         sidebar={page.sidebar}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapsed={() => setIsSidebarCollapsed((current) => !current)}
         onSearchChange={setSearchTerm}
-        onFilterChange={setOnlyActiveOrOnline}
+        onStatusChange={setStatus}
+        onProviderChange={setProvider}
         onToggleExpanded={toggleExpanded}
         onToggleFleet={toggleFleet}
         onToggleVehicle={toggleVehicle}
@@ -97,9 +118,13 @@ export function LiveScreen({ liveState, tabs }: LiveScreenProps) {
           <LiveMapPanel map={page.map} />
         </div>
 
-        <div className="h-64 shrink-0">
+        <div className={isBottomPanelCollapsed ? "shrink-0" : "h-64 shrink-0"}>
           <LiveBottomPanel
             bottomPanel={page.bottomPanel}
+            isCollapsed={isBottomPanelCollapsed}
+            onToggleCollapsed={() =>
+              setIsBottomPanelCollapsed((current) => !current)
+            }
             vehicleLabels={vehicleLabels}
             onTabChange={setActiveTab}
           />

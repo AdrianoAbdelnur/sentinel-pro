@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 
 import type { LiveMapViewModel } from "@/application/live";
 
+import { MAP_EMPTY_STATE_COPY } from "./live-copy";
 import { LiveMapPanel } from "./live-map-panel";
 
 const markers = [
@@ -18,53 +19,80 @@ function renderPanel(map: LiveMapViewModel) {
 }
 
 describe("LiveMapPanel", () => {
-  it("shows the no-selection message without rendering a map", () => {
-    renderPanel({
-      markers: [],
-      emptyState: {
-        code: "no-selection",
-        message: "Select at least one vehicle to view it on the map.",
-      },
-    });
-
-    expect(
-      screen.getByText("Select at least one vehicle to view it on the map."),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: /live map/i })).toBeNull();
-  });
-
-  it("shows the no-mappable-selection message without rendering a map", () => {
-    renderPanel({
-      markers: [],
-      emptyState: {
-        code: "no-mappable-selection",
-        message: "The selected vehicles do not have valid GPS coordinates.",
-      },
-    });
-
-    expect(
-      screen.getByText(
-        "The selected vehicles do not have valid GPS coordinates.",
-      ),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: /live map/i })).toBeNull();
-  });
-
   it("renders the map region when there are markers", () => {
     renderPanel({ markers });
 
-    expect(screen.getByRole("region", { name: /live map/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
   });
 
-  it("prefers the empty state even if markers are present", () => {
+  // The map stays mounted even with nothing to plot; the empty state is an
+  // overlay, not a replacement. See docs/architecture/06-live-delivery-layer.md.
+  it("keeps the map region mounted while the no-selection state is active", () => {
     renderPanel({
-      markers,
-      emptyState: {
-        code: "no-selection",
-        message: "Select at least one vehicle to view it on the map.",
-      },
+      markers: [],
+      emptyState: { code: "no-selection" },
     });
 
-    expect(screen.queryByRole("region", { name: /live map/i })).toBeNull();
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the map region mounted while the no-mappable-selection state is active", () => {
+    renderPanel({
+      markers: [],
+      emptyState: { code: "no-mappable-selection" },
+    });
+
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("overlays the no-selection notice on top of the map", () => {
+    renderPanel({
+      markers: [],
+      emptyState: { code: "no-selection" },
+    });
+
+    expect(
+      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+    ).toBeInTheDocument();
+  });
+
+  it("overlays the no-mappable-selection notice on top of the map", () => {
+    renderPanel({
+      markers: [],
+      emptyState: { code: "no-mappable-selection" },
+    });
+
+    expect(
+      screen.getByText(MAP_EMPTY_STATE_COPY["no-mappable-selection"]),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no notice once there is something to plot", () => {
+    renderPanel({ markers });
+
+    expect(screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"])).toBeNull();
+    expect(
+      screen.queryByText(MAP_EMPTY_STATE_COPY["no-mappable-selection"]),
+    ).toBeNull();
+  });
+
+  it("still shows the notice when an empty state arrives alongside markers", () => {
+    renderPanel({
+      markers,
+      emptyState: { code: "no-selection" },
+    });
+
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+    ).toBeInTheDocument();
   });
 });

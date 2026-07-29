@@ -11,7 +11,22 @@ vi.mock("./live-map", () => ({
   ),
 }));
 
+import {
+  BOTTOM_PANEL_EMPTY_STATE_COPY,
+  BOTTOM_PANEL_TAB_COPY,
+  MAP_EMPTY_STATE_COPY,
+  VEHICLE_STATUS_COPY,
+} from "./live-copy";
+import {
+  COLLAPSE_BOTTOM_PANEL_LABEL,
+  EXPAND_BOTTOM_PANEL_LABEL,
+} from "./live-bottom-panel";
 import { LiveScreen } from "./live-screen";
+import { ALL_STATUS_LABEL } from "./sidebar/live-status-filter-chips";
+import {
+  COLLAPSE_SIDEBAR_LABEL,
+  EXPAND_SIDEBAR_LABEL,
+} from "./sidebar/live-sidebar";
 
 const liveState: LiveState = {
   fleets: [
@@ -63,8 +78,7 @@ const liveState: LiveState = {
       telemetry: { deviceId: "device-102", online: false },
     },
     {
-      // Inactive and offline: the only-active-or-online filter must drop it,
-      // and with it the whole South Fleet.
+      // Inactive and offline.
       vehicle: {
         id: "vehicle-201",
         customerId: "customer-1",
@@ -78,26 +92,33 @@ const liveState: LiveState = {
   ],
 };
 
+// Every fixture vehicle sets `telemetry.online` explicitly, so the clock value
+// cannot affect resolved status. A fixed value keeps the test deterministic.
+const NOW = Date.parse("2026-07-29T12:00:00.000Z");
+const STALE_AFTER_MS = 5 * 60 * 1000;
+
 const tabs: LiveBottomPanelTab[] = [
   {
     key: "status",
-    label: "Status",
-    columns: [
-      { key: "speed", label: "Speed" },
-      { key: "ignition", label: "Ignition" },
-    ],
+    columns: [{ key: "speed" }, { key: "ignition" }],
     rows: [{ vehicleId: "vehicle-101", cells: { speed: 46 } }],
   },
   {
     key: "event",
-    label: "Event",
-    columns: [{ key: "lastEvent", label: "Last event" }],
+    columns: [{ key: "lastEvent" }],
     rows: [{ vehicleId: "vehicle-101", cells: { lastEvent: "Harsh braking" } }],
   },
 ];
 
 function renderScreen() {
-  return render(<LiveScreen liveState={liveState} tabs={tabs} />);
+  return render(
+    <LiveScreen
+      liveState={liveState}
+      tabs={tabs}
+      nowMs={NOW}
+      staleAfterMs={STALE_AFTER_MS}
+    />,
+  );
 }
 
 function fleetToggle(label: string) {
@@ -107,6 +128,61 @@ function fleetToggle(label: string) {
 function vehicleCheckbox(label: string) {
   return screen.getByRole("checkbox", { name: new RegExp(label, "i") });
 }
+
+describe("LiveScreen layout", () => {
+  // The region, not the stub: the map module loads lazily, and the region is
+  // what proves the panel did not swap itself out for a sentence.
+  it("keeps the map mounted with nothing selected", () => {
+    renderScreen();
+
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+    ).toBeInTheDocument();
+  });
+
+  it("collapses and restores the sidebar independently", () => {
+    renderScreen();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: COLLAPSE_SIDEBAR_LABEL }),
+    );
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    // The map and the bottom panel are untouched by the sidebar collapsing.
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: EXPAND_SIDEBAR_LABEL }),
+    );
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+  });
+
+  it("collapses and restores the bottom panel independently", () => {
+    renderScreen();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: COLLAPSE_BOTTOM_PANEL_LABEL }),
+    );
+    expect(
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
+    // The tabs stay reachable so the panel can be brought back.
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
+    );
+    expect(
+      screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).toBeInTheDocument();
+  });
+});
 
 describe("LiveScreen", () => {
   it("renders every fleet", () => {
@@ -135,7 +211,7 @@ describe("LiveScreen", () => {
     renderScreen();
 
     expect(
-      screen.getByText(/select at least one vehicle to view its data/i),
+      screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
   });
 
@@ -149,7 +225,7 @@ describe("LiveScreen", () => {
     expect(within(table).getByText("Unit 101")).toBeInTheDocument();
     expect(within(table).getByText("46")).toBeInTheDocument();
     expect(
-      screen.queryByText(/select at least one vehicle to view its data/i),
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
     ).not.toBeInTheDocument();
   });
 
@@ -166,7 +242,9 @@ describe("LiveScreen", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
 
-    fireEvent.click(vehicleCheckbox("Select all vehicles in North Fleet"));
+    fireEvent.click(
+      vehicleCheckbox("Seleccionar todos los vehículos de North Fleet"),
+    );
 
     expect(vehicleCheckbox("Unit 101")).toBeChecked();
     expect(vehicleCheckbox("Unit 102")).toBeChecked();
@@ -184,21 +262,55 @@ describe("LiveScreen", () => {
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
   });
 
-  it("drops fleets left empty by the only-active-or-online filter", () => {
+  // Narrowing behavior is covered exhaustively at the application layer in
+  // `build-live-sidebar-view-model.test.ts`. These tests only confirm the
+  // chips and dropdown are wired through the full screen.
+
+  it("narrows to vehicles matching the selected status chip", () => {
     renderScreen();
 
-    fireEvent.click(screen.getByRole("checkbox", { name: /only active or online/i }));
+    // vehicle-101 is online with no reported speed (status "stopped");
+    // vehicle-102 and vehicle-201 are both explicitly offline.
+    fireEvent.click(
+      screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
+    );
 
-    // Unit 201 is inactive and offline, so South Fleet has nothing left to show.
-    expect(screen.getByText("North Fleet")).toBeInTheDocument();
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
+    // South Fleet's only vehicle is offline, so narrowing empties it and the
+    // fleet is dropped entirely.
     expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+  });
+
+  it("narrows to vehicles matching the selected provider", () => {
+    renderScreen();
+
+    fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
+      target: { value: "demo" },
+    });
+
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
+    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+  });
+
+  it("returns to the full roster when the status filter is reset to Todos", () => {
+    renderScreen();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: ALL_STATUS_LABEL }));
+
+    expect(screen.getByText("North Fleet")).toBeInTheDocument();
+    expect(screen.getByText("South Fleet")).toBeInTheDocument();
   });
 
   it("shows the map empty state while nothing is selected", () => {
     renderScreen();
 
     expect(
-      screen.getByText(/select at least one vehicle to view it on the map/i),
+      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
   });
 
@@ -209,9 +321,11 @@ describe("LiveScreen", () => {
     fireEvent.click(vehicleCheckbox("Unit 101"));
 
     expect(
-      screen.queryByText(/select at least one vehicle to view it on the map/i),
+      screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"]),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("region", { name: /live map/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: /mapa en vivo/i }),
+    ).toBeInTheDocument();
   });
 
   it("keeps the selection when the active tab changes", () => {
@@ -219,7 +333,9 @@ describe("LiveScreen", () => {
     fireEvent.click(fleetToggle("North Fleet"));
     fireEvent.click(vehicleCheckbox("Unit 101"));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Event" }));
+    fireEvent.click(
+      screen.getByRole("tab", { name: BOTTOM_PANEL_TAB_COPY.event }),
+    );
 
     const table = screen.getByRole("table");
     expect(within(table).getByText("Unit 101")).toBeInTheDocument();
