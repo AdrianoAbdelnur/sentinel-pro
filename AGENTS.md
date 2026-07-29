@@ -276,6 +276,14 @@ Size is not just style here; it is an architectural constraint for maintainabili
 
 Around 700 lines is the point where a file is already too big. This is a guideline, not a hard gate: 730 lines is not worth arguing about, 1200 is not acceptable. Treat the number as a signal to split, not as a budget to spend.
 
+### Comments
+
+Do NOT write comments in source files. None. Not rationale, not design references, not descriptions of what the code does.
+
+If something needs explaining, it goes in `docs/`. Code that needs a comment to be understood should be rewritten with clearer names instead.
+
+The only exception is a machine-readable directive a tool requires, such as `eslint-disable-next-line`. Those are configuration, not prose.
+
 ### Styling
 
 Use Tailwind utility classes. Do NOT use inline styles.

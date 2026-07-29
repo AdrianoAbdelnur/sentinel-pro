@@ -9,8 +9,6 @@ const mapSpies = vi.hoisted(() => ({
   getContainer: vi.fn(() => document.createElement("div")),
 }));
 
-// jsdom has no ResizeObserver, and InvalidateOnResize guards on its absence.
-// Without this stand-in the resize handling is silently skipped, untested.
 const resizeObserverSpies = vi.hoisted(() => ({
   observe: vi.fn(),
   disconnect: vi.fn(),
@@ -159,7 +157,6 @@ describe("LiveMap resize handling", () => {
 
     expect(mapSpies.invalidateSize).not.toHaveBeenCalled();
 
-    // Simulate the panel collapse that shrinks or grows the map's container.
     resizeObserverSpies.callbacks.forEach((callback) =>
       callback([], {} as ResizeObserver),
     );
@@ -182,8 +179,6 @@ describe("buildMarkerHtml", () => {
   });
 
   it("sets no rotation property when the heading is absent", () => {
-    // The class always references the custom property with a 0deg fallback;
-    // what must be absent is the style attribute that would define it.
     expect(buildMarkerHtml(markers[1])).not.toContain("style=");
   });
 
@@ -191,7 +186,6 @@ describe("buildMarkerHtml", () => {
     const html = buildMarkerHtml(markers[0]);
 
     expect(html).toContain('class="');
-    // The rotation angle is the only value allowed through a style attribute.
     expect(html.match(/style="[^"]*"/g)).toEqual([
       'style="--marker-rotation:90deg"',
     ]);

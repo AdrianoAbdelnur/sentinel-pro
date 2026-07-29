@@ -7,7 +7,6 @@ type LiveVehicleStatusBadgeProps = {
   status: VehicleStatus;
 };
 
-// The word is not decorative: colour must never be the sole carrier of status.
 export function LiveVehicleStatusBadge({ status }: LiveVehicleStatusBadgeProps) {
   const tone = VEHICLE_STATUS_TONE[status];
 

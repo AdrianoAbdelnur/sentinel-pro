@@ -16,8 +16,6 @@ import { useLiveSidebarFilters } from "./use-live-sidebar-filters";
 type LiveScreenProps = {
   liveState: LiveState;
   tabs: LiveBottomPanelTab[];
-  // The server render's clock and threshold, threaded down as props so this
-  // island cannot resolve a different status on hydration than on the server.
   nowMs: number;
   staleAfterMs: number;
 };

@@ -4,8 +4,6 @@ import { LiveVehicleRow } from "./live-vehicle-row";
 
 type LiveFleetNodeProps = {
   fleet: LiveFleetNodeViewModel;
-  // Any narrowing input is active, so the header also shows a visible count
-  // alongside the full-roster online/total counts.
   isNarrowed: boolean;
   onToggleExpanded: (fleetId: string) => void;
   onToggleFleet: (fleetId: string) => void;

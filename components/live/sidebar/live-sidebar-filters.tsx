@@ -13,8 +13,6 @@ type LiveSidebarFiltersProps = {
   onSearchChange: (term: string) => void;
   onStatusChange: (status: LiveStatusFilter) => void;
   onProviderChange: (provider: string | undefined) => void;
-  // Passed in, not built here, so this component stays unaware of the
-  // sidebar's collapse state.
   collapseToggle?: React.ReactNode;
 };
 

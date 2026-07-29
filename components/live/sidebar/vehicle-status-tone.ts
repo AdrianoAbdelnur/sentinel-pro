@@ -1,7 +1,5 @@
 import type { VehicleStatus } from "@/application/live";
 
-// Every value below must stay a complete, literal class string. Tailwind v4
-// extracts classes by scanning source text, so `bg-${hue}-500/15` emits no CSS.
 export type VehicleStatusTone = {
   rail: string;
   dot: string;

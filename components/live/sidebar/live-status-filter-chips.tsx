@@ -11,7 +11,6 @@ const CHIP_BASE =
   "rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60";
 const CHIP_INACTIVE =
   "bg-transparent text-slate-500 ring-slate-700/70 hover:text-slate-300 hover:ring-slate-600";
-// Sky, not a status hue: "Todos" must not read as a fourth status.
 const ALL_CHIP_ACTIVE = "bg-sky-400/15 text-sky-200 ring-sky-400/40";
 
 type LiveStatusFilterChipsProps = {

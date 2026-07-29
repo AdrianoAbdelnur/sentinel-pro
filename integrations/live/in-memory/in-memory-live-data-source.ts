@@ -9,9 +9,6 @@ import type {
 
 const CUSTOMER_ID = "customer-demo";
 
-// Relative age, not a literal timestamp: `readLiveState()` materializes `gpsAt`
-// against `Date.now()` on every call, so the fixture never rots into "every
-// vehicle is offline". Omitting `gpsAgoMs` means "no position report ever".
 type FixtureTelemetry = Omit<DeviceTelemetry, "gpsAt"> & {
   gpsAgoMs?: number;
 };
@@ -29,8 +26,6 @@ const fleets: LiveFleetState[] = [
     vehicleIds: ["vehicle-101", "vehicle-102"],
   },
   {
-    // Named like a sub-fleet of the one above, but listed flat on purpose:
-    // fleets have no hierarchy.
     fleetId: "fleet-ab-construcciones-rio-tinto",
     label: "AB Construcciones (Rio Tinto)",
     vehicleIds: ["vehicle-201", "vehicle-202"],
@@ -41,8 +36,6 @@ const fleets: LiveFleetState[] = [
     vehicleIds: ["vehicle-301", "vehicle-302", "vehicle-303"],
   },
   {
-    // Zero vehicles: exercises `counts.total = 0`, and the rule that an empty
-    // fleet survives while nothing is narrowing.
     fleetId: "fleet-deposito-norte",
     label: "Depósito Norte",
     vehicleIds: [],
@@ -51,7 +44,6 @@ const fleets: LiveFleetState[] = [
 
 const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
-    // Happy path: online, moving. Resolves "en-route".
     vehicle: {
       id: "vehicle-101",
       customerId: CUSTOMER_ID,
@@ -83,9 +75,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // `online: false` beats a fresh report and a non-zero speed: resolves
-    // "offline", and the stored speed must be suppressed. Do not "fix" the
-    // apparent inconsistency.
     vehicle: {
       id: "vehicle-102",
       customerId: CUSTOMER_ID,
@@ -114,8 +103,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // No `online` flag, fresh report: online via the staleness fallback, then
-    // "stopped" on a genuine zero speed.
     vehicle: {
       id: "vehicle-201",
       customerId: CUSTOMER_ID,
@@ -146,8 +133,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // No `online` flag, stale report: offline via the staleness fallback,
-    // suppressing a non-zero stored speed.
     vehicle: {
       id: "vehicle-202",
       customerId: CUSTOMER_ID,
@@ -175,8 +160,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // `online: true` with no position report at all: online, no speed to read,
-    // so "stopped".
     vehicle: {
       id: "vehicle-301",
       customerId: CUSTOMER_ID,
@@ -201,8 +184,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // No telemetry and an inactive device: offline, and `canOpenLive` false on
-    // both of its clauses.
     vehicle: {
       id: "vehicle-302",
       customerId: CUSTOMER_ID,
@@ -222,8 +203,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     },
   },
   {
-    // No device and no telemetry: offline, no provider badge, and absent from
-    // the provider dropdown.
     vehicle: {
       id: "vehicle-303",
       customerId: CUSTOMER_ID,
@@ -245,12 +224,10 @@ const bottomPanelTabs: LiveBottomPanelTab[] = [
         vehicleId: "vehicle-101",
         cells: { speed: 46, ignition: true, network: "4G" },
       },
-      // No row for vehicle-102: it is offline and reports nothing.
       {
         vehicleId: "vehicle-201",
         cells: { speed: 0, ignition: false, network: "4G" },
       },
-      // Partial row: only speed is reported for this device.
       { vehicleId: "vehicle-202", cells: { speed: 55 } },
     ],
   },

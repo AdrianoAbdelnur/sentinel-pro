@@ -110,7 +110,6 @@ describe("buildLivePageViewModel", () => {
   });
 
   it("forwards sidebar-only options without touching the other surfaces", () => {
-    // vehicle-1 is online with no reported speed, which resolves to "stopped".
     const result = buildLivePageViewModel({
       ...input,
       expandedFleetIds: ["fleet-north"],

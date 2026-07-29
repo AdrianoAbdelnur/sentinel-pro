@@ -6,8 +6,6 @@ import { inMemoryLiveDataSource } from "./in-memory-live-data-source";
 
 describe("inMemoryLiveDataSource", () => {
   const { fleets, liveVehicles } = inMemoryLiveDataSource.readLiveState();
-  // Captured immediately after the shared read, so every status assertion
-  // resolves against the same clock the fixture was materialized with.
   const nowMs = Date.now();
 
   function statusOf(vehicleId: string) {
@@ -52,9 +50,6 @@ describe("inMemoryLiveDataSource", () => {
   });
 
   it("returns a fresh copy on every read", () => {
-    // `gpsAt` is materialized from Date.now() per call, so two reads are not
-    // byte-for-byte identical. What must hold is structural equality plus
-    // object-identity freshness: no mutable reference escapes the module.
     const first = inMemoryLiveDataSource.readLiveState();
     const second = inMemoryLiveDataSource.readLiveState();
 
@@ -245,7 +240,6 @@ describe("inMemoryLiveDataSource", () => {
 
     expect(vehicle?.telemetry?.gpsAt).toBeDefined();
 
-    // vehicle-101 declares a 30s age; slack absorbs test execution time.
     const elapsedMs = readAt - Date.parse(vehicle!.telemetry!.gpsAt!);
 
     expect(elapsedMs).toBeGreaterThanOrEqual(25_000);

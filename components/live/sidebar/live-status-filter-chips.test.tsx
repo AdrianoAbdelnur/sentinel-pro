@@ -86,7 +86,6 @@ describe("LiveStatusFilterChips", () => {
       screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
     );
 
-    // Exactly one call, with the clicked status only -- never an array/set.
     expect(onStatusChange).toHaveBeenCalledTimes(1);
     expect(onStatusChange).toHaveBeenCalledWith("stopped");
   });

@@ -21,7 +21,6 @@ const fleets: LiveFleetState[] = [
 
 const liveVehicles: LiveVehicleState[] = [
   {
-    // Online, moving, valid GPS, provider "howen".
     vehicle: {
       id: "vehicle-1",
       customerId: "customer-1",
@@ -48,8 +47,6 @@ const liveVehicles: LiveVehicleState[] = [
     },
   },
   {
-    // Explicitly offline, but stale telemetry still stores a non-zero speed:
-    // the offline-speed-suppression case.
     vehicle: {
       id: "vehicle-2",
       customerId: "customer-1",
@@ -73,7 +70,6 @@ const liveVehicles: LiveVehicleState[] = [
     },
   },
   {
-    // No telemetry and no device at all.
     vehicle: {
       id: "vehicle-3",
       customerId: "customer-1",
@@ -251,8 +247,6 @@ describe("buildLiveSidebarViewModel", () => {
     expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-1",
     ]);
-    // Both vehicles of the fleet are selected, so the fleet stays selected even
-    // though the search hides one of them.
     expect(result.fleets[0].isSelected).toBe(true);
   });
 
@@ -290,8 +284,6 @@ describe("buildLiveSidebarViewModel", () => {
       expandedFleetIds: ["fleet-north"],
     });
 
-    // vehicle-2 is hidden by the status filter but still on the roster, and
-    // unselected -- so the fleet must not read as fully selected.
     expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-1",
     ]);
@@ -310,7 +302,6 @@ describe("buildLiveSidebarViewModel", () => {
   });
 
   it("drops fleets left empty by the status filter", () => {
-    // None of the fixture vehicles resolve to "stopped".
     expect(build({ status: "stopped" }).fleets).toEqual([]);
   });
 

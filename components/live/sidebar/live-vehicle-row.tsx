@@ -12,7 +12,6 @@ type LiveVehicleRowProps = {
   onToggle: (vehicleId: string) => void;
 };
 
-// Renders the view model verbatim: never re-derive status or speed here.
 export function LiveVehicleRow({ vehicle, onToggle }: LiveVehicleRowProps) {
   const tone = VEHICLE_STATUS_TONE[vehicle.status];
   const headline = vehicle.plate ?? vehicle.label;

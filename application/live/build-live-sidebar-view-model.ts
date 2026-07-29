@@ -30,8 +30,6 @@ export function buildLiveSidebarViewModel({
     liveVehicles.map((liveVehicle) => [liveVehicle.vehicle.id, liveVehicle]),
   );
 
-  // Resolved once per vehicle so counts, narrowing and node composition all
-  // read the exact same value.
   const statusByVehicleId = new Map<string, VehicleStatus>(
     liveVehicles.map(({ vehicle, telemetry }) => [
       vehicle.id,
@@ -39,8 +37,6 @@ export function buildLiveSidebarViewModel({
     ]),
   );
 
-  // Over the entire vehicle set, before narrowing: selecting a provider must
-  // not remove the other options from the dropdown.
   const availableProviders = Array.from(
     new Set(
       liveVehicles
@@ -55,9 +51,6 @@ export function buildLiveSidebarViewModel({
     normalizedSearch !== "";
 
   const fleetNodes = fleets.flatMap((fleet) => {
-    // Counts and `isSelected` must be computed from this list, never from a
-    // narrowed one: a partially-selected fleet would otherwise read as fully
-    // selected once its hidden, unselected vehicles were filtered out.
     const fullRoster = fleet.vehicleIds.flatMap((vehicleId) => {
       const liveVehicle = vehiclesById.get(vehicleId);
       return liveVehicle ? [liveVehicle] : [];
@@ -131,7 +124,6 @@ function toVehicleNode(
 ): LiveVehicleNode {
   const vehicleStatus = statusByVehicleId.get(vehicle.id) ?? "offline";
 
-  // Stale telemetry can still carry a speed; an offline node must not expose it.
   const speedKmH = vehicleStatus === "offline" ? undefined : telemetry?.speedKmH;
 
   return {

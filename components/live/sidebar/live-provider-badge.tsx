@@ -2,10 +2,6 @@ type LiveProviderBadgeProps = {
   provider?: string;
 };
 
-// The only place provider identity touches the UI. Keep it that way, and keep
-// every provider on the same monochrome style: per-provider colours would put
-// provider identity into the visual language, which
-// docs/architecture/02-provider-agnostic-live-principles.md forbids.
 export function LiveProviderBadge({ provider }: LiveProviderBadgeProps) {
   if (!provider) {
     return null;

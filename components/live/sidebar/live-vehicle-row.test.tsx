@@ -31,7 +31,6 @@ describe("LiveVehicleRow", () => {
     const vehicle: LiveVehicleNode = { ...baseVehicle, plate: undefined };
     render(<LiveVehicleRow vehicle={vehicle} onToggle={vi.fn()} />);
 
-    // Only one occurrence -- the label is not duplicated as a secondary line.
     expect(screen.getAllByText("Unit 101")).toHaveLength(1);
   });
 
@@ -74,9 +73,6 @@ describe("LiveVehicleRow", () => {
     expect(screen.queryByText("howen")).not.toBeInTheDocument();
   });
 
-  // Unit 4 enforces that an offline vehicle's node never carries a speed,
-  // even when telemetry stored one. The row renders exactly what it is
-  // given -- it must not re-derive or invent a speed for an offline vehicle.
   it("shows the missing-value fallback for an offline vehicle's speed, never a stale number", () => {
     const vehicle: LiveVehicleNode = {
       ...baseVehicle,
@@ -96,7 +92,6 @@ describe("LiveVehicleRow", () => {
     );
 
     expect(container.querySelector("time")).not.toBeInTheDocument();
-    // The speed is still reported; only the timestamp falls back.
     expect(screen.getByText(/46 km\/h/)).toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
   });

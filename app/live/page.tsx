@@ -10,21 +10,13 @@ export const metadata: Metadata = {
   description: "Operational live monitoring for fleets and vehicles.",
 };
 
-// This page uses no request-time API, so without this Next.js would prerender
-// it and bake one `nowMs` into the build — every request would then read the
-// same "now" until the next deploy, defeating the staleness rule.
 export const dynamic = "force-dynamic";
 
 export default function LivePage() {
   const liveState = inMemoryLiveDataSource.readLiveState();
   const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
 
-  // The only process.env read and the only clock read in the live slice. Both
-  // are threaded down as plain numbers so hydration cannot disagree with the
-  // server render.
   const { staleAfterMs } = readLiveRuntimeConfig();
-  // Safe because this is a Server Component: it runs once per request, not
-  // concurrently re-invoked like a Client Component render.
   // eslint-disable-next-line react-hooks/purity
   const nowMs = Date.now();
 

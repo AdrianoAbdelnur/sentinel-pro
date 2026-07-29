@@ -27,8 +27,6 @@ describe("LiveMapPanel", () => {
     ).toBeInTheDocument();
   });
 
-  // The map stays mounted even with nothing to plot; the empty state is an
-  // overlay, not a replacement. See docs/architecture/06-live-delivery-layer.md.
   it("keeps the map region mounted while the no-selection state is active", () => {
     renderPanel({
       markers: [],

@@ -7,7 +7,6 @@ import type {
   VehicleStatus,
 } from "@/domain/live";
 
-// Re-exported so delivery never imports `@/domain/live` directly.
 export type { VehicleStatus };
 
 export type LiveVehicleState = {
@@ -16,7 +15,6 @@ export type LiveVehicleState = {
   telemetry?: DeviceTelemetry;
 };
 
-// `"all"` means "no status narrowing" and stays out of `VehicleStatus`.
 export type LiveStatusFilter = "all" | VehicleStatus;
 
 export type LiveSidebarViewModel = {
@@ -138,8 +136,6 @@ export type BuildLiveSidebarViewModelInput = {
   liveVehicles: LiveVehicleState[];
   selectedVehicleIds: string[];
   searchTerm: string;
-  // Required, never defaulted here: an optional clock or threshold would let a
-  // caller resolve status by a different rule than the rest of the screen.
   nowMs: number;
   staleAfterMs: number;
   expandedFleetIds?: string[];
@@ -170,7 +166,6 @@ export type BuildLivePageViewModelInput = {
   searchTerm: string;
   activeTab: LiveBottomPanelTab["key"];
   tabs: LiveBottomPanelTab[];
-  // Required, for the same reason as on `BuildLiveSidebarViewModelInput`.
   nowMs: number;
   staleAfterMs: number;
   expandedFleetIds?: string[];

@@ -65,8 +65,6 @@ describe("LiveFleetNode", () => {
   it("renders the online/total counts", () => {
     renderNode({ counts: { online: 1, total: 13 } });
 
-    // The online half is coloured separately from the total, so the two
-    // numbers live in sibling elements rather than one text node.
     const counts = screen.getByLabelText(/1 de 13 vehículos en línea/i);
     expect(counts).toHaveTextContent("1/13");
   });

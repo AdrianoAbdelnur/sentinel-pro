@@ -3,8 +3,6 @@ import { vi } from "vitest";
 
 import type { LiveBottomPanelTab, LiveState } from "@/application/live";
 
-// Leaflet cannot run under jsdom. These tests are about screen behavior, so the
-// map is replaced by a stub; the real map is covered by live-map.test.tsx.
 vi.mock("./live-map", () => ({
   LiveMap: ({ markers }: { markers: { vehicleId: string }[] }) => (
     <div data-testid="live-map-stub" data-marker-count={markers.length} />
@@ -78,7 +76,6 @@ const liveState: LiveState = {
       telemetry: { deviceId: "device-102", online: false },
     },
     {
-      // Inactive and offline.
       vehicle: {
         id: "vehicle-201",
         customerId: "customer-1",
@@ -92,8 +89,6 @@ const liveState: LiveState = {
   ],
 };
 
-// Every fixture vehicle sets `telemetry.online` explicitly, so the clock value
-// cannot affect resolved status. A fixed value keeps the test deterministic.
 const NOW = Date.parse("2026-07-29T12:00:00.000Z");
 const STALE_AFTER_MS = 5 * 60 * 1000;
 
@@ -130,8 +125,6 @@ function vehicleCheckbox(label: string) {
 }
 
 describe("LiveScreen layout", () => {
-  // The region, not the stub: the map module loads lazily, and the region is
-  // what proves the panel did not swap itself out for a sentence.
   it("keeps the map mounted with nothing selected", () => {
     renderScreen();
 
@@ -150,7 +143,6 @@ describe("LiveScreen layout", () => {
       screen.getByRole("button", { name: COLLAPSE_SIDEBAR_LABEL }),
     );
     expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
-    // The map and the bottom panel are untouched by the sidebar collapsing.
     expect(
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
@@ -171,7 +163,6 @@ describe("LiveScreen layout", () => {
     expect(
       screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
     ).not.toBeInTheDocument();
-    // The tabs stay reachable so the panel can be brought back.
     expect(screen.getByRole("tablist")).toBeInTheDocument();
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
 
@@ -262,23 +253,15 @@ describe("LiveScreen", () => {
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
   });
 
-  // Narrowing behavior is covered exhaustively at the application layer in
-  // `build-live-sidebar-view-model.test.ts`. These tests only confirm the
-  // chips and dropdown are wired through the full screen.
-
   it("narrows to vehicles matching the selected status chip", () => {
     renderScreen();
 
-    // vehicle-101 is online with no reported speed (status "stopped");
-    // vehicle-102 and vehicle-201 are both explicitly offline.
     fireEvent.click(
       screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
     );
 
     expect(screen.getByText("Unit 101")).toBeInTheDocument();
     expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
-    // South Fleet's only vehicle is offline, so narrowing empties it and the
-    // fleet is dropped entirely.
     expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
   });
 

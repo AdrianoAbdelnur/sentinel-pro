@@ -49,8 +49,6 @@ export function LiveMap({ markers }: LiveMapProps) {
   );
 }
 
-// Leaflet measures its container once at mount and never notices later size
-// changes, so a collapsing side panel leaves the map drawn at its old size.
 function InvalidateOnResize() {
   const map = useMap();
 
@@ -72,8 +70,6 @@ function InvalidateOnResize() {
   return null;
 }
 
-// Leaflet's divIcon takes an HTML string, not a React element. Keep styling in
-// Tailwind classes; only the rotation angle goes through a style attribute.
 export function buildMarkerHtml(marker: LiveMapMarker): string {
   const rotation =
     typeof marker.headingDeg === "number"
@@ -85,8 +81,6 @@ export function buildMarkerHtml(marker: LiveMapMarker): string {
 
 function FitBounds({ markers }: LiveMapProps) {
   const map = useMap();
-  // Serialised so the effect reacts to coordinate changes, not array identity:
-  // the array is rebuilt every render and would refit the map continuously.
   const bounds = markers.map(toPosition).filter(isPosition);
   const boundsKey = JSON.stringify(bounds);
 

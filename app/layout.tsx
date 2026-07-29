@@ -27,8 +27,6 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      {/* h-full + overflow-hidden, not min-h-full: the live console owns its
-          own scroll regions, so the document itself must never scroll. */}
       <body className="flex h-full flex-col overflow-hidden">{children}</body>
     </html>
   );
