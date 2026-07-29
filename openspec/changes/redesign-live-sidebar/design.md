@@ -184,13 +184,13 @@ Two supporting non-component files: `vehicle-status-tone.ts` (static Tailwind cl
 | Selection | `live-screen.tsx` | `useState<string[]>` — unchanged |
 | View state (expansion) | `live-screen.tsx` | `useState<string[]>` — unchanged |
 | Panel state (active tab) | `live-screen.tsx` | `useState<LiveBottomPanelTab["key"]>` — unchanged |
-| Narrowing (search + status + provider) | `use-live-sidebar-filters.ts` | one `useState<LiveSidebarNarrowing>` + `toggleStatus` / `setProvider` / `setSearchTerm` |
+| Narrowing (search + status + provider) | `use-live-sidebar-filters.ts` | `setSearchTerm` / `setStatus` / `setProvider`, with `setStatus` replacing the scalar value |
 
 `onlyActiveOrOnline: boolean` disappears; `searchTerm` moves out of the island into the hook and joins the filters, because search and filters are one concern — they narrow the roster, they are always passed into the same use case together, and they are cleared together.
 
 **Alternatives considered**: keeping five flat `useState` calls; splitting the sidebar into its own island.
 
-**Rationale**: five independent `useState` calls in one component is where the old project's page-as-a-system problem started. Grouping by responsibility, not by primitive, is the rule the repo already wrote down. The hook also gives the only genuinely non-trivial new logic — set toggling — a unit-testable home outside the render tree.
+**Rationale**: five independent `useState` calls in one component is where the old project's page-as-a-system problem started. Grouping by responsibility, not by primitive, is the rule the repo already wrote down. The hook also gives the narrowing state a unit-testable home outside the render tree.
 
 A second island was rejected for the reason the archived shell design already gave: the whole page view model comes from one synchronous call, so a sidebar island would either have to lift the same state back up or duplicate the call.
 
@@ -222,7 +222,7 @@ app/live/page.tsx  (server)
    ├─ Date.now()                       -> nowMs                   [only clock read]
    ├─ inMemoryLiveDataSource.readLiveState()
    └─ <LiveScreen liveState tabs nowMs staleAfterMs />            (client island)
-        ├─ useLiveSidebarFilters()     -> { searchTerm, statuses, provider }
+        ├─ useLiveSidebarFilters()     -> { searchTerm, status, provider }
         ├─ useState                    -> selection, expansion, activeTab
         └─ buildLivePageViewModel({ ..., nowMs, staleAfterMs })
              ├─ buildLiveSidebarViewModel
@@ -338,14 +338,18 @@ export type LiveFleetNode = {
   label: string;
   isExpanded: boolean;
   isSelected: boolean;
-  counts: { total: number; byStatus: Record<VehicleStatus, number> };
+  counts: { online: number; total: number }; // per user decision, not byStatus
   vehicles: LiveVehicleNode[];
 };
+
+// "all" means no status narrowing; the domain union itself stays at exactly
+// the three real statuses (D6).
+export type LiveStatusFilter = "all" | VehicleStatus;
 
 export type LiveSidebarViewModel = {
   search: { term: string };
   filters: {
-    statuses: VehicleStatus[];
+    status: LiveStatusFilter;
     provider?: string;
     availableProviders: string[];
     isNarrowed: boolean;
@@ -361,7 +365,7 @@ export type BuildLiveSidebarViewModelInput = {
   nowMs: number;         // required
   staleAfterMs: number;  // required
   expandedFleetIds?: string[];
-  statuses?: VehicleStatus[];
+  status?: LiveStatusFilter;
   provider?: string;
 };
 
@@ -374,7 +378,7 @@ Notes on the shape changes:
 
 - `isOnline` is **removed**, not kept alongside `status`. Two representations of the same fact drift.
 - `secondaryLabel` is **replaced** by explicit `plate` and `label`. The application supplies both raw; delivery renders `plate ?? label` as the headline and `label` beneath only when a plate exists. Which one is the headline is presentation, not business.
-- `counts` becomes required (it was optional and never populated) and mirrors the three-valued status model rather than the old `online`/`offline` pair. `byStatus` as a record means adding a fourth status later adds no field.
+- `counts` becomes required (it was optional and never populated) and carries `online`/`total`, per the user decision recorded on 2026-07-29. An earlier version of this document proposed a `byStatus` record instead; that was not adopted.
 - The empty-state and notice wrappers keep their object shape (`{ code }`, not a bare string) so the call sites are unchanged and there is a slot for interpolation parameters later.
 - `speedKmH` is optional and MUST be absent whenever `status` is `offline`, even if telemetry carries a stored value; an online vehicle's `speedKmH` is exposed as reported, including a genuine `0` (decided 2026-07-29).
 - `search.placeholder` does not exist on `LiveSidebarViewModel.search`; the search input's placeholder text is a component-local literal (D5), not application output (decided 2026-07-29).
