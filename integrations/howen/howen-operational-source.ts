@@ -5,6 +5,7 @@ import type {
 
 import type { HowenClient } from "./client";
 import { mapHowenRoster } from "./map-howen-roster";
+import { HOWEN_PROVIDER } from "./provider";
 
 type CreateHowenOperationalSourceInput = {
   client: HowenClient;
@@ -13,7 +14,7 @@ type CreateHowenOperationalSourceInput = {
 
 const defaultIdentity: OperationalSourceIdentity = {
   id: "howen",
-  label: "Howen",
+  label: HOWEN_PROVIDER,
 };
 
 export function createHowenOperationalSource({

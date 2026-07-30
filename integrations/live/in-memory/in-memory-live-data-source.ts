@@ -6,6 +6,7 @@ import type {
   LiveVehicleState,
   OperationalSource,
 } from "@/application/live";
+import { HOWEN_PROVIDER } from "@/integrations/howen/provider";
 
 type FixtureTelemetry = Omit<DeviceTelemetry, "gpsAt"> & {
   gpsAgoMs?: number;
@@ -53,7 +54,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     device: {
       id: "device-101",
       vehicleId: "vehicle-101",
-      provider: "howen",
+      provider: HOWEN_PROVIDER,
       origin: "howen",
       kind: "mdvr",
       channelCount: 4,
@@ -83,7 +84,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     device: {
       id: "device-102",
       vehicleId: "vehicle-102",
-      provider: "howen",
+      provider: HOWEN_PROVIDER,
       origin: "howen",
       kind: "dashcam",
       channelCount: 2,

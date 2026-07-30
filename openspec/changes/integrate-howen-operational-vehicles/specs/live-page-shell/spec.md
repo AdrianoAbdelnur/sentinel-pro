@@ -19,3 +19,10 @@ The live screen MUST render each application warning using its source label and 
 - WHEN the live screen renders
 - THEN no roster is shown
 - AND every failed source label is visible in generic warning copy
+
+#### Scenario: Canonical provider identity is rendered verbatim
+
+- GIVEN normalized vehicles use the provider value `HOWEN`
+- WHEN provider filters and badges render
+- THEN they use `HOWEN` as their underlying value and visible label
+- AND delivery does not branch on Howen

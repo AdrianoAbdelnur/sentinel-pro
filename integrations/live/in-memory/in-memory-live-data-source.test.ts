@@ -257,6 +257,15 @@ describe("in-memory live fixtures", () => {
     expect(liveVehicles.some(({ device }) => device === undefined)).toBe(true);
   });
 
+  it("uses the canonical HOWEN provider value in development fixtures", () => {
+    const howenProviders = liveVehicles
+      .map(({ device }) => device)
+      .filter((device) => device?.origin === "howen")
+      .map((device) => device?.provider);
+
+    expect(howenProviders).toEqual(["HOWEN", "HOWEN"]);
+  });
+
   it("materializes gpsAt relative to read time, not a fixed timestamp", () => {
     const readAt = Date.now();
     const { liveVehicles: freshVehicles } = readInMemoryLiveStateFixture();

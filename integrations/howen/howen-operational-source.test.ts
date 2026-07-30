@@ -34,7 +34,7 @@ describe("createHowenOperationalSource", () => {
         ],
       },
     });
-    expect(source.identity).toEqual({ id: "howen", label: "Howen" });
+    expect(source.identity).toEqual({ id: "howen", label: "HOWEN" });
   });
 
   it("returns one stable failure without exposing provider details", async () => {

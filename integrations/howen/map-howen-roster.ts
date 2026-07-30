@@ -2,6 +2,7 @@ import type { LiveState, LiveVehicleState } from "@/application/live";
 import type { DeviceTelemetry } from "@/domain/live";
 
 import { parseHowenTimestamp } from "./parse-howen-timestamp";
+import { HOWEN_PROVIDER } from "./provider";
 import type { HowenRosterRecord } from "./responses";
 
 function text(value: string | undefined): string | undefined {
@@ -100,7 +101,7 @@ export function mapHowenRoster(records: HowenRosterRecord[]): LiveState {
       device: {
         id: deviceId,
         vehicleId,
-        provider: "howen",
+        provider: HOWEN_PROVIDER,
         externalId: deviceNumber,
         origin: "howen",
         kind: "mdvr",

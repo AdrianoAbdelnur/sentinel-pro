@@ -62,7 +62,7 @@ describe("mapHowenRoster", () => {
     expect(item.device).toMatchObject({
       id: "howen:device:technical-1",
       vehicleId: "howen:vehicle:technical-1",
-      provider: "howen",
+      provider: "HOWEN",
       externalId: "technical-1",
       origin: "howen",
       kind: "mdvr",
@@ -78,6 +78,17 @@ describe("mapHowenRoster", () => {
       speedKmH: 46,
       headingDeg: 90,
     });
+  });
+
+  it("uses one canonical visible provider value for every Howen vehicle", () => {
+    const state = mapHowenRoster([
+      record(),
+      record({ deviceno: "technical-2", devicename: "AC946AE" }),
+    ]);
+
+    expect(
+      state.liveVehicles.map(({ device }) => device?.provider),
+    ).toEqual(["HOWEN", "HOWEN"]);
   });
 
   it("isolates records without a usable identity", () => {

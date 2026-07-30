@@ -42,11 +42,12 @@ The adapter MUST hash the configured raw password with MD5 before login, MUST re
 
 The adapter MUST request all available devices without silent pagination or truncation, validate the response, and preserve each valid device exactly once.
 
-#### Scenario: Verified roster remains complete
+#### Scenario: Current roster remains complete
 
-- GIVEN the verified response contains 621 unique devices in 119 fleets
+- GIVEN the provider's fleet grouping may change independently of vehicle count
 - WHEN the snapshot is normalized
-- THEN it contains 621 vehicles grouped into 119 fleets
+- THEN every valid unique vehicle and every referenced fleet is preserved
+- AND no fixed fleet count truncates the roster
 
 #### Scenario: Invalid identity is isolated
 
@@ -56,7 +57,7 @@ The adapter MUST request all available devices without silent pagination or trun
 
 ### Requirement: Verified Howen fields map to internal contracts
 
-The adapter MUST map `fleetid` to fleet identity, `fleetname` to fleet label, `deviceno` to the technical device external ID, and `devicename` to the vehicle's sole visible plate/headline. It MUST NOT create a secondary Howen vehicle label.
+The adapter MUST map `fleetid` to fleet identity, `fleetname` to fleet label, `deviceno` to the technical device external ID, and `devicename` to the vehicle's sole visible plate/headline. It MUST NOT create a secondary Howen vehicle label. Every normalized Howen device and the source's operator-facing label MUST use the canonical value `HOWEN`.
 
 #### Scenario: Identity and visible text are not confused
 
@@ -64,6 +65,13 @@ The adapter MUST map `fleetid` to fleet identity, `fleetname` to fleet label, `d
 - WHEN it is normalized and rendered
 - THEN `deviceno` remains hidden as the technical external ID
 - AND `devicename` is the sole visible headline with no duplicate secondary label
+
+#### Scenario: Provider filters have one Howen value
+
+- GIVEN real and development records both represent Howen devices
+- WHEN their provider values are normalized
+- THEN every such device uses exactly `HOWEN`
+- AND delivery does not create duplicate Howen filter options
 
 ### Requirement: Telemetry is parsed safely
 
