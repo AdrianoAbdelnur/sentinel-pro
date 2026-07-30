@@ -42,10 +42,10 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Declarative Map Integration — PR 3
 
-- [ ] 3.1 RED: Test settled `moveend`/`zoomend` queries, React Leaflet markers, count activation, expansion bounds, deterministic maximum-zoom fan, collapse, and no selection.
-- [ ] 3.2 GREEN: Create `use-live-map-clusters.ts` and `live-map-marker-layer.tsx`; render declarative `Marker`/optional `Polyline` entries without mutating Leaflet runtime.
-- [ ] 3.3 RED: Update map tests for source-coordinate fit/refit bounds, resize, titles, headings, attribution, and preserved logical-marker count.
-- [ ] 3.4 GREEN/REFACTOR: Wire the marker layer into `live-map.tsx` only after Phase 2 passes; memoize indexes by coordinate signature and clear fan state on move/zoom.
+- [x] 3.1 RED: Test settled `moveend`/`zoomend` queries, React Leaflet markers, count activation, expansion bounds, deterministic maximum-zoom fan, collapse, and no selection.
+- [x] 3.2 GREEN: Create `use-live-map-clusters.ts` and `live-map-marker-layer.tsx`; render declarative `Marker`/optional `Polyline` entries without mutating Leaflet runtime.
+- [x] 3.3 RED: Update map tests for source-coordinate fit/refit bounds, resize, titles, headings, attribution, and preserved logical-marker count.
+- [x] 3.4 GREEN/REFACTOR: Wire the marker layer into `live-map.tsx` only after Phase 2 passes; memoize indexes by coordinate signature and clear fan state on move/zoom.
 
 ## Phase 4: Operational Proof — PR 4
 
