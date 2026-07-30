@@ -1,49 +1,72 @@
 ## Exploration: Live map marker contrast and clustering
 
 ### Current State
-`LiveMap` is a client-only Leaflet surface loaded through `next/dynamic` with SSR disabled. It renders one React Leaflet `Marker` per `LiveMapMarker`, uses a 22 px translucent emerald `divIcon`, fits the viewport whenever marker coordinates change, and has mocked unit tests plus an unmocked Leaflet integration suite.
+`LiveMap` is again on the stable implementation: a client-only Leaflet surface loaded through `next/dynamic` with SSR disabled, rendering normal React Leaflet `Marker` components. The current 22 px translucent emerald icon has weak contrast and nearby vehicles overlap.
 
-There is no clustering dependency today. With many Howen vehicles, nearby markers overlap and the pale emerald marker has weak contrast against OpenStreetMap. The application contract already supplies every fact needed by delivery, so this change does not require provider, domain, or application-model changes.
+The first clustering implementation is not viable. `leaflet.markercluster` initially failed under Turbopack because its expected `markerClusterGroup` factory was not available. Switching to the module's constructor bypassed that error but then blocked the browser main thread and disabled all page interaction. The rollback removed the plugin and restored stability, while clustering remains required.
 
-Leaflet.markercluster supports the requested behavior directly: `zoomToBoundsOnClick` and `spiderfyOnMaxZoom` are enabled by default, clusters split while zooming, and `iconCreateFunction` supports a custom count bubble. Its base `MarkerCluster.css` supplies animation and spider-leg transitions; `MarkerCluster.Default.css` is unnecessary with custom icons.
+`supercluster` is materially different: it is a pure ESM point-indexing library with no Leaflet plugin lifecycle, DOM access, CSS, marker mutation, or global augmentation. Version 8.0.1 accepts immutable GeoJSON points, queries clusters with `[west, south, east, north]` bounds plus integer zoom, and exposes `getClusterExpansionZoom`, `getLeaves`, and cluster point counts. It needs the separate `@types/supercluster` 7.1.3 package.
 
 ### Affected Areas
-- `components/live/live-map.tsx` — replace marker visuals and place logical markers inside a cluster layer while preserving fit-bounds and resize behavior.
-- `components/live/live-map.test.tsx` — prove marker and cluster HTML, options, logical marker count, titles, coordinates, and lifecycle.
-- `components/live/live-map.integration.test.tsx` — prove the real Leaflet/plugin stack mounts, clusters nearby markers, and retains marker titles/heading.
-- `package.json` / `package-lock.json` — add `leaflet.markercluster` and its TypeScript definitions.
-- `docs/architecture/06-live-delivery-layer.md` — document the client-only plugin boundary, custom icon CSS, and cluster behavior.
-- `openspec/specs/live-map-rendering/spec.md` — clarify that one logical marker is created per view-model entry even when multiple markers render as one visible cluster.
+- `components/live/live-map.tsx` — keep normal React Leaflet markers, add viewport observation, render cluster results, and preserve fit-bounds/resize behavior.
+- `components/live/live-map-icons.ts` — provide provider-neutral navy/cyan vehicle and count icons without plugin CSS.
+- `components/live/live-map-clustering.ts` — translate `LiveMapMarker` values to GeoJSON, build/query the immutable Supercluster index, and discriminate point/cluster results.
+- `components/live/live-map-overlap-layout.ts` — derive deterministic max-zoom fan/spider positions without mutating Leaflet markers or source coordinates.
+- `components/live/live-map*.test.tsx` and pure helper tests — cover index queries, expansion, overlap layout, normal marker rendering, titles, headings, and viewport regressions.
+- A development-only cluster harness — prove responsiveness and browser interaction before the clustering component is connected to `/live`.
+- `package.json` / `package-lock.json` — add pinned `supercluster@8.0.1` and `@types/supercluster@7.1.3`; do not add `leaflet.markercluster`.
+- `docs/architecture/06-live-delivery-layer.md` and downstream SDD artifacts — replace the failed plugin design with a pure index plus declarative rendering.
 
 ### Approaches
-1. **Official Leaflet.markercluster with a small local React Leaflet bridge** — create one plugin layer, let it own the existing markers, and render custom vehicle and count icons.
-   - Pros: Implements count bubbles, zoom-to-bounds, animated separation, and maximum-zoom spiderfy with mature Leaflet behavior; avoids a React wrapper dependency; keeps provider details out of UI.
-   - Cons: Requires explicit plugin lifecycle/cleanup and focused integration tests; plugin 1.5.3 is mature but infrequently released.
+1. **Pure Supercluster index with declarative React Leaflet markers** — rebuild the index only when logical marker coordinates change, query it on `moveend`/`zoomend`, and render returned clusters or points as ordinary `Marker` components.
+   - Pros: No Leaflet patching or plugin constructor; standard ESM; viewport work is explicit and testable; only visible clusters/points render; `getClusterExpansionZoom` directly supports click-to-expand.
+   - Cons: Requires local viewport orchestration and explicit max-zoom overlap handling; Supercluster index construction is synchronous.
    - Effort: Medium
 
-2. **Third-party React wrapper around Leaflet.markercluster** — wrap current JSX markers in a package-provided component.
-   - Pros: Less local bridge code and declarative children.
-   - Cons: Adds another compatibility surface between React 19, React Leaflet 5, and the underlying plugin; wrappers vary in maintenance and API behavior.
+2. **Supercluster through `use-supercluster`** — delegate index/query memoization to a React hook package.
+   - Pros: Less local hook code.
+   - Cons: Adds another older wrapper and compatibility surface after a wrapper/plugin failure; hides the exact refresh and performance lifecycle that now needs verification.
    - Effort: Medium
 
-3. **Custom clustering and spiderfy implementation** — group projected points and implement zoom/spider layouts locally.
-   - Pros: Full control and no clustering dependency.
-   - Cons: Reimplements difficult geospatial, zoom, animation, overlap, and cleanup behavior; highest bug and maintenance risk.
-   - Effort: High
+3. **Another Leaflet clustering plugin or wrapper** — replace the failed plugin with a similar imperative layer.
+   - Pros: May include built-in animation and spiderfy.
+   - Cons: Repeats the same Turbopack, duplicate-runtime, mutation, and main-thread lifecycle risks already observed.
+   - Effort: High risk
 
 ### Recommendation
-Use official `leaflet.markercluster` directly behind a small delivery-only React Leaflet bridge. Keep one logical Leaflet marker per `LiveMapMarker`, use the plugin defaults for `zoomToBoundsOnClick`, `spiderfyOnMaxZoom`, animation, and viewport pruning, disable the unrequested coverage polygon on hover, and use a moderate `maxClusterRadius` so clusters separate progressively.
+Use `supercluster@8.0.1` directly and keep React Leaflet as the only map renderer. Convert each `LiveMapMarker` into a GeoJSON point whose properties contain only a stable `vehicleId`; resolve current labels/headings from a separate `vehicleId` lookup so non-positional updates do not require a new spatial index. Memoize the immutable index by a stable coordinate signature, not by zoom.
 
-Use a provider-neutral visual system for both icons: a near-black/navy core, bright cyan border/arrow, and restrained cyan glow. Cluster bubbles should use the same palette with a high-contrast numeric count and accessible vehicle-count label. Import only `MarkerCluster.css`; omit the default theme because `iconCreateFunction` owns the cluster visual.
+Observe the map's current bounds and integer zoom only after `moveend` and `zoomend`. Query `getClusters([west, south, east, north], zoom)` and render each result as a normal React Leaflet `Marker`: individual results use the navy/cyan directional icon; cluster results use the same visual language with `point_count` and an accessible Spanish vehicle-count label. No provider data enters the clustering boundary.
 
-Preserve the current SSR boundary, resize observer, viewport fit behavior, marker label/title, and heading rotation. Add pure helper tests, mocked lifecycle/options tests, a real-plugin integration test, and browser verification for cluster click, zoom separation, and maximum-zoom spiderfy. The delta spec should distinguish logical markers from currently visible map icons.
+On cluster activation below maximum map zoom:
+
+1. Read `cluster_id`.
+2. Use `getClusterExpansionZoom(cluster_id)`.
+3. Use `getLeaves(cluster_id, Infinity)` to calculate member bounds.
+4. Fit those bounds with the expansion zoom as the cap, so activation changes only the viewport and the cluster separates at the intended level.
+
+Set Supercluster's `maxZoom` to the explicit Leaflet map maximum. A cluster that still exists at that zoom represents unresolved overlap. Activating it should call `getLeaves`, sort deterministically by `vehicleId`, and derive fan/spider display positions around the cluster centre in screen pixels. Convert those offsets back to coordinates with projection/unprojection and render ordinary React Leaflet `Marker` components plus optional `Polyline` legs. Keep source coordinates immutable, hide only the activated cluster while expanded, and clear the fan on zoom/move. Concentric rings or a deterministic spiral must handle more vehicles than a single circle without marker collisions.
+
+Use a moderate initial radius such as 60 px, then tune it visually. For approximately 621 vehicles, the workload is far below Supercluster's intended scale, but that is not proof after the observed freeze. Before touching `/live`, build an isolated development-only browser harness containing:
+
+- a deterministic 621-point distribution,
+- near points that split across zoom levels,
+- several exact-coordinate overlaps,
+- visible controls that prove clicks and animation frames remain responsive,
+- `performance.now()` measurements for index construction and viewport queries,
+- cluster click, expansion, max-zoom fan, collapse, and resize checks.
+
+Only integrate with `/live` after that harness stays interactive under Turbopack in a real browser. Then repeat the check with the real Howen cardinality. Keep the harness development-only or remove it before final delivery; it must never become a production operational route.
+
+Remove or leave unused every `leaflet.markercluster` artifact from the failed branches: no runtime package, typings, CSS, side-effect import, constructor, layer group, or compatibility shim should enter this design.
 
 ### Risks
-- Importing the Leaflet plugin outside the existing client-only dynamic boundary can reintroduce the known SSR DOM crash.
-- Recreating the cluster group on every render would reset zoom/spiderfy state; the bridge must keep a stable group and reconcile marker changes.
-- Marker and cluster Tailwind classes must remain complete string literals so Tailwind v4 emits them.
-- Maximum-zoom spiderfy and animation are geometric browser behaviors; jsdom coverage alone is insufficient.
-- `leaflet.markercluster` 1.5.3 is older, so build and real-browser compatibility with Leaflet 1.9.4 must be verified before completion.
+- Supercluster builds its immutable index synchronously. Memoization and the browser harness are mandatory even though 621 points should be a small workload.
+- Bounds and zoom are map state; updating them on every animation frame would create render churn. Query only on settled map events.
+- Exact coordinates never become visually distinguishable by zoom alone. The deterministic max-zoom fan/spider path is required to satisfy the existing spec.
+- Spider display coordinates are intentionally derived positions. Fit bounds and application state must continue using original logical coordinates.
+- `@types/supercluster` is versioned 7.1.3 while runtime Supercluster is 8.0.1; typecheck and small API contract tests must verify the unchanged public surface.
+- A jsdom test cannot prove the page remains interactive. Real Turbopack browser validation must gate `/live` integration.
 
 ### Ready for Proposal
-Yes. No clarification is required: the requested dark neon blue/cyan direction and cluster interaction are sufficiently specific, while exact color values and cluster radius can be selected and validated as delivery details.
+Yes. No user clarification is required. The proposal, spec, design, and tasks must be revised to remove `leaflet.markercluster`, introduce the isolated browser-harness gate, and define Supercluster expansion plus deterministic max-zoom overlap layout before implementation resumes.

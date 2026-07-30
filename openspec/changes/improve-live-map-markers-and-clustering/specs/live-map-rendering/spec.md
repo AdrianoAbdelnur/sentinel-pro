@@ -2,51 +2,63 @@
 
 ## ADDED Requirements
 
-### Requirement: Nearby markers are grouped without changing their meaning
+### Requirement: Nearby markers cluster without changing state
 
-Nearby logical markers MUST form a provider-neutral cluster with a readable count. Clusters MUST separate as zoom increases, MUST zoom to member bounds when activated, and MUST spiderfy overlaps at maximum zoom. Activation MUST NOT select a vehicle.
+Nearby markers MUST form provider-neutral clusters with counts and separate as zoom increases. Activation below maximum zoom MUST expand to member bounds and MUST NOT select vehicles.
 
 #### Scenario: Nearby markers show their count
 
 - GIVEN logical markers overlap at the current zoom
 - WHEN the map renders
-- THEN one cluster icon shows their numeric count
-- AND its accessible label identifies a vehicle count
+- THEN an accessible cluster shows their count
 
-#### Scenario: Cluster activation changes only the viewport
+#### Scenario: Cluster activation changes the viewport
 
-- GIVEN a cluster with multiple members
-- WHEN the operator activates the cluster
-- THEN the map zooms to the bounds of its members
-- AND no vehicle becomes selected
+- GIVEN a cluster below maximum zoom
+- WHEN the operator activates it
+- THEN the viewport expands to its member bounds
+- AND vehicle selection remains unchanged
 
 #### Scenario: Clusters separate while zooming
 
 - GIVEN members become distinguishable at a closer zoom
 - WHEN the operator zooms in
-- THEN it separates into smaller clusters or individual markers
+- THEN the cluster separates into smaller clusters or markers
 
-#### Scenario: Overlap is resolved at maximum zoom
+#### Scenario: Maximum-zoom overlap fans
 
-- GIVEN multiple markers remain overlapping at maximum zoom
+- GIVEN markers remain overlapping at maximum zoom
 - WHEN the operator activates their cluster
-- THEN the individual markers spiderfy around their shared area
+- THEN every member fans to a deterministic position
+- AND every logical marker retains its source coordinates
 
-### Requirement: Browser-only map behavior remains isolated
+### Requirement: Clustering preserves isolation and responsiveness
 
-Clustering MUST execute only within the client map boundary. Server rendering MUST NOT evaluate browser-only map dependencies, and initialization failures MUST remain confined to the map surface.
+Clustering MUST stay inside the client map boundary and MUST NOT mutate the map runtime. Server rendering MUST NOT evaluate browser-only dependencies. `/live` MUST wait until an isolated browser harness proves the initial 621-point workload responsive.
 
-#### Scenario: Server delivery does not require browser globals
+#### Scenario: Server avoids browser dependencies
 
 - GIVEN server rendering has no browser globals
-- WHEN the server produces the page shell
-- THEN browser-only marker and clustering code is not evaluated
+- WHEN the page shell renders
+- THEN browser-only clustering code is not evaluated
 
-#### Scenario: Client map initialization fails
+#### Scenario: Isolated workload is interactive
 
-- GIVEN the operational view model was composed successfully
-- WHEN the client map layer cannot initialize
-- THEN the failure does not alter operational source data or invoke provider-specific behavior
+- GIVEN the harness displays its initial 621-point workload
+- WHEN clustering, expansion, fan, collapse, and resize are exercised
+- THEN animation and controls remain responsive in a real browser
+
+#### Scenario: Operational interactions stay responsive
+
+- GIVEN the isolated 621-point harness has passed
+- WHEN clustering is integrated into `/live`
+- THEN fleet expansion, checkbox selection, and filters remain responsive
+
+#### Scenario: Failed harness blocks integration
+
+- GIVEN the isolated harness blocks page interaction
+- WHEN `/live` integration is considered
+- THEN clustering MUST remain disconnected from `/live`
 
 ## MODIFIED Requirements
 
@@ -58,49 +70,49 @@ The map MUST create one logical marker per view-model marker and MUST NOT read v
 
 #### Scenario: One logical marker per view-model entry
 
-- GIVEN a map view model with two markers
+- GIVEN a view model with two markers
 - WHEN the map renders
-- THEN two logical markers are placed at their supplied latitude and longitude
-- AND they MAY appear within one visible cluster
+- THEN two logical markers use their supplied coordinates
+- AND they MAY share one visible cluster
 
 #### Scenario: Marker exposes its label
 
 - GIVEN a marker with a label
-- WHEN its individual marker is rendered
-- THEN that label is reachable as the marker's accessible title
+- WHEN its individual marker renders
+- THEN that label is its accessible title
 
 #### Scenario: Heading orients the marker
 
 - GIVEN a marker with `headingDeg` of 90
-- WHEN its individual marker is rendered
-- THEN the marker icon is rotated by 90 degrees
+- WHEN its individual marker renders
+- THEN its icon is rotated by 90 degrees
 
 #### Scenario: Missing heading renders an unrotated marker
 
 - GIVEN a marker without `headingDeg`
-- WHEN its individual marker is rendered
-- THEN the marker icon is rendered without rotation
+- WHEN its individual marker renders
+- THEN its icon is unrotated
 
 ### Requirement: The map viewport follows the rendered markers
 
 The map MUST frame all logical-marker coordinates rather than a fixed location. Clustering MUST NOT change fit bounds, marker-change refitting, or resize correction.
 
-(Previously: the viewport followed directly rendered markers without defining clustering or resize preservation.)
+(Previously: the viewport followed directly rendered markers without clustering or resize guarantees.)
 
 #### Scenario: Viewport fits all markers
 
-- GIVEN a map view model with markers in different regions
+- GIVEN markers in different regions
 - WHEN the map renders
-- THEN the viewport is fitted to bounds covering every logical marker
+- THEN the viewport fits every logical marker
 
 #### Scenario: Marker changes refit the viewport
 
-- GIVEN the map has rendered a set of logical markers
-- WHEN the marker set changes
-- THEN the viewport is refitted to the new logical-marker bounds
+- GIVEN the map has logical markers
+- WHEN their set changes
+- THEN the viewport refits their source-coordinate bounds
 
 #### Scenario: Container resize preserves map correctness
 
 - GIVEN the map container changes size
-- WHEN the resize is observed
-- THEN the map recalculates its rendered size without changing logical markers
+- WHEN resize is observed
+- THEN the map recalculates size without changing logical markers
