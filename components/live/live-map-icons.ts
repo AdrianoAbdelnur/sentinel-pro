@@ -15,7 +15,7 @@ export function createLiveMapVehicleIcon(
   const label = escapeHtml(marker.label);
 
   return divIcon({
-    html: `<span role="img" aria-label="${label}" class="flex size-7 items-center justify-center rounded-full border-2 border-cyan-300 bg-slate-950 shadow-[0_0_12px_rgba(34,211,238,0.9)]"><span aria-hidden="true" class="rotate-[var(--marker-rotation,0deg)] text-base leading-none text-cyan-300"${rotation}>&#9650;</span></span>`,
+    html: `<span role="img" aria-label="${label}" class="flex size-7 items-center justify-center rounded-full border-2 border-blue-500 bg-blue-950 shadow-[0_0_12px_rgba(37,99,235,0.9)]"><span aria-hidden="true" class="rotate-[var(--marker-rotation,0deg)] text-base leading-none text-blue-400"${rotation}>&#9650;</span></span>`,
     className: "",
     iconSize: [VEHICLE_ICON_SIZE, VEHICLE_ICON_SIZE],
     iconAnchor: [VEHICLE_ICON_SIZE / 2, VEHICLE_ICON_SIZE / 2],
@@ -26,7 +26,7 @@ export function createLiveMapClusterIcon(count: number): DivIcon {
   const label = `Grupo de ${count} vehículos`;
 
   return divIcon({
-    html: `<span role="img" aria-label="${label}" class="flex size-[42px] items-center justify-center rounded-full border-2 border-cyan-300 bg-slate-950 font-mono text-sm font-bold text-cyan-200 shadow-[0_0_18px_rgba(34,211,238,0.95)]">${count}</span>`,
+    html: `<span role="img" aria-label="${label}" class="flex size-[42px] items-center justify-center rounded-full border-2 border-blue-500 bg-blue-950 font-mono text-sm font-bold text-blue-400 shadow-[0_0_18px_rgba(37,99,235,0.95)]">${count}</span>`,
     className: "",
     iconSize: [CLUSTER_ICON_SIZE, CLUSTER_ICON_SIZE],
     iconAnchor: [CLUSTER_ICON_SIZE / 2, CLUSTER_ICON_SIZE / 2],

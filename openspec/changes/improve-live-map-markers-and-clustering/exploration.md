@@ -9,7 +9,7 @@ The first clustering implementation is not viable. `leaflet.markercluster` initi
 
 ### Affected Areas
 - `components/live/live-map.tsx` — keep normal React Leaflet markers, add viewport observation, render cluster results, and preserve fit-bounds/resize behavior.
-- `components/live/live-map-icons.ts` — provide provider-neutral navy/cyan vehicle and count icons without plugin CSS.
+- `components/live/live-map-icons.ts` — provide provider-neutral deep-navy and saturated royal-blue vehicle and count icons without plugin CSS.
 - `components/live/live-map-clustering.ts` — translate `LiveMapMarker` values to GeoJSON, build/query the immutable Supercluster index, and discriminate point/cluster results.
 - `components/live/live-map-overlap-layout.ts` — derive deterministic max-zoom fan/spider positions without mutating Leaflet markers or source coordinates.
 - `components/live/live-map*.test.tsx` and pure helper tests — cover index queries, expansion, overlap layout, normal marker rendering, titles, headings, and viewport regressions.
@@ -36,7 +36,7 @@ The first clustering implementation is not viable. `leaflet.markercluster` initi
 ### Recommendation
 Use `supercluster@8.0.1` directly and keep React Leaflet as the only map renderer. Convert each `LiveMapMarker` into a GeoJSON point whose properties contain only a stable `vehicleId`; resolve current labels/headings from a separate `vehicleId` lookup so non-positional updates do not require a new spatial index. Memoize the immutable index by a stable coordinate signature, not by zoom.
 
-Observe the map's current bounds and integer zoom only after `moveend` and `zoomend`. Query `getClusters([west, south, east, north], zoom)` and render each result as a normal React Leaflet `Marker`: individual results use the navy/cyan directional icon; cluster results use the same visual language with `point_count` and an accessible Spanish vehicle-count label. No provider data enters the clustering boundary.
+Observe the map's current bounds and integer zoom only after `moveend` and `zoomend`. Query `getClusters([west, south, east, north], zoom)` and render each result as a normal React Leaflet `Marker`: individual results use the deep-navy and saturated royal-blue directional icon; cluster results use the same visual language with `point_count` and an accessible Spanish vehicle-count label. No provider data enters the clustering boundary.
 
 On cluster activation below maximum map zoom:
 

@@ -47,7 +47,7 @@ No provider, device, or source identity enters this delivery boundary.
 - deterministic pixel offsets for sorted overlapping IDs.
 
 Rendered fan entries hold both immutable source coordinates and derived display
-coordinates. Provider-neutral icon helpers create navy/cyan directional markers
+coordinates. Provider-neutral icon helpers create deep-navy and saturated royal-blue directional markers
 and accessible Spanish count icons.
 
 ## File Changes

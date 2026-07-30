@@ -33,9 +33,17 @@ vi.mock("react-leaflet", () => ({
   ),
   Polyline: ({
     positions,
+    pathOptions,
   }: {
     positions: [[number, number], [number, number]];
-  }) => <span data-testid="fan-leg" data-positions={JSON.stringify(positions)} />,
+    pathOptions: { color: string };
+  }) => (
+    <span
+      data-testid="fan-leg"
+      data-positions={JSON.stringify(positions)}
+      data-color={pathOptions.color}
+    />
+  ),
 }));
 
 vi.mock("./use-live-map-clusters", () => ({
@@ -127,6 +135,10 @@ describe("LiveMapMarkerLayer", () => {
 
     expect(screen.getAllByTestId("declarative-marker")).toHaveLength(2);
     expect(screen.getAllByTestId("fan-leg")).toHaveLength(2);
+    expect(screen.getAllByTestId("fan-leg")[0]).toHaveAttribute(
+      "data-color",
+      "#2563eb",
+    );
     expect(screen.getByTitle("Unit 101")).toBeInTheDocument();
     expect(screen.getByTitle("Unit 201")).toBeInTheDocument();
   });
