@@ -8,7 +8,7 @@ Normalize the verified full Howen roster behind the operational-source contract.
 
 ### Requirement: Howen authentication preserves the complete session
 
-The adapter MUST hash the configured raw password with MD5 before login, MUST retain `token`, `pid`, and `JSESSIONID`, MUST reuse valid in-memory sessions, and MUST coalesce concurrent logins. It MUST reauthenticate and retry a roster request at most once after recognized session expiry.
+The adapter MUST hash the configured raw password with MD5 before login, MUST retain `token`, `pid`, and `JSESSIONID`, MUST reuse one process-local session, and MUST coalesce concurrent logins. Because Howen expires tokens after 30 minutes without interface interaction, each successful authenticated call MUST update local session activity. The next request after a conservative inactivity threshold MUST obtain a new session. Provider codes `10004` and `10023` MUST invalidate the session and permit exactly one reauthentication and roster retry. The adapter MUST NOT create a permanent refresh timer or persist sessions to disk.
 
 #### Scenario: Raw credentials establish a reusable session
 
@@ -23,6 +23,20 @@ The adapter MUST hash the configured raw password with MD5 before login, MUST re
 - WHEN the adapter reloads the session
 - THEN it retries the roster once
 - AND repeated expiry becomes a translated failure
+
+#### Scenario: Active use keeps the session reusable
+
+- GIVEN successful authenticated requests occur before the inactivity threshold
+- WHEN another roster snapshot is requested
+- THEN the current process-local session is reused
+- AND no background refresh loop is started
+
+#### Scenario: Inactivity renews on demand
+
+- GIVEN no authenticated interface call succeeds before the conservative inactivity threshold
+- WHEN the next roster snapshot is requested
+- THEN the adapter obtains a new session before requesting the roster
+- AND no expired session is read from or written to disk
 
 ### Requirement: The complete roster is normalized
 

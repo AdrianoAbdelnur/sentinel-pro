@@ -14,7 +14,7 @@
 | Reject a source atomically on any fleet, vehicle, or device ID collision | Partially merge or overwrite | Configured order is deterministic: earlier accepted sources remain, the colliding source leaks no data, and one generic warning identifies it. The same rule covers duplicates inside one candidate state. |
 | Remove unused `Customer` plus `customerId` from `Fleet` and `Vehicle`; make the secondary label optional | Preserve tenancy placeholders or duplicate the plate | Tenancy is unapproved. Howen provides only the required headline. |
 | Keep Howen infrastructure server-only | Browser access or disk sessions | Credentials and sessions never cross the RSC boundary. |
-| Cache one process-local session and one shared login promise; retry once after `10004`/`10023` | Timers or unbounded retries | Prevents login storms and loops. The session retains `token`, `pid`, and `JSESSIONID`. |
+| Cache one activity-aware process-local session and one shared login promise; retry once after `10004`/`10023` | Timers, fixed absolute expiry, disk persistence, or unbounded retries | Howen documents expiry after 30 minutes without interface interaction. Successful authenticated calls refresh local activity; the next request renews after a conservative inactivity threshold. This prevents login storms and loops while retaining `token`, `pid`, and `JSESSIONID`. |
 | Validate envelopes and records before mapping | Cast JSON or parse in UI | Invalid `deviceno` rejects only that record; complete-roster requests use `pageNum: -1`, `pageCount: -1`. |
 | Use namespaced IDs seeded by verified provider IDs | Raw or generated IDs | `howen:fleet:<fleetid>`, `howen:vehicle:<deviceno>`, and `howen:device:<deviceno>` are stable and collision-resistant. |
 | Map only verified meanings | Legacy aliases and inferred labels | `fleetname` labels `fleetid`; `devicename` becomes the `Vehicle.plate` headline; `deviceno` seeds internal IDs and `Device.externalId` but stays hidden from delivery; no secondary Howen label. Channel count, `accessmode >= 1`, finite coordinates, speed, and direction map directly. |
@@ -33,7 +33,7 @@ app/live/page.tsx -> configured OperationalSource[]
                     LiveScreen(state, warnings)
 ```
 
-Howen's path is `env -> config -> MD5(password) -> login -> session -> findAll -> validation -> mapper`. Neutral failure categories are reduced to `source-unavailable` warnings.
+Howen's path is `env -> config -> MD5(password) -> login -> session -> findAll -> validation -> mapper`. The login is single-flight. Normal successful authenticated requests update session activity; no timer runs. After conservative inactivity, the next request obtains a new session. Provider codes `10004` (not logged in) and `10023` (access-token error) invalidate the session and permit exactly one re-login and retry. Neutral failure categories are reduced to `source-unavailable` warnings.
 
 ## File Changes
 

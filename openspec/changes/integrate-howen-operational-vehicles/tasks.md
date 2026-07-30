@@ -47,9 +47,9 @@ Each PR targets `main` after its predecessor merges; split before review if its 
 
 ## Phase 4: Howen Transport and Source
 
-- [ ] 4.1 **RED:** Create `session.test.ts`, `client.test.ts`, and `howen-operational-source.test.ts` for MD5 login, token/pid/cookie retention, single-flight reuse, `-1/-1` request, one `10004`/`10023` retry, timeout, and translated failures.
-- [ ] 4.2 **GREEN:** Create server-only `config.ts`, `session.ts`, `client.ts`, and `howen-operational-source.ts`.
-- [ ] 4.3 **REFACTOR:** Ensure errors/logs expose no credentials, sessions, raw statuses, or payloads; run `integrations/howen` tests.
+- [x] 4.1 **RED:** Create `session.test.ts`, `client.test.ts`, and `howen-operational-source.test.ts` for MD5 login, token/pid/cookie retention, activity-aware single-flight reuse, on-demand renewal after inactivity, `-1/-1` request, one `10004`/`10023` retry, timeout, and translated failures.
+- [x] 4.2 **GREEN:** Create server-only `config.ts`, `session.ts`, `client.ts`, and `howen-operational-source.ts`.
+- [x] 4.3 **REFACTOR:** Ensure errors/logs expose no credentials, sessions, raw statuses, or payloads; run `integrations/howen` tests.
 
 ## Phase 5: Composition, Warning UI, and Rollout
 
