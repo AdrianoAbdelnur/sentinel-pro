@@ -35,8 +35,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2: Mandatory Browser Gate — PR 2
 
-- [ ] 2.1 RED: Test deterministic 621-point data, development-only routing, expansion/fan/collapse, heartbeat, click feedback, resize, and timings.
-- [ ] 2.2 GREEN: Create `app/dev/live-map-clustering-harness/page.tsx` plus harness component/data files using the real Supercluster helpers and Turbopack.
+- [x] 2.1 RED: Test deterministic 621-point data, development-only routing, expansion/fan/collapse, heartbeat, click feedback, resize, and timings.
+- [x] 2.2 GREEN: Create `app/dev/live-map-clustering-harness/page.tsx` plus harness component/data files using the real Supercluster helpers and Turbopack.
 - [ ] 2.3 Verify in a real browser and write `harness-report.md`: build `<50 ms`, query p95 `<16 ms`, no clustering long task `>=50 ms`, and control feedback by the next animation frame.
 - [ ] 2.4 GATE: If the harness freezes or any threshold fails, STOP before modifying `/live`; record failure and leave direct markers connected.
 
