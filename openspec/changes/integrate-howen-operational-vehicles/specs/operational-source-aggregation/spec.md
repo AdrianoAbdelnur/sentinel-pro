@@ -23,6 +23,18 @@ The application MUST load every enabled operational source independently and mer
 - THEN successful state remains available
 - AND a generic warning identifies the failed source label
 
+### Requirement: Identity collisions reject one source atomically
+
+The application MUST process successful sources in configured order. If a candidate state duplicates a fleet, vehicle, or device ID internally or collides with an already accepted ID, the entire candidate source MUST be rejected with one generic warning. Earlier accepted state MUST remain unchanged.
+
+#### Scenario: Later source collides
+
+- GIVEN an earlier source was accepted and a later source contains colliding and unique records
+- WHEN aggregation completes
+- THEN the earlier source remains
+- AND none of the later source records leak into the state
+- AND one provider-neutral warning identifies the later source
+
 ### Requirement: Aggregate failure retains warnings
 
 The application MUST return an empty roster only when every enabled source fails and MUST retain one generic warning for each failed source.

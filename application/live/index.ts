@@ -1,3 +1,4 @@
+export * from "./aggregate-operational-sources";
 export * from "./build-live-bottom-panel-view-model";
 export * from "./build-live-map-view-model";
 export * from "./build-live-page-view-model";

@@ -35,9 +35,9 @@ Each PR targets `main` after its predecessor merges; split before review if its 
 
 ## Phase 2: Source Contracts and Aggregation
 
-- [ ] 2.1 **RED:** Create `application/live/aggregate-operational-sources.test.ts` for merging, ID collisions, mixed/all failure, warnings, and no fixture fallback.
-- [ ] 2.2 **GREEN:** Add async source/identity/result/warning contracts in `application/live/contracts.ts`; create `aggregate-operational-sources.ts`; export through `index.ts`.
-- [ ] 2.3 **REFACTOR:** Make `integrations/live/in-memory/in-memory-live-data-source.ts` explicit development/test-only and separate bottom-panel fixtures; run application/in-memory tests.
+- [x] 2.1 **RED:** Create `application/live/aggregate-operational-sources.test.ts` for merging, ID collisions, mixed/all failure, warnings, and no fixture fallback.
+- [x] 2.2 **GREEN:** Add async source/identity/result/warning contracts in `application/live/contracts.ts`; create `aggregate-operational-sources.ts`; export through `index.ts`.
+- [x] 2.3 **REFACTOR:** Make `integrations/live/in-memory/in-memory-live-data-source.ts` explicit development/test-only and separate bottom-panel fixtures; run application/in-memory tests.
 
 ## Phase 3: Verified Howen Normalization
 

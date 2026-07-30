@@ -1,10 +1,10 @@
 import type { Device, DeviceTelemetry, Vehicle } from "@/domain/live";
 import type {
   LiveBottomPanelTab,
-  LiveDataSource,
   LiveFleetState,
   LiveState,
   LiveVehicleState,
+  OperationalSource,
 } from "@/application/live";
 
 type FixtureTelemetry = Omit<DeviceTelemetry, "gpsAt"> & {
@@ -206,7 +206,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   },
 ];
 
-const bottomPanelTabs: LiveBottomPanelTab[] = [
+const bottomPanelFixtures: LiveBottomPanelTab[] = [
   {
     key: "status",
     columns: [{ key: "speed" }, { key: "ignition" }, { key: "network" }],
@@ -288,15 +288,26 @@ function materializeLiveVehicles(nowMs: number): LiveVehicleState[] {
   }));
 }
 
-export const inMemoryLiveDataSource: LiveDataSource = {
-  readLiveState(): LiveState {
-    return structuredClone({
-      fleets,
-      liveVehicles: materializeLiveVehicles(Date.now()),
-    });
-  },
+export function readInMemoryLiveStateFixture(): LiveState {
+  return structuredClone({
+    fleets,
+    liveVehicles: materializeLiveVehicles(Date.now()),
+  });
+}
 
-  readBottomPanelTabs(): LiveBottomPanelTab[] {
-    return structuredClone(bottomPanelTabs);
+export function readInMemoryBottomPanelFixtures(): LiveBottomPanelTab[] {
+  return structuredClone(bottomPanelFixtures);
+}
+
+export const inMemoryOperationalSource: OperationalSource = {
+  identity: {
+    id: "development-memory",
+    label: "Development fixtures",
+  },
+  async loadSnapshot() {
+    return {
+      kind: "success",
+      state: readInMemoryLiveStateFixture(),
+    };
   },
 };

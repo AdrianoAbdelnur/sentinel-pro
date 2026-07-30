@@ -155,9 +155,31 @@ export type LiveState = {
   liveVehicles: LiveVehicleState[];
 };
 
-export type LiveDataSource = {
-  readLiveState: () => LiveState;
-  readBottomPanelTabs: () => LiveBottomPanelTab[];
+export type OperationalSourceIdentity = {
+  id: string;
+  label: string;
+};
+
+export type OperationalSourceFailureCode = "unavailable";
+
+export type OperationalSourceResult =
+  | { kind: "success"; state: LiveState }
+  | { kind: "failure"; code: OperationalSourceFailureCode };
+
+export type OperationalSource = {
+  identity: OperationalSourceIdentity;
+  loadSnapshot(): Promise<OperationalSourceResult>;
+};
+
+export type OperationalSourceWarning = {
+  code: "source-unavailable";
+  sourceId: string;
+  sourceLabel: string;
+};
+
+export type OperationalSnapshot = {
+  state: LiveState;
+  warnings: OperationalSourceWarning[];
 };
 
 export type BuildLivePageViewModelInput = {

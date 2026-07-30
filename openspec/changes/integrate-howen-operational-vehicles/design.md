@@ -11,6 +11,7 @@
 | Define one async port per source plus `aggregateOperationalSources` | One selected source or page-level merging | The application owns partial availability; delivery only wires sources. |
 | Return merged state and warnings even when every source fails | Throw or all-or-nothing result | Successful sources survive independently; total failure is an empty state with all warnings. |
 | Give each source stable `id` and operator-facing `label` | Infer identity from provider payloads | Warnings identify the failed connection without exposing raw errors. |
+| Reject a source atomically on any fleet, vehicle, or device ID collision | Partially merge or overwrite | Configured order is deterministic: earlier accepted sources remain, the colliding source leaks no data, and one generic warning identifies it. The same rule covers duplicates inside one candidate state. |
 | Remove unused `Customer` plus `customerId` from `Fleet` and `Vehicle`; make the secondary label optional | Preserve tenancy placeholders or duplicate the plate | Tenancy is unapproved. Howen provides only the required headline. |
 | Keep Howen infrastructure server-only | Browser access or disk sessions | Credentials and sessions never cross the RSC boundary. |
 | Cache one process-local session and one shared login promise; retry once after `10004`/`10023` | Timers or unbounded retries | Prevents login storms and loops. The session retains `token`, `pid`, and `JSESSIONID`. |

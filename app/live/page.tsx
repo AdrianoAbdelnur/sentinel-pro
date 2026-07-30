@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { LiveScreen } from "@/components/live/live-screen";
-import { inMemoryLiveDataSource } from "@/integrations/live/in-memory/in-memory-live-data-source";
+import {
+  readInMemoryBottomPanelFixtures,
+  readInMemoryLiveStateFixture,
+} from "@/integrations/live/in-memory/in-memory-live-data-source";
 
 import { readLiveRuntimeConfig } from "./live-runtime-config";
 
@@ -13,8 +16,8 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default function LivePage() {
-  const liveState = inMemoryLiveDataSource.readLiveState();
-  const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
+  const liveState = readInMemoryLiveStateFixture();
+  const tabs = readInMemoryBottomPanelFixtures();
 
   const { staleAfterMs } = readLiveRuntimeConfig();
   const nowMs = Date.now();
