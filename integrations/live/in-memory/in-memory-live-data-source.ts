@@ -7,8 +7,6 @@ import type {
   LiveVehicleState,
 } from "@/application/live";
 
-const CUSTOMER_ID = "customer-demo";
-
 type FixtureTelemetry = Omit<DeviceTelemetry, "gpsAt"> & {
   gpsAgoMs?: number;
 };
@@ -46,7 +44,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-101",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones",
       label: "Unidad 101",
       plate: "AE101GH",
@@ -77,7 +74,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-102",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones",
       label: "Unidad 102",
       plate: "AE102GH",
@@ -105,7 +101,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-201",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones-rio-tinto",
       label: "Unidad 201",
       plate: "AE201JK",
@@ -135,7 +130,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-202",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones-rio-tinto",
       label: "Unidad 202",
       plate: "AE202JK",
@@ -162,7 +156,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-301",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 301",
       plate: "AE301LM",
@@ -186,7 +179,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-302",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 302",
       plate: "AE302LM",
@@ -205,7 +197,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-303",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 303",
       plate: "AE303LM",

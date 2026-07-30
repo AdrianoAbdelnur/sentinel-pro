@@ -7,7 +7,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-1",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 101",
       isActive: true,
@@ -16,7 +15,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-2",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 102",
       isActive: true,

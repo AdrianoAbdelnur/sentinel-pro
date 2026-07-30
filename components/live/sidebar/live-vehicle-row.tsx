@@ -14,11 +14,11 @@ type LiveVehicleRowProps = {
 
 export function LiveVehicleRow({ vehicle, onToggle }: LiveVehicleRowProps) {
   const tone = VEHICLE_STATUS_TONE[vehicle.status];
-  const headline = vehicle.plate ?? vehicle.label;
-  const showSecondaryLabel = Boolean(vehicle.plate);
-  const checkboxName = vehicle.plate
+  const headline = vehicle.plate ?? vehicle.label ?? MISSING_VALUE;
+  const showSecondaryLabel = Boolean(vehicle.plate && vehicle.label);
+  const checkboxName = vehicle.plate && vehicle.label
     ? `${vehicle.plate} · ${vehicle.label}`
-    : vehicle.label;
+    : headline;
 
   return (
     <li className="group relative">

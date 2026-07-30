@@ -17,7 +17,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-1",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 101",
         plate: "ABC123",

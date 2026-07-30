@@ -45,7 +45,7 @@ export type LiveFleetNode = {
 export type LiveVehicleNode = {
   vehicleId: string;
   plate?: string;
-  label: string;
+  label?: string;
   status: VehicleStatus;
   speedKmH?: number;
   lastReportAt?: string;

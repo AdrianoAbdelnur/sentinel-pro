@@ -7,24 +7,16 @@ Define the normalized internal domain contracts that live features will use rega
 ## Operational entities
 
 ```ts
-type Customer = {
-  id: string;
-  label: string;
-  isActive: boolean;
-};
-
 type Fleet = {
   id: string;
-  customerId: string;
   label: string;
   isActive: boolean;
 };
 
 type Vehicle = {
   id: string;
-  customerId: string;
   fleetId: string;
-  label: string;
+  label?: string;
   plate?: string;
   internalCode?: string;
   isActive: boolean;
@@ -65,6 +57,9 @@ type LiveSelectionState = {
 ## Rules
 
 - `Vehicle` and `Device` are distinct entities.
+- Customer and tenant ownership are deferred to a separate design.
+- `Vehicle.label` is optional because a verified plate or headline may be the
+  only business-facing identifier supplied by a provider.
 - Provider raw identifiers MUST NOT become the business domain.
 - `origin` and `externalId` exist for traceability, not for UI business logic.
 - Telemetry drives map state; playback is a separate capability.
@@ -95,13 +90,12 @@ Resolution rules:
 
 ## Operational flow
 
-1. Load customers
-2. Load fleets for a customer
-3. Load vehicles for a fleet
-4. Resolve linked devices
-5. Resolve live telemetry
-6. Reflect selection in sidebar and map
-7. Open playback only after explicit operator action
+1. Load fleets
+2. Load vehicles for a fleet
+3. Resolve linked devices
+4. Resolve live telemetry
+5. Reflect selection in sidebar and map
+6. Open playback only after explicit operator action
 
 ## Consequence
 

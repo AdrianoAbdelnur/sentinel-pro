@@ -29,9 +29,9 @@ Each PR targets `main` after its predecessor merges; split before review if its 
 
 ## Phase 1: Live-Core Prerequisite
 
-- [ ] 1.1 **RED:** Update `domain/live/entities.test.ts` to assert no `Customer`/`customerId` on `Fleet`/`Vehicle` and an optional label.
-- [ ] 1.2 **GREEN:** Remove those contracts from `domain/live/entities.ts`; make the label optional and update affected consumers/fixtures.
-- [ ] 1.3 **REFACTOR:** Update affected docs (`docs/architecture/03-live-core-domain.md`); verify no tenant model exists; run focused tests.
+- [x] 1.1 **RED:** Update `domain/live/entities.test.ts` to assert no `Customer`/`customerId` on `Fleet`/`Vehicle` and an optional label.
+- [x] 1.2 **GREEN:** Remove those contracts from `domain/live/entities.ts`; make the label optional and update affected consumers/fixtures.
+- [x] 1.3 **REFACTOR:** Update affected docs (`docs/architecture/03-live-core-domain.md`); verify no tenant model exists; run focused tests.
 
 ## Phase 2: Source Contracts and Aggregation
 

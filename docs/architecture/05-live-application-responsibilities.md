@@ -151,7 +151,7 @@ Application MUST:
 
 Integrations MUST:
 
-- normalize customer, fleet, vehicle, device, and telemetry inputs
+- normalize fleet, vehicle, device, and telemetry inputs
 - expose playback capability per device or vehicle
 - resolve tile renderer, source, and status
 - translate provider failures into application-usable results

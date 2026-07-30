@@ -23,7 +23,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-1",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 101",
       plate: "ABC123",
@@ -49,7 +48,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-2",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 102",
       plate: "XYZ789",
@@ -72,7 +70,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-3",
-      customerId: "customer-1",
       fleetId: "fleet-south",
       label: "Unit 201",
       isActive: false,
@@ -278,17 +275,6 @@ describe("buildLiveSidebarViewModel", () => {
         },
       },
     },
-    {
-      field: "unrelated customer identifier",
-      searchTerm: "secret-customer-id",
-      liveVehicle: {
-        ...liveVehicles[0],
-        vehicle: {
-          ...liveVehicles[0].vehicle,
-          customerId: "SECRET-CUSTOMER-ID",
-        },
-      },
-    },
   ])("does not match a vehicle by its $field", ({ liveVehicle, searchTerm }) => {
     const result = build({
       liveVehicles: [liveVehicle],
@@ -431,7 +417,6 @@ describe("buildLiveSidebarViewModel", () => {
         {
           vehicle: {
             id: "vehicle-offline-no-speed",
-            customerId: "customer-1",
             fleetId: "fleet-solo",
             label: "No Speed Unit",
             isActive: true,
@@ -460,7 +445,6 @@ describe("buildLiveSidebarViewModel", () => {
         {
           vehicle: {
             id: "vehicle-zero-speed",
-            customerId: "customer-1",
             fleetId: "fleet-solo",
             label: "Idle Unit",
             isActive: true,

@@ -55,7 +55,10 @@ export function LiveScreen({ liveState, tabs, nowMs, staleAfterMs }: LiveScreenP
   const vehicleLabels = useMemo(
     () =>
       Object.fromEntries(
-        liveState.liveVehicles.map(({ vehicle }) => [vehicle.id, vehicle.label]),
+        liveState.liveVehicles.map(({ vehicle }) => [
+          vehicle.id,
+          vehicle.label ?? vehicle.plate ?? "—",
+        ]),
       ),
     [liveState],
   );

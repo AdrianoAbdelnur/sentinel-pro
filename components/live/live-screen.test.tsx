@@ -49,7 +49,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-101",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 101",
         plate: "ABC123",
@@ -73,7 +72,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-102",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 102",
         plate: "XYZ789",
@@ -84,7 +82,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-201",
-        customerId: "customer-1",
         fleetId: "fleet-south",
         label: "Unit 201",
         plate: "DEF456",

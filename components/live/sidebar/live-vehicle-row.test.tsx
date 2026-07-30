@@ -34,6 +34,28 @@ describe("LiveVehicleRow", () => {
     expect(screen.getAllByText("Unit 101")).toHaveLength(1);
   });
 
+  it("renders only the plate when the secondary label is absent", () => {
+    const vehicle: LiveVehicleNode = { ...baseVehicle, label: undefined };
+    render(<LiveVehicleRow vehicle={vehicle} onToggle={vi.fn()} />);
+
+    expect(screen.getByText("ABC123")).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: "ABC123" }),
+    ).toBeInTheDocument();
+  });
+
+  it("renders the missing-value marker when no visible identifier is available", () => {
+    const vehicle: LiveVehicleNode = {
+      ...baseVehicle,
+      label: undefined,
+      plate: undefined,
+    };
+    render(<LiveVehicleRow vehicle={vehicle} onToggle={vi.fn()} />);
+
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "—" })).toBeInTheDocument();
+  });
+
   it("renders the status badge with the Spanish word for the status", () => {
     render(<LiveVehicleRow vehicle={baseVehicle} onToggle={vi.fn()} />);
 
