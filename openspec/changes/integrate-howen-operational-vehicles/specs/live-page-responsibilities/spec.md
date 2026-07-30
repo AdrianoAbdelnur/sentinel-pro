@@ -27,6 +27,20 @@ The system MUST keep provider-specific behavior outside UI and delivery. Applica
 - THEN all configured sources are wired into one application aggregation
 - AND no polling, timer, or background refresh starts
 
+#### Scenario: Local development compares real and fixture data
+
+- GIVEN `/live` runs with `NODE_ENV=development`
+- WHEN its composition root selects operational sources
+- THEN Howen and memory participate in the same aggregation
+- AND either source can succeed when the other fails
+
+#### Scenario: Production excludes fixture delivery
+
+- GIVEN `/live` runs outside local development
+- WHEN its composition root selects data and bottom-panel inputs
+- THEN no in-memory operational source is configured
+- AND no fixture bottom-panel row crosses the client boundary
+
 #### Scenario: Partial failure preserves the roster
 
 - GIVEN one source fails while another succeeds

@@ -19,12 +19,14 @@
 | Use namespaced IDs seeded by verified provider IDs | Raw or generated IDs | `howen:fleet:<fleetid>`, `howen:vehicle:<deviceno>`, and `howen:device:<deviceno>` are stable and collision-resistant. |
 | Map only verified meanings | Legacy aliases and inferred labels | `fleetname` labels `fleetid`; `devicename` becomes the `Vehicle.plate` headline; `deviceno` seeds internal IDs and `Device.externalId` but stays hidden from delivery; no secondary Howen label. Channel count, `accessmode >= 1`, finite coordinates, speed, and direction map directly. |
 | Parse zone-less `dtu` as `America/Argentina/Buenos_Aires` before ISO conversion | Treat as UTC or omit | The authorized server confirmed this timezone; explicit conversion prevents a three-hour shift. |
-| Configure sources explicitly; allow memory only when explicitly selected outside production | Failure fallback to fixtures | Production failures stay visible and honest. |
+| Compose Howen plus memory automatically only in local development | Production fixtures or failure fallback | Local development can compare real and hardcoded data; production failures stay visible and honest. |
+| Use `HOWEN` as the canonical provider value and source label | Lowercase storage plus CSS uppercase | Filters, badges, real records, demo Howen records, and warnings share one identity. |
+| Reuse one lazily created Howen source per server process | Recreate session/client on every request | Page requests share the Phase 4 session lifecycle and avoid needless logins. |
 
 ## Data Flow
 
 ```text
-app/live/page.tsx -> configured OperationalSource[]
+app/live/page.tsx -> environment-selected OperationalSource[]
                          |
                  aggregateOperationalSources
                    / success       \ failure
@@ -33,37 +35,10 @@ app/live/page.tsx -> configured OperationalSource[]
                     LiveScreen(state, warnings)
 ```
 
+Development selects Howen plus development memory. Production selects Howen
+only. Bottom-panel fixture tabs and rows are development-only.
+
 Howen's path is `env -> config -> MD5(password) -> login -> session -> findAll -> validation -> mapper`. The login is single-flight. Normal successful authenticated requests update session activity; no timer runs. After conservative inactivity, the next request obtains a new session. Provider codes `10004` (not logged in) and `10023` (access-token error) invalidate the session and permit exactly one re-login and retry. Neutral failure categories are reduced to `source-unavailable` warnings.
-
-## File Changes
-
-| File | Action | Description |
-|---|---|---|
-| `domain/live/entities.ts`, exports, and affected tests/fixtures | Modify | Remove unused `Customer`, both `customerId` fields, and permit an absent secondary vehicle label. |
-| `application/live/contracts.ts`, `aggregate-operational-sources.ts`, `index.ts` | Modify/Create | Add source, result, warning, aggregate contracts and independent merge use case. |
-| `integrations/howen/config.ts`, `session.ts`, `client.ts`, `responses.ts`, `map-howen-roster.ts`, `parse-howen-timestamp.ts`, `howen-operational-source.ts` | Create | Server-only config, MD5 login, session reuse, validation, mapping, timezone conversion, failure translation. |
-| `integrations/live/in-memory/in-memory-live-data-source.ts` | Modify | Separate async fixture source from bottom-panel fixtures; allow explicit development/test use only. |
-| `app/live/live-runtime-config.ts`, `create-operational-sources.ts`, `page.tsx` | Modify/Create | Read enabled sources, validate Howen config, wire sources, aggregate once. |
-| `components/live/live-screen.tsx`, `live-source-warnings.tsx`, `live-copy.ts`, sidebar presenters | Modify/Create | Render generic warnings and omit absent secondary labels without provider branching. |
-| `.env.local`, `.env.example`, `docs/architecture/03-live-core-domain.md`, `05-live-application-responsibilities.md`, `06-live-delivery-layer.md` | Modify | Secure authorized config and document the narrow pre-tenancy cleanup, source contracts, and composition. |
-
-## Interfaces / Contracts
-
-```ts
-type OperationalSource = {
-  identity: { id: string; label: string };
-  loadSnapshot(): Promise<OperationalSourceResult>;
-};
-
-type OperationalSourceResult =
-  | { kind: "success"; state: LiveState }
-  | { kind: "failure"; code: OperationalSourceFailureCode };
-
-type OperationalSnapshot = {
-  state: LiveState;
-  warnings: { code: "source-unavailable"; sourceId: string; sourceLabel: string }[];
-};
-```
 
 ## Testing Strategy
 
@@ -78,8 +53,4 @@ Apply follows RED-GREEN-REFACTOR and must reread relevant Next.js 16 local docs 
 
 ## Migration / Rollout
 
-No data migration. Copy the authorized Example-sentinel account into gitignored `.env.local`; `.env.example` contains names only. Enable Howen, verify 621 vehicles/119 fleets, then deploy. Roll back by disabling Howen while retaining other sources; never use memory in production.
-
-## Open Questions
-
-None.
+No data migration. Copy the authorized Example-sentinel account into gitignored `.env.local`; `.env.example` contains names only. Local development renders Howen and memory together. Verify the complete current roster, then deploy. Production contains only real sources. Roll back by removing Howen composition while retaining the aggregator; never use memory in production.

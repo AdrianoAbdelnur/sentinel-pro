@@ -53,7 +53,7 @@ Each PR targets `main` after its predecessor merges; split before review if its 
 
 ## Phase 5: Composition, Warning UI, and Rollout
 
-- [ ] 5.1 Read relevant Next.js 16 local docs; **RED:** test `live-runtime-config.ts`, `create-operational-sources.ts`, `page.tsx`, `live-screen.tsx`, and new `live-source-warnings.tsx` for explicit sources, partial/total warnings, retained roster, hidden technical IDs, and production no-fallback.
-- [ ] 5.2 **GREEN:** Wire one aggregation in `app/live`; render generic warnings; update `live-copy.ts` and presenters without provider branching.
-- [ ] 5.3 **REFACTOR/CONFIG:** Copy the authorized account from Example-sentinel into gitignored `.env.local` without printing secrets; document names only in `.env.example` and update architecture docs `05`/`06`.
-- [ ] 5.4 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`; verify 621/119 against Howen. Polling remains deferred.
+- [x] 5.1 Read relevant Next.js 16 local docs; **RED:** test `live-runtime-config.ts`, `create-operational-sources.ts`, `page.tsx`, `live-screen.tsx`, and new `live-source-warnings.tsx` for explicit sources, partial/total warnings, retained roster, hidden technical IDs, and production no-fallback.
+- [x] 5.2 **GREEN:** Wire one aggregation in `app/live`; render generic warnings; update `live-copy.ts` and presenters without provider branching.
+- [x] 5.3 **REFACTOR/CONFIG:** Copy the authorized account from Example-sentinel into gitignored `.env.local` without printing secrets; document names only in `.env.example` and update architecture docs `05`/`06`.
+- [x] 5.4 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`; verify the complete current Howen roster and record its observed counts. Polling remains deferred.

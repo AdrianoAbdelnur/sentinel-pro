@@ -2,7 +2,8 @@
 
 ## Intent
 
-Render Howen's verified 621 vehicles and 119 fleets in `/live` with provider independence and partial availability.
+Render Howen's complete current vehicle roster in `/live` with provider
+independence and partial availability.
 
 ## Scope
 
@@ -10,6 +11,8 @@ Render Howen's verified 621 vehicles and 119 fleets in `/live` with provider ind
 - Remove unused `Customer`, mandatory `customerId` from `Fleet`/`Vehicle`, and allow vehicles without a secondary label.
 - Aggregate async sources; preserve successes and source warnings.
 - Authenticate, normalize, and render one Howen snapshot.
+- Render Howen beside the in-memory roster only in local development.
+- Use the canonical provider value and label `HOWEN` for all Howen data.
 - Use `devicename` as headline; never display `deviceno` or a secondary Howen label.
 - Use the authorized account via gitignored configuration; forbid production demo fallback.
 
@@ -31,7 +34,9 @@ Render Howen's verified 621 vehicles and 119 fleets in `/live` with provider ind
 
 ## Approach
 
-Each adapter returns an outcome; application logic merges successes and warnings. The composition root only wires sources.
+Each adapter returns an outcome; application logic merges successes and warnings.
+The composition root reuses one process-local Howen source, adds memory in
+development, and excludes fixture sources and bottom-panel rows from production.
 
 Howen uses single-flight sessions and one bounded re-authentication. Verified mapping: `fleetid`/`fleetname` provide fleet identity/label; `deviceno` stays internal; `devicename` is the sole visible headline; `videoencodernumber` is channel count; `accessmode >= 1` is online. Valid location, motion, and `dtu` become telemetry. Zone-less timestamps use `America/Argentina/Buenos_Aires`.
 
@@ -46,14 +51,6 @@ Howen uses single-flight sessions and one bounded re-authentication. Verified ma
 | `.env.local`, `.env.example` | Modified | Ignored secrets; documented names |
 | `integrations/live/in-memory/*` | Modified | Development/test source only |
 
-## Risks
-
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| Timestamp shift | Medium | Test Buenos Aires conversion |
-| Session failure | Medium | Retain token, pid, cookie; bounded retry |
-| Roster growth | Medium | Observe the measured 2 MB request |
-
 ## Rollback Plan
 
 Disable Howen wiring while retaining the aggregator; do not substitute demo data in production.
@@ -64,7 +61,7 @@ Disable Howen wiring while retaining the aggregator; do not substitute demo data
 
 ## Success Criteria
 
-- [ ] The verified snapshot normalizes 621 vehicles into 119 named fleets.
+- [ ] The verified snapshot normalizes every current vehicle and fleet without truncation.
 - [ ] A Howen failure preserves other source data and adds a generic Howen warning.
 - [ ] Labels, identities, timestamps, session reuse, and no-fallback behavior are tested.
 - [ ] UI contracts contain no raw Howen fields or errors.
