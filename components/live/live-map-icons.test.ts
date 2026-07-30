@@ -17,10 +17,10 @@ describe("createLiveMapVehicleIcon", () => {
 
     expect(icon.options.html).toContain('aria-label="Unit 101"');
     expect(icon.options.html).toContain("--marker-rotation:90deg");
-    expect(icon.options.html).toContain("border-blue-500");
+    expect(icon.options.html).toContain("border-[#0e639c]");
     expect(icon.options.html).toContain("bg-blue-950");
-    expect(icon.options.html).toContain("text-blue-400");
-    expect(icon.options.html).toContain("rgba(37,99,235,0.9)");
+    expect(icon.options.html).toContain("text-[#0078d4]");
+    expect(icon.options.html).toContain("rgba(0,120,212,0.55)");
     expect(icon.options.html).not.toMatch(
       /cyan|34,211,238|103,232,249|#22d3ee|#67e8f9/i,
     );
@@ -50,10 +50,10 @@ describe("createLiveMapClusterIcon", () => {
       'aria-label="Grupo de 17 vehículos"',
     );
     expect(icon.options.html).toContain(">17<");
-    expect(icon.options.html).toContain("border-blue-500");
+    expect(icon.options.html).toContain("border-[#0e639c]");
     expect(icon.options.html).toContain("bg-blue-950");
-    expect(icon.options.html).toContain("text-blue-400");
-    expect(icon.options.html).toContain("rgba(37,99,235,0.95)");
+    expect(icon.options.html).toContain("text-[#0078d4]");
+    expect(icon.options.html).toContain("rgba(0,120,212,0.6)");
     expect(icon.options.html).not.toMatch(
       /cyan|34,211,238|103,232,249|#22d3ee|#67e8f9/i,
     );

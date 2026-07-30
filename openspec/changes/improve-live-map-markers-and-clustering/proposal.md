@@ -7,7 +7,7 @@ Make vehicles easy to locate. Markers lose contrast against OpenStreetMap, while
 ## Scope
 
 ### In Scope
-- Add provider-neutral deep-navy and saturated royal-blue vehicle markers preserving heading and accessible title.
+- Add provider-neutral deep-navy (`#172554`) vehicle markers with VS Code blue (`#0e639c` border and `#0078d4` glyph/count) accents and restrained `rgba(0,120,212,...)` glows preserving heading and accessible title.
 - Cluster nearby logical markers with counts, click-to-expand, progressive separation, and maximum-zoom fan behavior.
 - Preserve the client-only boundary, fit bounds, resize behavior, and view-model-only contract.
 - Gate `/live` integration behind a real-browser responsiveness harness with 621 points.

@@ -64,7 +64,7 @@ Clustering MUST stay inside the client map boundary and MUST NOT mutate the map 
 
 ### Requirement: Markers are derived only from the view model
 
-The map MUST create one logical marker per view-model marker and MUST NOT read vehicle, device, or provider data. An unclustered marker MUST use a high-contrast, provider-neutral deep-navy and saturated royal-blue visual. Clustering MUST preserve every logical marker.
+The map MUST create one logical marker per view-model marker and MUST NOT read vehicle, device, or provider data. An unclustered marker MUST use a high-contrast, provider-neutral deep-navy (`#172554`) visual with VS Code blue (`#0e639c` border and `#0078d4` glyph/count) accents and restrained `rgba(0,120,212,...)` glows. Clustering MUST preserve every logical marker.
 
 (Previously: every view-model marker appeared directly, without contrast or clustering requirements.)
 

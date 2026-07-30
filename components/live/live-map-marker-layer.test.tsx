@@ -137,7 +137,7 @@ describe("LiveMapMarkerLayer", () => {
     expect(screen.getAllByTestId("fan-leg")).toHaveLength(2);
     expect(screen.getAllByTestId("fan-leg")[0]).toHaveAttribute(
       "data-color",
-      "#2563eb",
+      "#0e639c",
     );
     expect(screen.getByTitle("Unit 101")).toBeInTheDocument();
     expect(screen.getByTitle("Unit 201")).toBeInTheDocument();
