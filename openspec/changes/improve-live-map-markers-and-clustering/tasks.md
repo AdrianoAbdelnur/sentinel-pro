@@ -29,9 +29,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Pure Foundation — PR 1
 
-- [ ] 1.1 RED: Test `live-map-icons.ts`, `live-map-clustering.ts`, and `live-map-overlap-layout.ts`: contrast, labels/headings, immutable coordinates, queries, leaves/expansion zoom, stable signatures, and deterministic rings.
-- [ ] 1.2 GREEN: Pin `supercluster@8.0.1` and `@types/supercluster@7.1.3`; implement the three pure helpers without `leaflet.markercluster` or another Leaflet clustering plugin.
-- [ ] 1.3 REFACTOR: Limit GeoJSON properties to `vehicleId`, preserve source coordinates, and run focused tests, typecheck, and lint.
+- [x] 1.1 RED: Test `live-map-icons.ts`, `live-map-clustering.ts`, and `live-map-overlap-layout.ts`: contrast, labels/headings, immutable coordinates, queries, leaves/expansion zoom, stable signatures, and deterministic rings.
+- [x] 1.2 GREEN: Pin `supercluster@8.0.1` and `@types/supercluster@7.1.3`; implement the three pure helpers without `leaflet.markercluster` or another Leaflet clustering plugin.
+- [x] 1.3 REFACTOR: Limit GeoJSON properties to `vehicleId`, preserve source coordinates, and run focused tests, typecheck, and lint.
 
 ## Phase 2: Mandatory Browser Gate — PR 2
 
