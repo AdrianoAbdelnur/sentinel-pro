@@ -381,11 +381,22 @@ describe("buildLiveSidebarViewModel", () => {
     expect(build({ searchTerm: "unit" }).filters.isNarrowed).toBe(true);
   });
 
-  it("forces every surviving fleet open when a status or provider filter is active, even without a search term", () => {
+  it("forces every surviving fleet open when a status filter is active", () => {
     const result = build({ status: "en-route" });
 
     expect(result.fleets).toHaveLength(1);
     expect(result.fleets[0].isExpanded).toBe(true);
+  });
+
+  it("keeps fleet expansion independent from the provider filter", () => {
+    const collapsed = build({ provider: "howen" });
+    const expanded = build({
+      provider: "howen",
+      expandedFleetIds: ["fleet-north"],
+    });
+
+    expect(collapsed.fleets[0].isExpanded).toBe(false);
+    expect(expanded.fleets[0].isExpanded).toBe(true);
   });
 
   it("keeps counts and the provider list tied to the full roster even when a status filter narrows what is visible", () => {

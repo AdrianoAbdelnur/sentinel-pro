@@ -4,7 +4,6 @@ import { LiveVehicleRow } from "./live-vehicle-row";
 
 type LiveFleetNodeProps = {
   fleet: LiveFleetNodeViewModel;
-  isNarrowed: boolean;
   onToggleExpanded: (fleetId: string) => void;
   onToggleFleet: (fleetId: string) => void;
   onToggleVehicle: (vehicleId: string) => void;
@@ -12,14 +11,12 @@ type LiveFleetNodeProps = {
 
 export function LiveFleetNode({
   fleet,
-  isNarrowed,
   onToggleExpanded,
   onToggleFleet,
   onToggleVehicle,
 }: LiveFleetNodeProps) {
   const { online, total } = fleet.counts;
   const countsLabel = `${online} de ${total} vehículos en línea`;
-  const visibleCount = fleet.vehicles.length;
 
   return (
     <li className="border-b border-slate-800/60 last:border-b-0">
@@ -63,14 +60,8 @@ export function LiveFleetNode({
         </span>
       </div>
 
-      {isNarrowed && (
-        <p className="px-2.5 pt-1 font-mono text-[10px] tabular-nums text-slate-600">
-          {visibleCount} {pluralizeVisible(visibleCount)}
-        </p>
-      )}
-
       {fleet.isExpanded && (
-        <ul className="pb-1">
+        <ul className="ml-4 border-l border-slate-800/80 pb-1">
           {fleet.vehicles.map((vehicle) => (
             <LiveVehicleRow
               key={vehicle.vehicleId}
@@ -82,8 +73,4 @@ export function LiveFleetNode({
       )}
     </li>
   );
-}
-
-function pluralizeVisible(count: number): string {
-  return count === 1 ? "visible" : "visibles";
 }

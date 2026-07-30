@@ -75,7 +75,6 @@ export function LiveSidebar({
               <LiveFleetNode
                 key={fleet.fleetId}
                 fleet={fleet}
-                isNarrowed={sidebar.filters.isNarrowed}
                 onToggleExpanded={onToggleExpanded}
                 onToggleFleet={onToggleFleet}
                 onToggleVehicle={onToggleVehicle}

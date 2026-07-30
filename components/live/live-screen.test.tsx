@@ -290,16 +290,28 @@ describe("LiveScreen", () => {
     expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
   });
 
-  it("narrows to vehicles matching the selected provider", () => {
+  it("filters by provider without controlling fleet expansion", () => {
     renderScreen();
 
     fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
       target: { value: "demo" },
     });
 
+    expect(fleetToggle("North Fleet")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
     expect(screen.getByText("Unit 101")).toBeInTheDocument();
     expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
-    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
   });
 
   it("returns to the full roster when the status filter is reset to Todos", () => {
