@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 
 import { LiveScreen } from "@/components/live/live-screen";
+import { aggregateOperationalSources } from "@/application/live";
 import {
   readInMemoryBottomPanelFixtures,
-  readInMemoryLiveStateFixture,
 } from "@/integrations/live/in-memory/in-memory-live-data-source";
 
+import { createOperationalSources } from "./create-operational-sources";
 import { readLiveRuntimeConfig } from "./live-runtime-config";
 
 export const metadata: Metadata = {
@@ -15,11 +16,13 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function LivePage() {
-  const liveState = readInMemoryLiveStateFixture();
-  const tabs = readInMemoryBottomPanelFixtures();
-
-  const { staleAfterMs } = readLiveRuntimeConfig();
+export default async function LivePage() {
+  const runtime = readLiveRuntimeConfig();
+  const sources = createOperationalSources(runtime);
+  const { state, warnings } = await aggregateOperationalSources(sources);
+  const tabs = runtime.includeDevelopmentFixtures
+    ? readInMemoryBottomPanelFixtures()
+    : [];
   const nowMs = Date.now();
 
   return (
@@ -35,10 +38,11 @@ export default function LivePage() {
       </header>
 
       <LiveScreen
-        liveState={liveState}
+        liveState={state}
         tabs={tabs}
         nowMs={nowMs}
-        staleAfterMs={staleAfterMs}
+        staleAfterMs={runtime.staleAfterMs}
+        warnings={warnings}
       />
     </main>
   );

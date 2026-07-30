@@ -115,6 +115,7 @@ function renderScreen() {
       tabs={tabs}
       nowMs={NOW}
       staleAfterMs={STALE_AFTER_MS}
+      warnings={[]}
     />,
   );
 }
@@ -179,6 +180,27 @@ describe("LiveScreen layout", () => {
 });
 
 describe("LiveScreen", () => {
+  it("keeps the successful roster visible beside source warnings", () => {
+    render(
+      <LiveScreen
+        liveState={liveState}
+        tabs={tabs}
+        nowMs={NOW}
+        staleAfterMs={STALE_AFTER_MS}
+        warnings={[
+          {
+            code: "source-unavailable",
+            sourceId: "howen",
+            sourceLabel: "HOWEN",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/información de HOWEN/)).toBeInTheDocument();
+    expect(fleetToggle("North Fleet")).toBeInTheDocument();
+  });
+
   it("renders every fleet", () => {
     renderScreen();
 
