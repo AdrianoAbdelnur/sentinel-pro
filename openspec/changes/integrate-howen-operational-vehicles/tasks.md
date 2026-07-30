@@ -41,9 +41,9 @@ Each PR targets `main` after its predecessor merges; split before review if its 
 
 ## Phase 3: Verified Howen Normalization
 
-- [ ] 3.1 **RED:** Create `integrations/howen/responses.test.ts`, `parse-howen-timestamp.test.ts`, and `map-howen-roster.test.ts` covering 621 devices/119 fleets, invalid `deviceno`, verified fields, stable IDs, absent label, safe numerics, and Buenos Aires conversion.
-- [ ] 3.2 **GREEN:** Create `responses.ts`, `parse-howen-timestamp.ts`, and `map-howen-roster.ts` implementing only verified mappings.
-- [ ] 3.3 **REFACTOR:** Isolate invalid records without truncating valid ones; run all mapper tests.
+- [x] 3.1 **RED:** Create `integrations/howen/responses.test.ts`, `parse-howen-timestamp.test.ts`, and `map-howen-roster.test.ts` covering 621 devices/119 fleets, invalid `deviceno`, verified fields, stable IDs, absent label, safe numerics, and Buenos Aires conversion.
+- [x] 3.2 **GREEN:** Create `responses.ts`, `parse-howen-timestamp.ts`, and `map-howen-roster.ts` implementing only verified mappings.
+- [x] 3.3 **REFACTOR:** Isolate invalid records without truncating valid ones; run all mapper tests.
 
 ## Phase 4: Howen Transport and Source
 
