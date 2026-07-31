@@ -97,7 +97,7 @@ function FanMember({
     <>
       <Polyline
         positions={[sourcePosition, displayPosition]}
-        pathOptions={{ color: "#0e639c", opacity: 0.55, weight: 1 }}
+        pathOptions={{ color: "#003b73", opacity: 0.55, weight: 1 }}
       />
       <Marker
         position={displayPosition}

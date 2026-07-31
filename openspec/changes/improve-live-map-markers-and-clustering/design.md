@@ -47,7 +47,7 @@ No provider, device, or source identity enters this delivery boundary.
 - deterministic pixel offsets for sorted overlapping IDs.
 
 Rendered fan entries hold both immutable source coordinates and derived display
-coordinates. Provider-neutral icon helpers create deep-navy (`#172554`) markers with VS Code blue (`#0e639c` border and `#0078d4` glyph/count) accents and restrained `rgba(0,120,212,...)` glows
+coordinates. Provider-neutral icon helpers create deep-navy (`#172554`) markers with deep navy-blue (`#003b73` border and `#005a9c` glyph/count) accents and restrained `rgba(0,59,115,...)` glows
 and accessible Spanish count icons.
 
 ## File Changes
