@@ -274,8 +274,14 @@ describe("LiveScreen", () => {
     });
 
     expect(screen.queryByText("North Fleet")).not.toBeInTheDocument();
-    expect(screen.getByText("South Fleet")).toBeInTheDocument();
+    expect(fleetToggle("South Fleet")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Unit 201")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("South Fleet"));
+
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
+    fireEvent.click(fleetToggle("South Fleet"));
+    expect(screen.queryByText("Unit 201")).not.toBeInTheDocument();
   });
 
   it("narrows to vehicles matching the selected status chip", () => {
@@ -285,9 +291,16 @@ describe("LiveScreen", () => {
       screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
     );
 
-    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    expect(fleetToggle("North Fleet")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
     expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
     expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
   });
 
   it("filters by provider without controlling fleet expansion", () => {
@@ -311,6 +324,48 @@ describe("LiveScreen", () => {
 
     fireEvent.click(fleetToggle("North Fleet"));
 
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      name: "status",
+      apply: () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
+        ),
+      change: () => fireEvent.click(screen.getByRole("button", { name: ALL_STATUS_LABEL })),
+    },
+    {
+      name: "provider",
+      apply: () =>
+        fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
+          target: { value: "demo" },
+        }),
+      change: () =>
+        fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
+          target: { value: "all" },
+        }),
+    },
+    {
+      name: "search",
+      apply: () =>
+        fireEvent.change(screen.getByRole("searchbox"), {
+          target: { value: "ABC123" },
+        }),
+      change: () => fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } }),
+    },
+  ])("keeps a fleet closed after applying and changing a $name filter", ({ apply, change }) => {
+    renderScreen();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+
+    apply();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+
+    change();
+    expect(fleetToggle("North Fleet")).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
   });
 

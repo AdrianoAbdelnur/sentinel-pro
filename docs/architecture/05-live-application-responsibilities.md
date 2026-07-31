@@ -31,9 +31,11 @@ type LivePageViewModel = {
   narrowing is applied. Fleet selection state is computed the same way.
   Narrowing would otherwise make counts and the provider dropdown carry no
   information exactly when a filter is active.
-- Any active narrowing input (status, provider, or search) forces every
-  fleet open; a fleet is dropped from the list only once narrowing empties
-  its visible roster.
+- Provider, status, and search filters determine which fleets and vehicles are
+  visible. They never change fleet expansion.
+- Fleet expansion belongs exclusively to explicit fleet disclosure actions.
+  A fleet is displayed as expanded only when its ID is present in the screen's
+  `expandedFleetIds`; filter changes preserve that state.
 
 ## Sidebar view model
 

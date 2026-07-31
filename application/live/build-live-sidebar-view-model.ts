@@ -49,8 +49,6 @@ export function buildLiveSidebarViewModel({
     status !== NO_STATUS_NARROWING ||
     provider !== undefined ||
     normalizedSearch !== "";
-  const shouldAutoExpandFleets =
-    status !== NO_STATUS_NARROWING || normalizedSearch !== "";
 
   const fleetNodes = fleets.flatMap((fleet) => {
     const fullRoster = fleet.vehicleIds.flatMap((vehicleId) => {
@@ -91,8 +89,7 @@ export function buildLiveSidebarViewModel({
     const node: LiveFleetNode = {
       fleetId: fleet.fleetId,
       label: fleet.label,
-      isExpanded:
-        shouldAutoExpandFleets || expandedIds.has(fleet.fleetId),
+      isExpanded: expandedIds.has(fleet.fleetId),
       isSelected,
       counts: {
         online: onlineCount,

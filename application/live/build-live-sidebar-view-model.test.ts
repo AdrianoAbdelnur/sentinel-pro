@@ -204,13 +204,20 @@ describe("buildLiveSidebarViewModel", () => {
     });
   });
 
-  it("expands matching fleets and keeps only matching vehicles when searching by vehicle label", () => {
-    const result = build({ searchTerm: "unit 102" });
+  it("keeps a search-matching fleet collapsed until its explicit expansion ID is present", () => {
+    const collapsed = build({ searchTerm: "unit 102" });
+    const expanded = build({
+      searchTerm: "unit 102",
+      expandedFleetIds: ["fleet-north"],
+    });
 
-    expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].fleetId).toBe("fleet-north");
-    expect(result.fleets[0].isExpanded).toBe(true);
-    expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
+    expect(collapsed.fleets).toHaveLength(1);
+    expect(collapsed.fleets[0]).toMatchObject({
+      fleetId: "fleet-north",
+      isExpanded: false,
+    });
+    expect(expanded.fleets[0].isExpanded).toBe(true);
+    expect(collapsed.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-2",
     ]);
   });
@@ -228,7 +235,7 @@ describe("buildLiveSidebarViewModel", () => {
     const result = build({ searchTerm: "north" });
 
     expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].isExpanded).toBe(true);
+    expect(result.fleets[0].isExpanded).toBe(false);
     expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-1",
       "vehicle-2",
@@ -381,11 +388,20 @@ describe("buildLiveSidebarViewModel", () => {
     expect(build({ searchTerm: "unit" }).filters.isNarrowed).toBe(true);
   });
 
-  it("forces every surviving fleet open when a status filter is active", () => {
-    const result = build({ status: "en-route" });
+  it.each([
+    { name: "status", input: { status: "en-route" as const } },
+    { name: "provider", input: { provider: "howen" } },
+    { name: "search", input: { searchTerm: "unit 101" } },
+  ])("keeps matching fleets collapsed under a $name filter unless explicitly opened", ({ input }) => {
+    const collapsed = build(input);
+    const expanded = build({ ...input, expandedFleetIds: ["fleet-north"] });
 
-    expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].isExpanded).toBe(true);
+    expect(collapsed.fleets).toHaveLength(1);
+    expect(collapsed.fleets[0]).toMatchObject({
+      fleetId: "fleet-north",
+      isExpanded: false,
+    });
+    expect(expanded.fleets[0].isExpanded).toBe(true);
   });
 
   it("keeps fleet expansion independent from the provider filter", () => {
