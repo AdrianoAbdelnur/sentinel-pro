@@ -25,6 +25,14 @@ describe("LiveStatusFilterChips", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps the status chips on one compact line", () => {
+    render(<LiveStatusFilterChips status="all" onStatusChange={vi.fn()} />);
+
+    expect(
+      screen.getByRole("button", { name: ALL_STATUS_LABEL }).parentElement,
+    ).toHaveClass("flex-nowrap");
+  });
+
   it("marks the all-statuses chip pressed when the filter is all", () => {
     render(<LiveStatusFilterChips status="all" onStatusChange={vi.fn()} />);
 
