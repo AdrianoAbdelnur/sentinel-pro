@@ -17,7 +17,6 @@ vi.mock("./live-map", () => ({
 import {
   BOTTOM_PANEL_EMPTY_STATE_COPY,
   BOTTOM_PANEL_TAB_COPY,
-  MAP_EMPTY_STATE_COPY,
   PLAYBACK_NOTICE_COPY,
   VEHICLE_STATUS_COPY,
 } from "./live-copy";
@@ -142,8 +141,8 @@ describe("LiveScreen layout", () => {
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText("Seleccione al menos un vehículo para verlo en el mapa."),
+    ).not.toBeInTheDocument();
   });
 
   it("starts with the bottom panel collapsed", () => {
@@ -401,12 +400,12 @@ describe("LiveScreen", () => {
     expect(screen.getByText("South Fleet")).toBeInTheDocument();
   });
 
-  it("shows the map empty state while nothing is selected", () => {
+  it("keeps the map clean while nothing is selected", () => {
     renderScreen();
 
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText("Seleccione al menos un vehículo para verlo en el mapa."),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render a playback notice before the playback monitor exists", () => {
@@ -437,15 +436,12 @@ describe("LiveScreen", () => {
     buildPageSpy.mockRestore();
   });
 
-  it("replaces the map empty state once a mappable vehicle is selected", () => {
+  it("keeps the map mounted once a mappable vehicle is selected", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
 
     fireEvent.click(vehicleCheckbox("Unit 101"));
 
-    expect(
-      screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
