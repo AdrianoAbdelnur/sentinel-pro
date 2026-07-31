@@ -128,6 +128,12 @@ function vehicleCheckbox(label: string) {
   return screen.getByRole("checkbox", { name: new RegExp(label, "i") });
 }
 
+function expandBottomPanel() {
+  fireEvent.click(
+    screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
+  );
+}
+
 describe("LiveScreen layout", () => {
   it("keeps the map mounted with nothing selected", () => {
     renderScreen();
@@ -138,6 +144,17 @@ describe("LiveScreen layout", () => {
     expect(
       screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
+  });
+
+  it("starts with the bottom panel collapsed", () => {
+    renderScreen();
+
+    expect(
+      screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 
   it("collapses and restores the sidebar independently", () => {
@@ -158,17 +175,8 @@ describe("LiveScreen layout", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  it("collapses and restores the bottom panel independently", () => {
+  it("expands and collapses the bottom panel independently", () => {
     renderScreen();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: COLLAPSE_BOTTOM_PANEL_LABEL }),
-    );
-    expect(
-      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
-    expect(screen.getByRole("searchbox")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
@@ -176,6 +184,15 @@ describe("LiveScreen layout", () => {
     expect(
       screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: COLLAPSE_BOTTOM_PANEL_LABEL }),
+    );
+    expect(
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 });
 
@@ -225,6 +242,7 @@ describe("LiveScreen", () => {
 
   it("shows the empty state until a vehicle is selected", () => {
     renderScreen();
+    expandBottomPanel();
 
     expect(
       screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
@@ -236,6 +254,7 @@ describe("LiveScreen", () => {
     fireEvent.click(fleetToggle("North Fleet"));
 
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     const table = screen.getByRole("table");
     expect(within(table).getByText("Unit 101")).toBeInTheDocument();
@@ -249,6 +268,7 @@ describe("LiveScreen", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     const row = screen.getByRole("row", { name: /unit 101/i });
     expect(within(row).getByText("—")).toBeInTheDocument();
@@ -435,6 +455,7 @@ describe("LiveScreen", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     fireEvent.click(
       screen.getByRole("tab", { name: BOTTOM_PANEL_TAB_COPY.event }),

@@ -37,7 +37,7 @@ export function LiveScreen({
   );
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(false);
+  const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(true);
 
   const {
     searchTerm,
