@@ -17,10 +17,17 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-1",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 101",
         plate: "ABC123",
+        isActive: true,
+      },
+      device: {
+        id: "device-1",
+        vehicleId: "vehicle-1",
+        provider: "demo",
+        origin: "local",
+        kind: "mdvr",
         isActive: true,
       },
       telemetry: {
@@ -121,14 +128,22 @@ describe("buildLivePageViewModel", () => {
     expect(result.bottomPanel).toEqual(buildLivePageViewModel(input).bottomPanel);
   });
 
-  it("flows the status and provider filters to the sidebar unchanged", () => {
-    const result = buildLivePageViewModel({
+  it.each([
+    { name: "status", input: { status: "stopped" as const } },
+    { name: "provider", input: { provider: "demo" } },
+    { name: "search", input: { searchTerm: "unit 101" } },
+  ])("forwards the $name filter without changing explicit fleet expansion or other surfaces", ({ input: sidebarInput }) => {
+    const baseline = buildLivePageViewModel(input);
+    const collapsed = buildLivePageViewModel({ ...input, ...sidebarInput });
+    const expanded = buildLivePageViewModel({
       ...input,
-      status: "offline",
-      provider: "demo",
+      ...sidebarInput,
+      expandedFleetIds: ["fleet-north"],
     });
 
-    expect(result.sidebar.filters.status).toBe("offline");
-    expect(result.sidebar.filters.provider).toBe("demo");
+    expect(collapsed.sidebar.fleets[0].isExpanded).toBe(false);
+    expect(expanded.sidebar.fleets[0].isExpanded).toBe(true);
+    expect(collapsed.bottomPanel).toEqual(baseline.bottomPanel);
+    expect(collapsed.map).toEqual(baseline.map);
   });
 });

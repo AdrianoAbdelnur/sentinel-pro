@@ -7,7 +7,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-1",
-      customerId: "customer-1",
       fleetId: "fleet-1",
       label: "Unit 101",
       isActive: true,
@@ -24,7 +23,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-2",
-      customerId: "customer-1",
       fleetId: "fleet-1",
       label: "Unit 102",
       isActive: true,
@@ -71,7 +69,6 @@ describe("buildLiveMapViewModel", () => {
     const thirdVehicle: LiveVehicleState = {
       vehicle: {
         id: "vehicle-3",
-        customerId: "customer-1",
         fleetId: "fleet-1",
         label: "Unit 103",
         isActive: true,
@@ -107,6 +104,35 @@ describe("buildLiveMapViewModel", () => {
         {
           vehicleId: "vehicle-1",
           label: "Unit 101",
+          latitude: -34.6037,
+          longitude: -58.3816,
+          speedKmH: 45,
+          headingDeg: 90,
+        },
+      ],
+    });
+  });
+
+  it("uses the plate as the marker label when the secondary label is absent", () => {
+    const vehicleWithoutSecondaryLabel: LiveVehicleState = {
+      ...liveVehicles[0],
+      vehicle: {
+        ...liveVehicles[0].vehicle,
+        label: undefined,
+        plate: "ABC123",
+      },
+    };
+
+    expect(
+      buildLiveMapViewModel({
+        selectedVehicleIds: ["vehicle-1"],
+        liveVehicles: [vehicleWithoutSecondaryLabel],
+      }),
+    ).toEqual({
+      markers: [
+        {
+          vehicleId: "vehicle-1",
+          label: "ABC123",
           latitude: -34.6037,
           longitude: -58.3816,
           speedKmH: 45,

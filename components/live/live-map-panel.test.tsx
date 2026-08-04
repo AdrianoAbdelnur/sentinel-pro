@@ -49,26 +49,26 @@ describe("LiveMapPanel", () => {
     ).toBeInTheDocument();
   });
 
-  it("overlays the no-selection notice on top of the map", () => {
+  it("keeps the map clean when there is no selection", () => {
     renderPanel({
       markers: [],
       emptyState: { code: "no-selection" },
     });
 
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 
-  it("overlays the no-mappable-selection notice on top of the map", () => {
+  it("keeps the map clean when the selection has no mappable vehicle", () => {
     renderPanel({
       markers: [],
       emptyState: { code: "no-mappable-selection" },
     });
 
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-mappable-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText(MAP_EMPTY_STATE_COPY["no-mappable-selection"]),
+    ).not.toBeInTheDocument();
   });
 
   it("shows no notice once there is something to plot", () => {
@@ -80,7 +80,7 @@ describe("LiveMapPanel", () => {
     ).toBeNull();
   });
 
-  it("still shows the notice when an empty state arrives alongside markers", () => {
+  it("does not show a notice when an empty state arrives alongside markers", () => {
     renderPanel({
       markers,
       emptyState: { code: "no-selection" },
@@ -90,7 +90,7 @@ describe("LiveMapPanel", () => {
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 });

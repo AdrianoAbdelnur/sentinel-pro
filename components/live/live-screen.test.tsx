@@ -17,7 +17,6 @@ vi.mock("./live-map", () => ({
 import {
   BOTTOM_PANEL_EMPTY_STATE_COPY,
   BOTTOM_PANEL_TAB_COPY,
-  MAP_EMPTY_STATE_COPY,
   PLAYBACK_NOTICE_COPY,
   VEHICLE_STATUS_COPY,
 } from "./live-copy";
@@ -49,7 +48,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-101",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 101",
         plate: "ABC123",
@@ -73,7 +71,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-102",
-        customerId: "customer-1",
         fleetId: "fleet-north",
         label: "Unit 102",
         plate: "XYZ789",
@@ -84,7 +81,6 @@ const liveState: LiveState = {
     {
       vehicle: {
         id: "vehicle-201",
-        customerId: "customer-1",
         fleetId: "fleet-south",
         label: "Unit 201",
         plate: "DEF456",
@@ -118,6 +114,7 @@ function renderScreen() {
       tabs={tabs}
       nowMs={NOW}
       staleAfterMs={STALE_AFTER_MS}
+      warnings={[]}
     />,
   );
 }
@@ -130,6 +127,12 @@ function vehicleCheckbox(label: string) {
   return screen.getByRole("checkbox", { name: new RegExp(label, "i") });
 }
 
+function expandBottomPanel() {
+  fireEvent.click(
+    screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
+  );
+}
+
 describe("LiveScreen layout", () => {
   it("keeps the map mounted with nothing selected", () => {
     renderScreen();
@@ -138,8 +141,19 @@ describe("LiveScreen layout", () => {
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
+      screen.queryByText("Seleccione al menos un vehículo para verlo en el mapa."),
+    ).not.toBeInTheDocument();
+  });
+
+  it("starts with the bottom panel collapsed", () => {
+    renderScreen();
+
+    expect(
+      screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 
   it("collapses and restores the sidebar independently", () => {
@@ -160,17 +174,8 @@ describe("LiveScreen layout", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  it("collapses and restores the bottom panel independently", () => {
+  it("expands and collapses the bottom panel independently", () => {
     renderScreen();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: COLLAPSE_BOTTOM_PANEL_LABEL }),
-    );
-    expect(
-      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
-    ).not.toBeInTheDocument();
-    expect(screen.getByRole("tablist")).toBeInTheDocument();
-    expect(screen.getByRole("searchbox")).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", { name: EXPAND_BOTTOM_PANEL_LABEL }),
@@ -178,10 +183,40 @@ describe("LiveScreen layout", () => {
     expect(
       screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
     ).toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: COLLAPSE_BOTTOM_PANEL_LABEL }),
+    );
+    expect(
+      screen.queryByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
+    ).not.toBeInTheDocument();
   });
 });
 
 describe("LiveScreen", () => {
+  it("keeps the successful roster visible beside source warnings", () => {
+    render(
+      <LiveScreen
+        liveState={liveState}
+        tabs={tabs}
+        nowMs={NOW}
+        staleAfterMs={STALE_AFTER_MS}
+        warnings={[
+          {
+            code: "source-unavailable",
+            sourceId: "howen",
+            sourceLabel: "HOWEN",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText(/información de HOWEN/)).toBeInTheDocument();
+    expect(fleetToggle("North Fleet")).toBeInTheDocument();
+  });
+
   it("renders every fleet", () => {
     renderScreen();
 
@@ -206,6 +241,7 @@ describe("LiveScreen", () => {
 
   it("shows the empty state until a vehicle is selected", () => {
     renderScreen();
+    expandBottomPanel();
 
     expect(
       screen.getByText(BOTTOM_PANEL_EMPTY_STATE_COPY["no-selection"]),
@@ -217,6 +253,7 @@ describe("LiveScreen", () => {
     fireEvent.click(fleetToggle("North Fleet"));
 
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     const table = screen.getByRole("table");
     expect(within(table).getByText("Unit 101")).toBeInTheDocument();
@@ -230,6 +267,7 @@ describe("LiveScreen", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     const row = screen.getByRole("row", { name: /unit 101/i });
     expect(within(row).getByText("—")).toBeInTheDocument();
@@ -255,8 +293,14 @@ describe("LiveScreen", () => {
     });
 
     expect(screen.queryByText("North Fleet")).not.toBeInTheDocument();
-    expect(screen.getByText("South Fleet")).toBeInTheDocument();
+    expect(fleetToggle("South Fleet")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Unit 201")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("South Fleet"));
+
     expect(screen.getByText("Unit 201")).toBeInTheDocument();
+    fireEvent.click(fleetToggle("South Fleet"));
+    expect(screen.queryByText("Unit 201")).not.toBeInTheDocument();
   });
 
   it("narrows to vehicles matching the selected status chip", () => {
@@ -266,21 +310,82 @@ describe("LiveScreen", () => {
       screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
     );
 
-    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    expect(fleetToggle("North Fleet")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
     expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
     expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
   });
 
-  it("narrows to vehicles matching the selected provider", () => {
+  it("filters by provider without controlling fleet expansion", () => {
     renderScreen();
 
     fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
       target: { value: "demo" },
     });
 
+    expect(fleetToggle("North Fleet")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
     expect(screen.getByText("Unit 101")).toBeInTheDocument();
     expect(screen.queryByText("Unit 102")).not.toBeInTheDocument();
-    expect(screen.queryByText("South Fleet")).not.toBeInTheDocument();
+
+    fireEvent.click(fleetToggle("North Fleet"));
+
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    {
+      name: "status",
+      apply: () =>
+        fireEvent.click(
+          screen.getByRole("button", { name: VEHICLE_STATUS_COPY.stopped }),
+        ),
+      change: () => fireEvent.click(screen.getByRole("button", { name: ALL_STATUS_LABEL })),
+    },
+    {
+      name: "provider",
+      apply: () =>
+        fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
+          target: { value: "demo" },
+        }),
+      change: () =>
+        fireEvent.change(screen.getByRole("combobox", { name: /proveedor/i }), {
+          target: { value: "all" },
+        }),
+    },
+    {
+      name: "search",
+      apply: () =>
+        fireEvent.change(screen.getByRole("searchbox"), {
+          target: { value: "ABC123" },
+        }),
+      change: () => fireEvent.change(screen.getByRole("searchbox"), { target: { value: "" } }),
+    },
+  ])("keeps a fleet closed after applying and changing a $name filter", ({ apply, change }) => {
+    renderScreen();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.getByText("Unit 101")).toBeInTheDocument();
+
+    apply();
+    fireEvent.click(fleetToggle("North Fleet"));
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
+
+    change();
+    expect(fleetToggle("North Fleet")).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Unit 101")).not.toBeInTheDocument();
   });
 
   it("returns to the full roster when the status filter is reset to Todos", () => {
@@ -295,12 +400,12 @@ describe("LiveScreen", () => {
     expect(screen.getByText("South Fleet")).toBeInTheDocument();
   });
 
-  it("shows the map empty state while nothing is selected", () => {
+  it("keeps the map clean while nothing is selected", () => {
     renderScreen();
 
     expect(
-      screen.getByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).toBeInTheDocument();
+      screen.queryByText("Seleccione al menos un vehículo para verlo en el mapa."),
+    ).not.toBeInTheDocument();
   });
 
   it("does not render a playback notice before the playback monitor exists", () => {
@@ -331,15 +436,12 @@ describe("LiveScreen", () => {
     buildPageSpy.mockRestore();
   });
 
-  it("replaces the map empty state once a mappable vehicle is selected", () => {
+  it("keeps the map mounted once a mappable vehicle is selected", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
 
     fireEvent.click(vehicleCheckbox("Unit 101"));
 
-    expect(
-      screen.queryByText(MAP_EMPTY_STATE_COPY["no-selection"]),
-    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("region", { name: /mapa en vivo/i }),
     ).toBeInTheDocument();
@@ -349,6 +451,7 @@ describe("LiveScreen", () => {
     renderScreen();
     fireEvent.click(fleetToggle("North Fleet"));
     fireEvent.click(vehicleCheckbox("Unit 101"));
+    expandBottomPanel();
 
     fireEvent.click(
       screen.getByRole("tab", { name: BOTTOM_PANEL_TAB_COPY.event }),

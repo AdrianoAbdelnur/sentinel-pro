@@ -2,10 +2,14 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_STALE_AFTER_MS, hasValidGps, resolveVehicleStatus } from "@/domain/live";
 
-import { inMemoryLiveDataSource } from "./in-memory-live-data-source";
+import {
+  inMemoryOperationalSource,
+  readInMemoryBottomPanelFixtures,
+  readInMemoryLiveStateFixture,
+} from "./in-memory-live-data-source";
 
-describe("inMemoryLiveDataSource", () => {
-  const { fleets, liveVehicles } = inMemoryLiveDataSource.readLiveState();
+describe("in-memory live fixtures", () => {
+  const { fleets, liveVehicles } = readInMemoryLiveStateFixture();
   const nowMs = Date.now();
 
   function statusOf(vehicleId: string) {
@@ -19,6 +23,28 @@ describe("inMemoryLiveDataSource", () => {
       staleAfterMs: DEFAULT_STALE_AFTER_MS,
     });
   }
+
+  it("identifies itself explicitly as a development fixture source", async () => {
+    const result = await inMemoryOperationalSource.loadSnapshot();
+
+    expect(inMemoryOperationalSource.identity).toEqual({
+      id: "development-memory",
+      label: "Development fixtures",
+    });
+    expect(result.kind).toBe("success");
+    expect(result.kind === "success" ? result.state.fleets.length : 0).toBe(
+      fleets.length,
+    );
+  });
+
+  it("keeps bottom-panel fixtures separate from the operational source", () => {
+    const first = readInMemoryBottomPanelFixtures();
+    const second = readInMemoryBottomPanelFixtures();
+
+    expect(inMemoryOperationalSource).not.toHaveProperty("readBottomPanelTabs");
+    expect(first).toEqual(second);
+    expect(first).not.toBe(second);
+  });
 
   it("only references vehicles that exist", () => {
     const knownIds = new Set(
@@ -50,8 +76,8 @@ describe("inMemoryLiveDataSource", () => {
   });
 
   it("returns a fresh copy on every read", () => {
-    const first = inMemoryLiveDataSource.readLiveState();
-    const second = inMemoryLiveDataSource.readLiveState();
+    const first = readInMemoryLiveStateFixture();
+    const second = readInMemoryLiveStateFixture();
 
     expect(first.fleets).toEqual(second.fleets);
     expect(first.fleets).not.toBe(second.fleets);
@@ -62,7 +88,7 @@ describe("inMemoryLiveDataSource", () => {
   });
 
   it("exposes bottom panel tabs and columns by key only, never a label", () => {
-    const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
+    const tabs = readInMemoryBottomPanelFixtures();
 
     expect(tabs.length).toBeGreaterThan(0);
     for (const tab of tabs) {
@@ -78,7 +104,7 @@ describe("inMemoryLiveDataSource", () => {
     const knownIds = new Set(
       liveVehicles.map((liveVehicle) => liveVehicle.vehicle.id),
     );
-    const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
+    const tabs = readInMemoryBottomPanelFixtures();
 
     for (const tab of tabs) {
       for (const row of tab.rows) {
@@ -88,7 +114,7 @@ describe("inMemoryLiveDataSource", () => {
   });
 
   it("has at least one partial bottom panel row and one vehicle with no row at all", () => {
-    const tabs = inMemoryLiveDataSource.readBottomPanelTabs();
+    const tabs = readInMemoryBottomPanelFixtures();
     const rowsByVehicleId = new Map<string, number>();
 
     for (const tab of tabs) {
@@ -231,9 +257,18 @@ describe("inMemoryLiveDataSource", () => {
     expect(liveVehicles.some(({ device }) => device === undefined)).toBe(true);
   });
 
+  it("uses the canonical HOWEN provider value in development fixtures", () => {
+    const howenProviders = liveVehicles
+      .map(({ device }) => device)
+      .filter((device) => device?.origin === "howen")
+      .map((device) => device?.provider);
+
+    expect(howenProviders).toEqual(["HOWEN", "HOWEN"]);
+  });
+
   it("materializes gpsAt relative to read time, not a fixed timestamp", () => {
     const readAt = Date.now();
-    const { liveVehicles: freshVehicles } = inMemoryLiveDataSource.readLiveState();
+    const { liveVehicles: freshVehicles } = readInMemoryLiveStateFixture();
     const vehicle = freshVehicles.find(
       (candidate) => candidate.vehicle.id === "vehicle-101",
     );

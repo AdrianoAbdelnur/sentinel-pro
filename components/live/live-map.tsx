@@ -2,11 +2,12 @@
 
 import "leaflet/dist/leaflet.css";
 
-import { divIcon } from "leaflet";
 import { useEffect } from "react";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, useMap } from "react-leaflet";
 
 import type { LiveMapMarker } from "@/application/live";
+
+import { LiveMapMarkerLayer } from "./live-map-marker-layer";
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 const TILE_ATTRIBUTION =
@@ -29,19 +30,7 @@ export function LiveMap({ markers }: LiveMapProps) {
     >
       <TileLayer url={TILE_URL} attribution={TILE_ATTRIBUTION} />
 
-      {markers.map((marker) => (
-        <Marker
-          key={marker.vehicleId}
-          position={[marker.latitude, marker.longitude]}
-          title={marker.label}
-          icon={divIcon({
-            html: buildMarkerHtml(marker),
-            className: "",
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
-          })}
-        />
-      ))}
+      <LiveMapMarkerLayer markers={markers} />
 
       <FitBounds markers={markers} />
       <InvalidateOnResize />
@@ -68,15 +57,6 @@ function InvalidateOnResize() {
   }, [map]);
 
   return null;
-}
-
-export function buildMarkerHtml(marker: LiveMapMarker): string {
-  const rotation =
-    typeof marker.headingDeg === "number"
-      ? ` style="--marker-rotation:${marker.headingDeg}deg"`
-      : "";
-
-  return `<span class="flex size-[22px] items-center justify-center rounded-full bg-emerald-500/25"><span class="text-sm leading-none text-emerald-500 rotate-[var(--marker-rotation,0deg)]"${rotation}>&#9650;</span></span>`;
 }
 
 function FitBounds({ markers }: LiveMapProps) {

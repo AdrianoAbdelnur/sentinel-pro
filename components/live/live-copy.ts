@@ -4,6 +4,7 @@ import type {
   LiveMapEmptyStateCode,
   LivePlaybackNoticeCode,
   VehicleStatus,
+  OperationalSourceWarning,
 } from "@/application/live";
 
 export const MAP_EMPTY_STATE_COPY: Record<LiveMapEmptyStateCode, string> = {
@@ -28,6 +29,14 @@ export const VEHICLE_STATUS_COPY: Record<VehicleStatus, string> = {
   "en-route": "En ruta",
   stopped: "Detenido",
   offline: "Offline",
+};
+
+export const LIVE_SOURCE_WARNING_COPY: Record<
+  OperationalSourceWarning["code"],
+  (sourceLabel: string) => string
+> = {
+  "source-unavailable": (sourceLabel) =>
+    `No se pudo obtener la información de ${sourceLabel}.`,
 };
 
 export const BOTTOM_PANEL_TAB_COPY: Record<LiveBottomPanelTab["key"], string> = {

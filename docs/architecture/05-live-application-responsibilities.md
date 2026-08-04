@@ -31,9 +31,11 @@ type LivePageViewModel = {
   narrowing is applied. Fleet selection state is computed the same way.
   Narrowing would otherwise make counts and the provider dropdown carry no
   information exactly when a filter is active.
-- Any active narrowing input (status, provider, or search) forces every
-  fleet open; a fleet is dropped from the list only once narrowing empties
-  its visible roster.
+- Provider, status, and search filters determine which fleets and vehicles are
+  visible. They never change fleet expansion.
+- Fleet expansion belongs exclusively to explicit fleet disclosure actions.
+  A fleet is displayed as expanded only when its ID is present in the screen's
+  `expandedFleetIds`; filter changes preserve that state.
 
 ## Sidebar view model
 
@@ -41,7 +43,7 @@ type LivePageViewModel = {
 type LiveVehicleNode = {
   vehicleId: string;
   plate?: string;         // primary identifier when present
-  label: string;          // secondary identifier
+  label?: string;         // secondary identifier when distinct
   status: VehicleStatus;  // "en-route" | "stopped" | "offline"
   speedKmH?: number;      // absent whenever status is "offline"
   lastReportAt?: string;  // ISO-8601, from telemetry.gpsAt
@@ -141,17 +143,26 @@ badge only checks for its presence before rendering.
 Application MUST:
 
 - compose the final page view model
+- load enabled operational sources independently
+- merge every successful normalized snapshot in configured order
+- retain one generic source-labelled warning per failed source
 - determine mappable vehicles
 - determine whether a vehicle can attempt live playback
 - resolve playback open actions by `vehicleId`
 - deduplicate already-open tiles
 - keep provider details out of UI contracts
 
+An operational source asynchronously returns either normalized `LiveState` or
+a provider-neutral failure. The aggregator owns partial availability: one
+source failure never removes another source's successful roster. If every
+source fails, it returns an empty roster plus every source warning. Delivery
+never substitutes fixture data after a failure.
+
 ## Integration responsibilities
 
 Integrations MUST:
 
-- normalize customer, fleet, vehicle, device, and telemetry inputs
+- normalize fleet, vehicle, device, and telemetry inputs
 - expose playback capability per device or vehicle
 - resolve tile renderer, source, and status
 - translate provider failures into application-usable results

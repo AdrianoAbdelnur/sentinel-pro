@@ -21,8 +21,9 @@ describe("readLiveRuntimeConfig", () => {
   it("returns the domain default staleness threshold when the env var is unset", () => {
     delete process.env[ENV_VAR];
 
-    expect(readLiveRuntimeConfig()).toEqual({
+    expect(readLiveRuntimeConfig({ NODE_ENV: "production" })).toEqual({
       staleAfterMs: DEFAULT_STALE_AFTER_MS,
+      includeDevelopmentFixtures: false,
     });
   });
 
@@ -30,7 +31,7 @@ describe("readLiveRuntimeConfig", () => {
     delete process.env[ENV_VAR];
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    readLiveRuntimeConfig();
+    readLiveRuntimeConfig({ NODE_ENV: "production" });
 
     expect(warnSpy).not.toHaveBeenCalled();
   });
@@ -38,7 +39,15 @@ describe("readLiveRuntimeConfig", () => {
   it("returns the parsed value in milliseconds from a valid override", () => {
     process.env[ENV_VAR] = "600000";
 
-    expect(readLiveRuntimeConfig()).toEqual({ staleAfterMs: 600_000 });
+    expect(
+      readLiveRuntimeConfig({
+        NODE_ENV: "production",
+        [ENV_VAR]: "600000",
+      }),
+    ).toEqual({
+      staleAfterMs: 600_000,
+      includeDevelopmentFixtures: false,
+    });
   });
 
   it.each([
@@ -52,8 +61,14 @@ describe("readLiveRuntimeConfig", () => {
       process.env[ENV_VAR] = rawValue;
       const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-      expect(readLiveRuntimeConfig()).toEqual({
+      expect(
+        readLiveRuntimeConfig({
+          NODE_ENV: "production",
+          [ENV_VAR]: rawValue,
+        }),
+      ).toEqual({
         staleAfterMs: DEFAULT_STALE_AFTER_MS,
+        includeDevelopmentFixtures: false,
       });
       expect(warnSpy).toHaveBeenCalledTimes(1);
     },
@@ -63,5 +78,19 @@ describe("readLiveRuntimeConfig", () => {
     process.env[ENV_VAR] = "120000";
 
     expect(readLiveRuntimeConfig()).toEqual(readLiveRuntimeConfig());
+  });
+
+  it("includes development fixtures only for the local development runtime", () => {
+    expect(
+      readLiveRuntimeConfig({ NODE_ENV: "development" })
+        .includeDevelopmentFixtures,
+    ).toBe(true);
+    expect(
+      readLiveRuntimeConfig({ NODE_ENV: "production" })
+        .includeDevelopmentFixtures,
+    ).toBe(false);
+    expect(
+      readLiveRuntimeConfig({ NODE_ENV: "test" }).includeDevelopmentFixtures,
+    ).toBe(false);
   });
 });

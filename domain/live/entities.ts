@@ -1,21 +1,13 @@
-export type Customer = {
-  id: string;
-  label: string;
-  isActive: boolean;
-};
-
 export type Fleet = {
   id: string;
-  customerId: string;
   label: string;
   isActive: boolean;
 };
 
 export type Vehicle = {
   id: string;
-  customerId: string;
   fleetId: string;
-  label: string;
+  label?: string;
   plate?: string;
   internalCode?: string;
   isActive: boolean;

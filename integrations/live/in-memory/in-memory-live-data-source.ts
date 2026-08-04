@@ -1,13 +1,12 @@
 import type { Device, DeviceTelemetry, Vehicle } from "@/domain/live";
 import type {
   LiveBottomPanelTab,
-  LiveDataSource,
   LiveFleetState,
   LiveState,
   LiveVehicleState,
+  OperationalSource,
 } from "@/application/live";
-
-const CUSTOMER_ID = "customer-demo";
+import { HOWEN_PROVIDER } from "@/integrations/howen/provider";
 
 type FixtureTelemetry = Omit<DeviceTelemetry, "gpsAt"> & {
   gpsAgoMs?: number;
@@ -46,7 +45,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-101",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones",
       label: "Unidad 101",
       plate: "AE101GH",
@@ -56,7 +54,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     device: {
       id: "device-101",
       vehicleId: "vehicle-101",
-      provider: "howen",
+      provider: HOWEN_PROVIDER,
       origin: "howen",
       kind: "mdvr",
       channelCount: 4,
@@ -77,7 +75,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-102",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones",
       label: "Unidad 102",
       plate: "AE102GH",
@@ -87,7 +84,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
     device: {
       id: "device-102",
       vehicleId: "vehicle-102",
-      provider: "howen",
+      provider: HOWEN_PROVIDER,
       origin: "howen",
       kind: "dashcam",
       channelCount: 2,
@@ -105,7 +102,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-201",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones-rio-tinto",
       label: "Unidad 201",
       plate: "AE201JK",
@@ -135,7 +131,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-202",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-ab-construcciones-rio-tinto",
       label: "Unidad 202",
       plate: "AE202JK",
@@ -162,7 +157,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-301",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 301",
       plate: "AE301LM",
@@ -186,7 +180,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-302",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 302",
       plate: "AE302LM",
@@ -205,7 +198,6 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   {
     vehicle: {
       id: "vehicle-303",
-      customerId: CUSTOMER_ID,
       fleetId: "fleet-transporte-del-sur",
       label: "Unidad 303",
       plate: "AE303LM",
@@ -215,7 +207,7 @@ const fixtureLiveVehicles: FixtureLiveVehicle[] = [
   },
 ];
 
-const bottomPanelTabs: LiveBottomPanelTab[] = [
+const bottomPanelFixtures: LiveBottomPanelTab[] = [
   {
     key: "status",
     columns: [{ key: "speed" }, { key: "ignition" }, { key: "network" }],
@@ -297,15 +289,26 @@ function materializeLiveVehicles(nowMs: number): LiveVehicleState[] {
   }));
 }
 
-export const inMemoryLiveDataSource: LiveDataSource = {
-  readLiveState(): LiveState {
-    return structuredClone({
-      fleets,
-      liveVehicles: materializeLiveVehicles(Date.now()),
-    });
-  },
+export function readInMemoryLiveStateFixture(): LiveState {
+  return structuredClone({
+    fleets,
+    liveVehicles: materializeLiveVehicles(Date.now()),
+  });
+}
 
-  readBottomPanelTabs(): LiveBottomPanelTab[] {
-    return structuredClone(bottomPanelTabs);
+export function readInMemoryBottomPanelFixtures(): LiveBottomPanelTab[] {
+  return structuredClone(bottomPanelFixtures);
+}
+
+export const inMemoryOperationalSource: OperationalSource = {
+  identity: {
+    id: "development-memory",
+    label: "Development fixtures",
+  },
+  async loadSnapshot() {
+    return {
+      kind: "success",
+      state: readInMemoryLiveStateFixture(),
+    };
   },
 };

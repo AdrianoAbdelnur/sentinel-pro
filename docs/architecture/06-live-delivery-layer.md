@@ -15,9 +15,14 @@ parts are load-bearing.
 `app/live/page.tsx` is a Server Component and the only place the live slice
 reads ambient state.
 
-- `readLiveRuntimeConfig()` (`app/live/live-runtime-config.ts`) is the only
-  sanctioned `process.env` reader. `domain/live` and `application/live` never
-  read the environment.
+- `readLiveRuntimeConfig()` (`app/live/live-runtime-config.ts`) is the
+  delivery-side environment reader. Howen's server adapter reads credentials
+  through `integrations/howen/config.ts`; domain and application never read
+  the environment.
+- `createOperationalSources()` always contributes the lazily shared Howen
+  source and adds memory only when `NODE_ENV` is `development`.
+- The page calls `aggregateOperationalSources()` exactly once and passes only
+  normalized state plus generic warnings across the client boundary.
 - `Date.now()` is read exactly once, there, and threaded down as a plain
   `nowMs` prop.
 - Both values are **required** inputs the whole way down. No layer defaults
@@ -53,6 +58,25 @@ zero, empty) falls back to `DEFAULT_STALE_AFTER_MS` **and** warns: falling back
 keeps the live screen up, the warning keeps an operator mistake from going
 unnoticed. Neither case throws.
 
+Howen credentials use non-`NEXT_PUBLIC_` variables. Missing or invalid Howen
+configuration becomes the same generic unavailable-source result as a
+transport failure. No credential, session, payload, or raw provider error
+crosses into `LiveScreen`.
+
+The Howen session, client, and operational source are created lazily and reused
+by the process. A page request does not create a new session manager.
+
+### Development-only fixtures
+
+Local development intentionally composes both real Howen and the in-memory
+operational source through the generic aggregator. Production excludes the
+in-memory source and receives no fixture bottom-panel tabs or rows. This is
+source selection, not failure fallback: a Howen failure remains visible.
+
+Every Howen device carries the canonical provider value `HOWEN`. The warning
+label, provider filter, badge, real mapped vehicles, and demo vehicles that
+represent Howen therefore agree without provider branching.
+
 ## Language and copy
 
 Application returns codes. Delivery renders Spanish.
@@ -79,6 +103,10 @@ exhaustiveness guarantee to lose — a missing inline label is a missing element
 immediately visible.
 
 "Offline" is deliberately untranslated: an established operator term.
+
+Source warning sentences also live in `live-copy.ts`, keyed exhaustively by
+the application warning code. `live-source-warnings.tsx` interpolates only the
+configured source label.
 
 ## Client island and state
 

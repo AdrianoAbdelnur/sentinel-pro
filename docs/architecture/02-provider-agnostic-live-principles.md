@@ -41,7 +41,6 @@ The UI MUST NOT:
 Live has two different concerns and they MUST stay separate:
 
 1. **Operational live**
-   - customer
    - fleet
    - vehicle
    - device

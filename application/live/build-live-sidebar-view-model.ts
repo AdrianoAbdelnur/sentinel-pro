@@ -89,7 +89,7 @@ export function buildLiveSidebarViewModel({
     const node: LiveFleetNode = {
       fleetId: fleet.fleetId,
       label: fleet.label,
-      isExpanded: isNarrowed ? true : expandedIds.has(fleet.fleetId),
+      isExpanded: expandedIds.has(fleet.fleetId),
       isSelected,
       counts: {
         online: onlineCount,

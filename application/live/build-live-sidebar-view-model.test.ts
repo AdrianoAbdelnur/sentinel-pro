@@ -23,7 +23,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-1",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 101",
       plate: "ABC123",
@@ -49,7 +48,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-2",
-      customerId: "customer-1",
       fleetId: "fleet-north",
       label: "Unit 102",
       plate: "XYZ789",
@@ -72,7 +70,6 @@ const liveVehicles: LiveVehicleState[] = [
   {
     vehicle: {
       id: "vehicle-3",
-      customerId: "customer-1",
       fleetId: "fleet-south",
       label: "Unit 201",
       isActive: false,
@@ -207,13 +204,20 @@ describe("buildLiveSidebarViewModel", () => {
     });
   });
 
-  it("expands matching fleets and keeps only matching vehicles when searching by vehicle label", () => {
-    const result = build({ searchTerm: "unit 102" });
+  it("keeps a search-matching fleet collapsed until its explicit expansion ID is present", () => {
+    const collapsed = build({ searchTerm: "unit 102" });
+    const expanded = build({
+      searchTerm: "unit 102",
+      expandedFleetIds: ["fleet-north"],
+    });
 
-    expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].fleetId).toBe("fleet-north");
-    expect(result.fleets[0].isExpanded).toBe(true);
-    expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
+    expect(collapsed.fleets).toHaveLength(1);
+    expect(collapsed.fleets[0]).toMatchObject({
+      fleetId: "fleet-north",
+      isExpanded: false,
+    });
+    expect(expanded.fleets[0].isExpanded).toBe(true);
+    expect(collapsed.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-2",
     ]);
   });
@@ -231,7 +235,7 @@ describe("buildLiveSidebarViewModel", () => {
     const result = build({ searchTerm: "north" });
 
     expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].isExpanded).toBe(true);
+    expect(result.fleets[0].isExpanded).toBe(false);
     expect(result.fleets[0].vehicles.map((vehicle) => vehicle.vehicleId)).toEqual([
       "vehicle-1",
       "vehicle-2",
@@ -275,17 +279,6 @@ describe("buildLiveSidebarViewModel", () => {
         device: {
           ...liveVehicles[0].device!,
           id: "SECRET-DEVICE-ID",
-        },
-      },
-    },
-    {
-      field: "unrelated customer identifier",
-      searchTerm: "secret-customer-id",
-      liveVehicle: {
-        ...liveVehicles[0],
-        vehicle: {
-          ...liveVehicles[0].vehicle,
-          customerId: "SECRET-CUSTOMER-ID",
         },
       },
     },
@@ -395,11 +388,31 @@ describe("buildLiveSidebarViewModel", () => {
     expect(build({ searchTerm: "unit" }).filters.isNarrowed).toBe(true);
   });
 
-  it("forces every surviving fleet open when a status or provider filter is active, even without a search term", () => {
-    const result = build({ status: "en-route" });
+  it.each([
+    { name: "status", input: { status: "en-route" as const } },
+    { name: "provider", input: { provider: "howen" } },
+    { name: "search", input: { searchTerm: "unit 101" } },
+  ])("keeps matching fleets collapsed under a $name filter unless explicitly opened", ({ input }) => {
+    const collapsed = build(input);
+    const expanded = build({ ...input, expandedFleetIds: ["fleet-north"] });
 
-    expect(result.fleets).toHaveLength(1);
-    expect(result.fleets[0].isExpanded).toBe(true);
+    expect(collapsed.fleets).toHaveLength(1);
+    expect(collapsed.fleets[0]).toMatchObject({
+      fleetId: "fleet-north",
+      isExpanded: false,
+    });
+    expect(expanded.fleets[0].isExpanded).toBe(true);
+  });
+
+  it("keeps fleet expansion independent from the provider filter", () => {
+    const collapsed = build({ provider: "howen" });
+    const expanded = build({
+      provider: "howen",
+      expandedFleetIds: ["fleet-north"],
+    });
+
+    expect(collapsed.fleets[0].isExpanded).toBe(false);
+    expect(expanded.fleets[0].isExpanded).toBe(true);
   });
 
   it("keeps counts and the provider list tied to the full roster even when a status filter narrows what is visible", () => {
@@ -431,7 +444,6 @@ describe("buildLiveSidebarViewModel", () => {
         {
           vehicle: {
             id: "vehicle-offline-no-speed",
-            customerId: "customer-1",
             fleetId: "fleet-solo",
             label: "No Speed Unit",
             isActive: true,
@@ -460,7 +472,6 @@ describe("buildLiveSidebarViewModel", () => {
         {
           vehicle: {
             id: "vehicle-zero-speed",
-            customerId: "customer-1",
             fleetId: "fleet-solo",
             label: "Idle Unit",
             isActive: true,

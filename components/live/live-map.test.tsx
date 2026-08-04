@@ -29,6 +29,22 @@ vi.stubGlobal(
 
 vi.mock("leaflet/dist/leaflet.css", () => ({}));
 
+vi.mock("./live-map-marker-layer", () => ({
+  LiveMapMarkerLayer: ({ markers }: { markers: LiveMapMarker[] }) => (
+    <div data-testid="marker-layer">
+      {markers.map((marker) => (
+        <span
+          key={marker.vehicleId}
+          data-testid="logical-marker"
+          data-position={`${marker.latitude},${marker.longitude}`}
+          data-heading={marker.headingDeg}
+          title={marker.label}
+        />
+      ))}
+    </div>
+  ),
+}));
+
 vi.mock("react-leaflet", () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
@@ -55,7 +71,7 @@ vi.mock("react-leaflet", () => ({
   useMap: () => mapSpies,
 }));
 
-const { LiveMap, buildMarkerHtml } = await import("./live-map");
+const { LiveMap } = await import("./live-map");
 
 const markers: LiveMapMarker[] = [
   {
@@ -78,25 +94,29 @@ describe("LiveMap", () => {
     mapSpies.fitBounds.mockClear();
   });
 
-  it("renders one marker per view model entry", () => {
+  it("passes one logical marker per view model entry to the marker layer", () => {
     render(<LiveMap markers={markers} />);
 
-    expect(screen.getAllByTestId("marker")).toHaveLength(2);
+    expect(screen.getAllByTestId("logical-marker")).toHaveLength(2);
   });
 
-  it("places each marker at its coordinates", () => {
+  it("keeps source coordinates when passing markers to the marker layer", () => {
     render(<LiveMap markers={markers} />);
 
     expect(
-      screen.getAllByTestId("marker").map((node) => node.dataset.position),
+      screen
+        .getAllByTestId("logical-marker")
+        .map((node) => node.dataset.position),
     ).toEqual(["-34.6037,-58.3816", "-34.9011,-56.1645"]);
   });
 
-  it("exposes the marker label as its title", () => {
+  it("preserves titles and headings at the marker-layer boundary", () => {
     render(<LiveMap markers={markers} />);
 
     expect(screen.getByTitle("Unit 101")).toBeInTheDocument();
     expect(screen.getByTitle("Unit 201")).toBeInTheDocument();
+    expect(screen.getByTitle("Unit 101").dataset.heading).toBe("90");
+    expect(screen.getByTitle("Unit 201").dataset.heading).toBeUndefined();
   });
 
   it("carries the OpenStreetMap attribution", () => {
@@ -170,24 +190,5 @@ describe("LiveMap resize handling", () => {
     unmount();
 
     expect(resizeObserverSpies.disconnect).toHaveBeenCalledTimes(1);
-  });
-});
-
-describe("buildMarkerHtml", () => {
-  it("passes the marker heading as a CSS custom property", () => {
-    expect(buildMarkerHtml(markers[0])).toContain("--marker-rotation:90deg");
-  });
-
-  it("sets no rotation property when the heading is absent", () => {
-    expect(buildMarkerHtml(markers[1])).not.toContain("style=");
-  });
-
-  it("styles the marker with classes rather than inline styles", () => {
-    const html = buildMarkerHtml(markers[0]);
-
-    expect(html).toContain('class="');
-    expect(html.match(/style="[^"]*"/g)).toEqual([
-      'style="--marker-rotation:90deg"',
-    ]);
   });
 });

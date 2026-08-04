@@ -41,12 +41,11 @@ function buildFleet(
   };
 }
 
-function renderNode(overrides: Partial<LiveFleetNodeViewModel> = {}, isNarrowed = false) {
+function renderNode(overrides: Partial<LiveFleetNodeViewModel> = {}) {
   return render(
     <ul>
       <LiveFleetNode
         fleet={buildFleet(overrides)}
-        isNarrowed={isNarrowed}
         onToggleExpanded={vi.fn()}
         onToggleFleet={vi.fn()}
         onToggleVehicle={vi.fn()}
@@ -94,15 +93,15 @@ describe("LiveFleetNode", () => {
   });
 
   it("does not show a visible count when nothing narrows the list", () => {
-    renderNode({ vehicles: [vehicle101] }, false);
+    renderNode({ vehicles: [vehicle101] });
 
     expect(screen.queryByText(/visible/i)).not.toBeInTheDocument();
   });
 
-  it("shows the visible count against the total when a filter narrows the list", () => {
-    renderNode({ vehicles: [vehicle101], counts: { online: 1, total: 13 } }, true);
+  it("does not add a redundant visible count when a filter narrows the list", () => {
+    renderNode({ vehicles: [vehicle101], counts: { online: 1, total: 13 } });
 
-    expect(screen.getByText(/1 visible/i)).toBeInTheDocument();
+    expect(screen.queryByText(/1 visible/i)).not.toBeInTheDocument();
   });
 
   it("reflects the expanded state and toggles it", () => {
@@ -111,7 +110,6 @@ describe("LiveFleetNode", () => {
       <ul>
         <LiveFleetNode
           fleet={buildFleet({ isExpanded: false })}
-          isNarrowed={false}
           onToggleExpanded={onToggleExpanded}
           onToggleFleet={vi.fn()}
           onToggleVehicle={vi.fn()}
@@ -143,13 +141,22 @@ describe("LiveFleetNode", () => {
     ).toBeInTheDocument();
   });
 
+  it("indents vehicle rows beneath the fleet header", () => {
+    renderNode({ isExpanded: true });
+
+    const vehicleList = screen
+      .getByRole("checkbox", { name: "ABC123 · Unit 101" })
+      .closest("ul");
+
+    expect(vehicleList).toHaveClass("ml-4", "border-l");
+  });
+
   it("gives the select-all checkbox a Spanish accessible name and reports the fleet id", () => {
     const onToggleFleet = vi.fn();
     render(
       <ul>
         <LiveFleetNode
           fleet={buildFleet()}
-          isNarrowed={false}
           onToggleExpanded={vi.fn()}
           onToggleFleet={onToggleFleet}
           onToggleVehicle={vi.fn()}
@@ -171,7 +178,6 @@ describe("LiveFleetNode", () => {
       <ul>
         <LiveFleetNode
           fleet={buildFleet({ isExpanded: true })}
-          isNarrowed={false}
           onToggleExpanded={vi.fn()}
           onToggleFleet={vi.fn()}
           onToggleVehicle={onToggleVehicle}

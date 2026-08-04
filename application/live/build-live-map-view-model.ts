@@ -24,7 +24,7 @@ export function buildLiveMapViewModel({
     return [
       {
         vehicleId: vehicle.id,
-        label: vehicle.label,
+        label: vehicle.label ?? vehicle.plate ?? "",
         latitude: telemetry.latitude,
         longitude: telemetry.longitude,
         headingDeg: telemetry.headingDeg,

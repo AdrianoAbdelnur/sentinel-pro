@@ -8,7 +8,7 @@ export const ALL_STATUS_LABEL = "Todos";
 const STATUSES: VehicleStatus[] = ["en-route", "stopped", "offline"];
 
 const CHIP_BASE =
-  "rounded-full px-2.5 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] ring-1 ring-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60";
+  "whitespace-nowrap rounded-full px-2 py-1 font-mono text-[9px] font-semibold uppercase tracking-[0.06em] ring-1 ring-inset transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60";
 const CHIP_INACTIVE =
   "bg-transparent text-slate-500 ring-slate-700/70 hover:text-slate-300 hover:ring-slate-600";
 const ALL_CHIP_ACTIVE = "bg-sky-400/15 text-sky-200 ring-sky-400/40";
@@ -23,7 +23,7 @@ export function LiveStatusFilterChips({
   onStatusChange,
 }: LiveStatusFilterChipsProps) {
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-nowrap gap-1">
       <button
         type="button"
         aria-pressed={status === "all"}
