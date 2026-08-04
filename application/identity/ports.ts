@@ -13,6 +13,7 @@ export type UserRepository = {
   findById(id: string): Promise<IdentityUser | undefined>;
   save(user: IdentityUser): Promise<void>;
   registerFailedLogin(userId: string, now: Date): Promise<Pick<IdentityUser, "failureCount" | "blockedUntil"> | undefined>;
+  compareAndTouchAuthorizationVersion(userId: string, expectedAuthorizationVersion: number, now: Date): Promise<boolean>;
   touchAuthorizationVersion(userId: string): Promise<void>;
 };
 

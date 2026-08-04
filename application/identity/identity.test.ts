@@ -23,6 +23,12 @@ function createFixture() {
       findByEmail: async (email) => [...users.values()].find((user) => user.emailNormalized === email),
       findById: async (id) => users.get(id),
       save: async (user) => { users.set(user.id, user); },
+      compareAndTouchAuthorizationVersion: async (userId, expectedAuthorizationVersion, now) => {
+        const user = users.get(userId);
+        if (!user || user.authorizationVersion !== expectedAuthorizationVersion) return false;
+        users.set(userId, { ...user, authorizationVersion: user.authorizationVersion + 1, updatedAt: now });
+        return true;
+      },
       touchAuthorizationVersion: async (userId) => {
         const user = users.get(userId);
         if (user) users.set(userId, { ...user, authorizationVersion: user.authorizationVersion + 1 });
@@ -149,6 +155,7 @@ describe("identity application use cases", () => {
 
     await expect(fixture.app.login({ email: "ADA@example.test", password: "password-1" })).resolves.toEqual({ kind: "authenticated", token: "token-1", organizationId: "org-a", role: "operator" });
     expect(fixture.users.get("user-1")?.failureCount).toBe(0);
+    expect(fixture.users.get("user-1")?.authorizationVersion).toBe(1);
   });
 
   it("returns the same invalid result for missing users and incorrect passwords, blocking on the third failure", async () => {

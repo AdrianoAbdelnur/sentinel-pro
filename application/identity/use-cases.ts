@@ -42,7 +42,8 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
       const user = await users.findById(verifiedUser.id);
       if (!user || user.status !== "active" || user.passwordHash !== verifiedUser.passwordHash || user.authorizationVersion !== verifiedUser.authorizationVersion) return { kind: "invalid_credentials" };
       if (user.blockedUntil && user.blockedUntil > now) return { kind: "temporarily_blocked" };
-      if (user.failureCount !== 0 || user.blockedUntil) await users.save({ ...user, failureCount: 0, blockedUntil: undefined, updatedAt: now });
+      if (!await users.compareAndTouchAuthorizationVersion(user.id, user.authorizationVersion, now)) return { kind: "invalid_credentials" };
+      if (user.failureCount !== 0 || user.blockedUntil) await users.save({ ...user, failureCount: 0, blockedUntil: undefined, authorizationVersion: user.authorizationVersion + 1, updatedAt: now });
       const { session, token } = await createSession({ sessions }, user.id);
       if (user.passwordChangeRequired) return { kind: "password_change_required", token };
       const selection = chooseActiveOrganization(await memberships.findByUserId(user.id));
@@ -66,6 +67,7 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
       if (!session) return { kind: "forbidden" as const };
       const user = await users.findById(session.userId);
       if (!user || user.status !== "active") return { kind: "forbidden" as const };
+      if (!await users.compareAndTouchAuthorizationVersion(user.id, user.authorizationVersion, now)) return { kind: "forbidden" as const };
       await users.save({ ...user, passwordHash, passwordChangeRequired: false, failureCount: 0, blockedUntil: undefined, authorizationVersion: user.authorizationVersion + 1, updatedAt: now });
       await sessions.revokeForUser(session.userId);
       return { kind: "changed" as const };
@@ -145,6 +147,7 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
       if (!user) return { kind: "forbidden" };
       const nextTemporaryPassword = temporaryPassword ?? ports.temporaryPasswords.create();
       const now = ports.clock.now();
+      if (!await users.compareAndTouchAuthorizationVersion(user.id, user.authorizationVersion, now)) return { kind: "forbidden" };
       await users.save({ ...user, passwordHash: await ports.passwords.hash(nextTemporaryPassword), passwordChangeRequired: true, failureCount: 0, blockedUntil: undefined, authorizationVersion: user.authorizationVersion + 1, updatedAt: now });
       await sessions.revokeForUser(userId);
       return { kind: "reset", temporaryPassword: nextTemporaryPassword };
@@ -153,19 +156,29 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
 
   async function changeMembershipRole({ actor, userId, role }: { actor: AuthorizationContext; userId: string; role: IdentityRole }): Promise<MembershipResult> {
     if (actor.role !== "admin") return { kind: "forbidden" };
-    const result = await ports.memberships.changeRoleIfNotLastAdmin({ organizationId: actor.organizationId, userId, role });
+    const result = await ports.transactions.run(async ({ users, memberships, sessions }) => {
+      const user = await users.findById(userId);
+      if (user && !await users.compareAndTouchAuthorizationVersion(userId, user.authorizationVersion, ports.clock.now())) return "not_found" as const;
+      const changed = await memberships.changeRoleIfNotLastAdmin({ organizationId: actor.organizationId, userId, role });
+      if (changed === "changed") await sessions.revokeForUserAndOrganization(userId, actor.organizationId);
+      return changed;
+    });
     if (result === "last_admin") return { kind: "last_admin" };
     if (result === "not_found") return { kind: "forbidden" };
-    await ports.sessions.revokeForUserAndOrganization(userId, actor.organizationId);
     return { kind: "changed" };
   }
 
   async function deactivateMembership({ actor, userId }: { actor: AuthorizationContext; userId: string }): Promise<MembershipResult> {
     if (actor.role !== "admin") return { kind: "forbidden" };
-    const result = await ports.memberships.deactivateIfNotLastAdmin({ organizationId: actor.organizationId, userId });
+    const result = await ports.transactions.run(async ({ users, memberships, sessions }) => {
+      const user = await users.findById(userId);
+      if (user && !await users.compareAndTouchAuthorizationVersion(userId, user.authorizationVersion, ports.clock.now())) return "not_found" as const;
+      const changed = await memberships.deactivateIfNotLastAdmin({ organizationId: actor.organizationId, userId });
+      if (changed === "deactivated") await sessions.revokeForUserAndOrganization(userId, actor.organizationId);
+      return changed;
+    });
     if (result === "last_admin") return { kind: "last_admin" };
     if (result === "not_found") return { kind: "forbidden" };
-    await ports.sessions.revokeForUserAndOrganization(userId, actor.organizationId);
     return { kind: "deactivated" };
   }
 
