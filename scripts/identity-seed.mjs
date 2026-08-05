@@ -1,6 +1,7 @@
 import argon2 from "argon2";
 import { MongoClient } from "mongodb";
 import { execFileSync } from "node:child_process";
+import { ARGON2ID_OPTIONS } from "../integrations/security/argon2id-options.mjs";
 
 const uri = process.env.SENTINEL_MONGODB_URI;
 const database = process.env.SENTINEL_MONGODB_DATABASE;
@@ -20,7 +21,7 @@ else {
       const now = new Date();
       const userId = "initial-admin";
       await db.collection("organizations").insertOne({ schemaVersion: 1, id: "initial", name: organizationName, seedKey: "initial", status: "active", authorizationVersion: 0, createdAt: now, updatedAt: now }, { session });
-      await db.collection("users").updateOne({ emailNormalized: email.trim().toLowerCase() }, { $setOnInsert: { schemaVersion: 1, id: userId, firstName: process.env.SENTINEL_INITIAL_ADMIN_FIRST_NAME ?? "Administrator", lastName: process.env.SENTINEL_INITIAL_ADMIN_LAST_NAME ?? "Sentinel", emailNormalized: email.trim().toLowerCase(), passwordHash: await argon2.hash(password, { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 }), passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, createdAt: now, updatedAt: now } }, { upsert: true, session });
+      await db.collection("users").updateOne({ emailNormalized: email.trim().toLowerCase() }, { $setOnInsert: { schemaVersion: 1, id: userId, firstName: process.env.SENTINEL_INITIAL_ADMIN_FIRST_NAME ?? "Administrator", lastName: process.env.SENTINEL_INITIAL_ADMIN_LAST_NAME ?? "Sentinel", emailNormalized: email.trim().toLowerCase(), passwordHash: await argon2.hash(password, ARGON2ID_OPTIONS), passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, createdAt: now, updatedAt: now } }, { upsert: true, session });
       const user = await db.collection("users").findOne({ emailNormalized: email.trim().toLowerCase() }, { session });
       await db.collection("organization_memberships").updateOne({ organizationId: "initial", userId: user.id }, { $setOnInsert: { schemaVersion: 1, organizationId: "initial", userId: user.id, role: "admin", status: "active", createdAt: now, updatedAt: now } }, { upsert: true, session });
     }));

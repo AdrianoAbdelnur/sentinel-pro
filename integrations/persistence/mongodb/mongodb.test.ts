@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { createMongoIdentityRepositories, identityIndexes, MongoTransactionRunner, migrateIdentityDatabase } from "./index";
 import { createIdentityApplication } from "@/application/identity";
+
+const execFileAsync = promisify(execFile);
 
 let replSet: MongoMemoryReplSet; let client: MongoClient;
 beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); client = new MongoClient(replSet.getUri()); await client.connect(); }, 60_000);
@@ -52,6 +56,27 @@ describe("Mongo identity persistence", () => {
   });
 });
 
+
+describe("identity seed entrypoint", () => {
+  it("allows two concurrent executions and creates one initial identity", async () => {
+    const database = `identity_seed_entry_${Date.now()}`;
+    const env = {
+      ...process.env,
+      SENTINEL_MONGODB_URI: replSet.getUri(),
+      SENTINEL_MONGODB_DATABASE: database,
+      SENTINEL_INITIAL_ORGANIZATION_NAME: "Initial Organization",
+      SENTINEL_INITIAL_ADMIN_EMAIL: "admin@example.test",
+      SENTINEL_INITIAL_ADMIN_PASSWORD: "temporary-password",
+    };
+    const runSeed = () => execFileAsync(process.execPath, ["scripts/identity-seed.mjs"], { cwd: process.cwd(), env });
+
+    await expect(Promise.all([runSeed(), runSeed()])).resolves.toHaveLength(2);
+    const db = client.db(database);
+    await expect(db.collection("organizations").countDocuments()).resolves.toBe(1);
+    await expect(db.collection("users").countDocuments()).resolves.toBe(1);
+    await expect(db.collection("organization_memberships").countDocuments()).resolves.toBe(1);
+  }, 60_000);
+});
 
 describe("atomic identity mutations", () => {
   it("rolls back a failed seed, retries it, and makes concurrent reseeds idempotent", async () => {
@@ -145,5 +170,3 @@ describe("atomic identity mutations", () => {
     expect(results).toContain("last_admin"); expect((await repos.memberships.listByOrganization("org")).filter(m=>m.role==="admin"&&m.status==="active")).toHaveLength(1);
   });
 });
-
-

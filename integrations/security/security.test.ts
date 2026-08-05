@@ -1,5 +1,9 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
 import { ARGON2ID_BENCHMARK, ARGON2ID_OPTIONS, Argon2idPasswordHasher, SHA256TokenHasher, SecureOpaqueTokenGenerator, ReadableTemporaryPasswordGenerator } from "./index";
+
+const execFileAsync = promisify(execFile);
 
 describe("security adapters", () => {
   it("uses Argon2id with independently salted hashes", async () => {
@@ -13,14 +17,23 @@ describe("security adapters", () => {
     expect(first).toContain("m=19456,t=2,p=1");
     expect(ARGON2ID_OPTIONS).toMatchObject({ memoryCost: 19456, timeCost: 2, parallelism: 1 });
   });
-  it("publishes a reproducible Argon2id benchmark workload without timing assertions", () => {
-    expect(ARGON2ID_BENCHMARK).toEqual({ password: "sentinel-benchmark-password", warmupRuns: 1, measuredRuns: 3 });
-  });
+  it("runs the benchmark with the shared configuration contract", async () => {
+    const { stdout } = await execFileAsync(process.execPath, ["benchmarks/argon2id.mjs"], { cwd: process.cwd() });
+    expect(stdout.trim().split("\n")).toEqual([
+      `argon2id_memory_cost=${ARGON2ID_OPTIONS.memoryCost}`,
+      `argon2id_time_cost=${ARGON2ID_OPTIONS.timeCost}`,
+      `argon2id_parallelism=${ARGON2ID_OPTIONS.parallelism}`,
+      `argon2id_warmup_runs=${ARGON2ID_BENCHMARK.warmupRuns}`,
+      `argon2id_measured_runs=${ARGON2ID_BENCHMARK.measuredRuns}`,
+      expect.stringMatching(/^argon2id_ms=\d+\.\d$/),
+    ]);
+  }, 15_000);
   it("creates a 256-bit base64url token and deterministic SHA-256 hash", async () => {
     const tokens = new SecureOpaqueTokenGenerator(); const hashes = new SHA256TokenHasher();
     const token = await tokens.create();
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/); expect(await hashes.hash(token)).toMatch(/^[a-f0-9]{64}$/);
     expect(await hashes.hash(token)).toBe(await hashes.hash(token));
+    expect(await hashes.hash("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   });
   it("creates readable varied temporary passwords", () => {
     const generator = new ReadableTemporaryPasswordGenerator(); const passwords = Array.from({ length: 10 }, () => generator.create());

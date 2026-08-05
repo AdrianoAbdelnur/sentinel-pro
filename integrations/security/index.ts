@@ -1,8 +1,8 @@
 import argon2 from "argon2";
 import { createHash, randomBytes, randomInt } from "node:crypto";
+import { ARGON2ID_BENCHMARK, ARGON2ID_OPTIONS } from "./argon2id-options.mjs";
 
-export const ARGON2ID_OPTIONS = { type: argon2.argon2id, memoryCost: 19456, timeCost: 2, parallelism: 1 } as const;
-export const ARGON2ID_BENCHMARK = { password: "sentinel-benchmark-password", warmupRuns: 1, measuredRuns: 3 } as const;
+export { ARGON2ID_BENCHMARK, ARGON2ID_OPTIONS };
 
 export class Argon2idPasswordHasher {
   hash(password: string) { return argon2.hash(password, ARGON2ID_OPTIONS); }
