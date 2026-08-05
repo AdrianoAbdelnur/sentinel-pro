@@ -8,6 +8,7 @@ import {
 
 import { createOperationalSources } from "./create-operational-sources";
 import { readLiveRuntimeConfig } from "./live-runtime-config";
+import { requirePageAuthorization } from "../require-page-authorization";
 
 export const metadata: Metadata = {
   title: "Live · Sentinel Pro",
@@ -17,6 +18,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function LivePage() {
+  await requirePageAuthorization("operator");
   const runtime = readLiveRuntimeConfig();
   const sources = createOperationalSources(runtime);
   const { state, warnings } = await aggregateOperationalSources(sources);

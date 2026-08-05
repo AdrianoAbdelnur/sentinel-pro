@@ -168,6 +168,26 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
     return { kind: "changed" };
   }
 
+  async function reactivateMembership({ actor, userId, role }: { actor: AuthorizationContext; userId: string; role: IdentityRole }): Promise<MembershipResult> {
+    if (actor.role !== "admin") return { kind: "forbidden" };
+    const result = await ports.transactions.run(async ({ users, memberships, sessions }) => {
+      const user = await users.findById(userId);
+      const membership = await memberships.findByUserAndOrganization(userId, actor.organizationId);
+      if (!user || !membership) return "not_found" as const;
+      if (membership.status === "inactive") {
+        await memberships.save({ ...membership, role, status: "active" });
+        return "reactivated" as const;
+      }
+      if (!await users.compareAndTouchAuthorizationVersion(userId, user.authorizationVersion, ports.clock.now())) return "not_found" as const;
+      const changed = await memberships.changeRoleIfNotLastAdmin({ organizationId: actor.organizationId, userId, role });
+      if (changed === "changed") await sessions.revokeForUserAndOrganization(userId, actor.organizationId);
+      return changed;
+    });
+    if (result === "last_admin") return { kind: "last_admin" };
+    if (result === "not_found") return { kind: "forbidden" };
+    return { kind: result };
+  }
+
   async function deactivateMembership({ actor, userId }: { actor: AuthorizationContext; userId: string }): Promise<MembershipResult> {
     if (actor.role !== "admin") return { kind: "forbidden" };
     const result = await ports.transactions.run(async ({ users, memberships, sessions }) => {
@@ -194,5 +214,5 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
     });
   }
 
-  return { login, logout, changePassword, selectOrganization, authorize, addUser, resetPassword, changeMembershipRole, deactivateMembership, seed };
+  return { login, logout, changePassword, selectOrganization, authorize, addUser, resetPassword, changeMembershipRole, reactivateMembership, deactivateMembership, seed };
 }
