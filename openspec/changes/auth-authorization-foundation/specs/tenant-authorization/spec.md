@@ -16,6 +16,13 @@ The system MUST auto-select one active membership and require selection when sev
 - WHEN login completes
 - THEN tenant access waits for selection
 
+#### Scenario: No active membership delivery
+- GIVEN valid credentials for an identity with no active organization membership
+- WHEN login completes
+- THEN the delivery handler MUST return `403` with `{ "error": "No active organization membership." }`, MUST NOT return a navigation target, MUST revoke the newly-created session and expire the host-only session cookie, and the login UI MUST keep the user on `/login` and display that error
+
+This explicit outcome prevents a valid credential from becoming a usable browser session without tenant authorization. The response discloses membership absence only after successful credential verification, gives an actionable explanation to the authenticated person, and avoids the prior `/login` navigation response that could loop.
+
 ### Requirement: Tenant switching
 
 The system MUST allow switching only to an active membership.

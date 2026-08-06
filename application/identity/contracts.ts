@@ -22,5 +22,6 @@ export type PasswordResetResult =
 export type MembershipResult =
   | { kind: "deactivated" }
   | { kind: "changed" }
+  | { kind: "reactivated" }
   | { kind: "last_admin" }
   | { kind: "forbidden" };

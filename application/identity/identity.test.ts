@@ -23,6 +23,12 @@ function createFixture() {
       findByEmail: async (email) => [...users.values()].find((user) => user.emailNormalized === email),
       findById: async (id) => users.get(id),
       save: async (user) => { users.set(user.id, user); },
+      compareAndTouchAuthorizationVersion: async (userId, expectedAuthorizationVersion, now) => {
+        const user = users.get(userId);
+        if (!user || user.authorizationVersion !== expectedAuthorizationVersion) return false;
+        users.set(userId, { ...user, authorizationVersion: user.authorizationVersion + 1, updatedAt: now });
+        return true;
+      },
       touchAuthorizationVersion: async (userId) => {
         const user = users.get(userId);
         if (user) users.set(userId, { ...user, authorizationVersion: user.authorizationVersion + 1 });
@@ -149,6 +155,7 @@ describe("identity application use cases", () => {
 
     await expect(fixture.app.login({ email: "ADA@example.test", password: "password-1" })).resolves.toEqual({ kind: "authenticated", token: "token-1", organizationId: "org-a", role: "operator" });
     expect(fixture.users.get("user-1")?.failureCount).toBe(0);
+    expect(fixture.users.get("user-1")?.authorizationVersion).toBe(1);
   });
 
   it("returns the same invalid result for missing users and incorrect passwords, blocking on the third failure", async () => {
@@ -676,5 +683,46 @@ describe("identity application use cases", () => {
     expect(fixture.memberships.filter((membership) => membership.role === "admin" && membership.status === "active")).toHaveLength(1);
   });
 
+  it("rejects reactivation of an active last administrator without a membership write", async () => {
+    const fixture = createFixture();
+    const actor = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
+    await addUser(fixture, { id: "admin-1" });
+    fixture.memberships.push({ userId: "admin-1", organizationId: "org-a", role: "admin", status: "active" });
+    const save = fixture.ports.memberships.save;
+    let writes = 0;
+    fixture.ports.memberships.save = async (membership) => { writes += 1; await save(membership); };
+
+    await expect(fixture.app.reactivateMembership({ actor, userId: "admin-1", role: "operator" })).resolves.toEqual({ kind: "last_admin" });
+
+    expect(writes).toBe(0);
+    expect(fixture.memberships).toContainEqual({ userId: "admin-1", organizationId: "org-a", role: "admin", status: "active" });
+  });
+
+  it("changes an active membership through the last-admin guard when another administrator remains", async () => {
+    const fixture = createFixture();
+    const actor = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
+    await addUser(fixture, { id: "admin-1" });
+    await addUser(fixture, { id: "admin-2", emailNormalized: "grace@example.test" });
+    fixture.memberships.push(
+      { userId: "admin-1", organizationId: "org-a", role: "admin", status: "active" },
+      { userId: "admin-2", organizationId: "org-a", role: "admin", status: "active" },
+    );
+
+    await expect(fixture.app.reactivateMembership({ actor, userId: "admin-1", role: "operator" })).resolves.toEqual({ kind: "changed" });
+
+    expect(fixture.memberships[0]).toMatchObject({ role: "operator", status: "active" });
+  });
+
 });
 
+
+  it("reactivates a membership without changing the identity credentials", async () => {
+    const fixture = createFixture();
+    await addUser(fixture, { id: "user-1", passwordHash: "original-password", passwordChangeRequired: false });
+    fixture.memberships.push({ organizationId: "org-a", userId: "user-1", role: "operator", status: "inactive" });
+
+    await expect(fixture.app.reactivateMembership({ actor: { userId: "admin", organizationId: "org-a", role: "admin" }, userId: "user-1", role: "admin" })).resolves.toEqual({ kind: "reactivated" });
+
+    expect(fixture.memberships.find((membership) => membership.userId === "user-1" && membership.organizationId === "org-a")).toEqual({ organizationId: "org-a", userId: "user-1", role: "admin", status: "active" });
+    expect(fixture.users.get("user-1")).toMatchObject({ passwordHash: "original-password", passwordChangeRequired: false });
+  });

@@ -38,7 +38,9 @@ Collections use strict/error JSON Schema validators. IDs remain references; no p
 
 ## Interfaces / Contracts
 
-`application/identity/ports.ts` defines `UserRepository`, `OrganizationRepository`, `MembershipRepository`, `SessionRepository`, `PasswordHasher`, `TokenGenerator`, `Clock`, and `TransactionRunner`. Use cases return explicit result unions, including `invalid_credentials`, `temporarily_blocked`, `password_change_required`, `tenant_selection_required`, `forbidden`, `shared_identity_reset_forbidden`, and `last_admin`.
+`application/identity/ports.ts` defines `UserRepository`, `OrganizationRepository`, `MembershipRepository`, `SessionRepository`, `PasswordHasher`, `TokenGenerator`, `Clock`, and `TransactionRunner`. Use cases return explicit result unions, including `invalid_credentials`, `temporarily_blocked`, `password_change_required`, `tenant_selection_required`, `no_active_membership`, `forbidden`, `shared_identity_reset_forbidden`, and `last_admin`.
+
+Login delivery exhaustively maps every `LoginResult`. `no_active_membership` is a `403` response with `{ "error": "No active organization membership." }`, has no `next` navigation value, revokes its newly created opaque session, and expires the host-only session cookie. The UI stays on `/login` and shows the returned error. This does not reveal tenant information before credentials are verified, prevents a browser session with no active authorization, and avoids a self-navigation loop to `/login`.
 
 `AuthorizationContext` contains `userId`, `organizationId`, and tenant-scoped `role`. It is the only identity contract passed into catalog/live use cases.
 

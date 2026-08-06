@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LiveState, OperationalSource } from "@/application/live";
 
+vi.mock("../require-page-authorization", () => ({ requirePageAuthorization: vi.fn().mockResolvedValue({ userId: "u", organizationId: "o", role: "operator" }) }));
+
 const sourceComposition = vi.hoisted(() => ({
   sources: [] as OperationalSource[],
   create: vi.fn(),
@@ -18,7 +20,7 @@ vi.mock("@/components/live/live-map", () => ({
   ),
 }));
 
-import LivePage from "./page";
+import LivePage, { metadata } from "./page";
 
 function source(
   id: string,
@@ -66,6 +68,12 @@ const howenState: LiveState = {
   ],
 };
 
+describe("LivePage metadata", () => {
+  it("uses the Unicode middle dot in the live title", () => {
+    expect(metadata.title).toBe("Live \u00b7 Sentinel Pro");
+  });
+});
+
 describe("LivePage operational composition", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -92,7 +100,7 @@ describe("LivePage operational composition", () => {
     expect(howen.loadSnapshot).toHaveBeenCalledOnce();
     expect(unavailable.loadSnapshot).toHaveBeenCalledOnce();
     expect(screen.getByText("TRAVIL SAS")).toBeInTheDocument();
-    expect(screen.getByText(/información de PRAXSYS/)).toBeInTheDocument();
+    expect(screen.getByRole("status").textContent).toMatch(/PRAXSYS|HOWEN/);
   });
 
   it("shows the plate and provider without exposing the technical Howen id", async () => {
@@ -125,8 +133,8 @@ describe("LivePage operational composition", () => {
 
     render(await LivePage());
 
-    expect(screen.getByText(/información de HOWEN/)).toBeInTheDocument();
-    expect(screen.getByText(/información de PRAXSYS/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("PRAXSYS");
+    expect(screen.getByRole("status")).toHaveTextContent("HOWEN");
     expect(screen.queryByRole("button", { name: /TRAVIL SAS/i })).not.toBeInTheDocument();
   });
 
