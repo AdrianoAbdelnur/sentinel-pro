@@ -1,25 +1,40 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const application = {
-  login: vi.fn(),
-  logout: vi.fn(),
-  changePassword: vi.fn(),
-  selectOrganization: vi.fn(),
-};
-
-vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication: () => application }));
+const { application, getIdentityApplication } = vi.hoisted(() => {
+  const application = {
+    login: vi.fn(),
+    logout: vi.fn(),
+    changePassword: vi.fn(),
+    selectOrganization: vi.fn(),
+  };
+  return { application, getIdentityApplication: vi.fn(() => application) };
+});
+vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication }));
 
 import { POST as login } from "./login/route";
 
 describe("authentication route handlers", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    getIdentityApplication.mockReturnValue(application);
+  });
+
+  it("returns a generic JSON error when identity initialization fails", async () => {
+    getIdentityApplication.mockRejectedValueOnce(new Error("database certificate failure"));
+
+    const response = await login(new Request("https://sentinel.test/api/auth/login", { method: "POST", body: JSON.stringify({ email: "user@example.test", password: "password" }), headers: { "content-type": "application/json" } }));
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({ error: "No pudimos continuar. Intentá nuevamente." });
+  });
 
   it("returns the same public failure for invalid credentials and lockout without setting a session", async () => {
     application.login.mockResolvedValueOnce({ kind: "invalid_credentials" }).mockResolvedValueOnce({ kind: "temporarily_blocked" });
     const invalid = await login(new Request("https://sentinel.test/api/auth/login", { method: "POST", body: JSON.stringify({ email: "nobody@example.test", password: "wrong" }), headers: { "content-type": "application/json" } }));
     const locked = await login(new Request("https://sentinel.test/api/auth/login", { method: "POST", body: JSON.stringify({ email: "known@example.test", password: "wrong" }), headers: { "content-type": "application/json" } }));
     expect(invalid.status).toBe(401);
-    expect(await invalid.json()).toEqual(await locked.json());
+    expect(await invalid.json()).toEqual({ error: "El correo electrónico o la contraseña no son válidos." });
+    expect(await locked.json()).toEqual({ error: "El correo electrónico o la contraseña no son válidos." });
     expect(invalid.headers.get("set-cookie")).toBeNull();
   });
 
@@ -66,7 +81,7 @@ describe("authentication route handlers", () => {
 
     expect(application.logout).toHaveBeenCalledWith({ token: "opaque-token" });
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "No active organization membership." });
+    expect(await response.json()).toEqual({ error: "No tenés una membresía activa en una organización." });
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   });
 });

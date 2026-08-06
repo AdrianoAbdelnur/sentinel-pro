@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Sentinel Pro",
-  description: "Provider-agnostic Sentinel platform built with SDD and TDD.",
+  description: "Plataforma Sentinel independiente de proveedores, construida con SDD y TDD.",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="es"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex h-full flex-col overflow-hidden">{children}</body>

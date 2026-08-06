@@ -4,8 +4,8 @@ import { NextResponse } from "next/server";
 import { getIdentityApplication } from "../composition";
 import { expireSession, SESSION_COOKIE, sessionCookie } from "../delivery";
 
-const invalidCredentials = { error: "Invalid email or password." };
-const noActiveMembership = { error: "No active organization membership." };
+const invalidCredentials = { error: "El correo electrónico o la contraseña no son válidos." };
+const noActiveMembership = { error: "No tenés una membresía activa en una organización." };
 
 function sessionResponse(next: string, token: string) {
   const response = NextResponse.json({ next });
@@ -36,7 +36,11 @@ async function toLoginResponse(result: LoginResult, logout: (input: { token: str
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const application = await getIdentityApplication();
-  const result = await application.login({ email: typeof body.email === "string" ? body.email : "", password: typeof body.password === "string" ? body.password : "" });
-  return toLoginResponse(result, application.logout);
+  try {
+    const application = await getIdentityApplication();
+    const result = await application.login({ email: typeof body.email === "string" ? body.email : "", password: typeof body.password === "string" ? body.password : "" });
+    return toLoginResponse(result, application.logout);
+  } catch {
+    return NextResponse.json({ error: "No pudimos continuar. Intentá nuevamente." }, { status: 500 });
+  }
 }

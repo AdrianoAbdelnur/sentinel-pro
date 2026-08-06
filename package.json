@@ -3,16 +3,16 @@
     "version":  "0.1.0",
     "private":  true,
     "scripts":  {
-                    "dev":  "next dev",
+                    "dev":  "node scripts/run-with-system-ca.mjs node node_modules/next/dist/bin/next dev",
                     "build":  "next build",
-                    "start":  "next start",
+                    "start":  "node scripts/run-with-system-ca.mjs node node_modules/next/dist/bin/next start",
                     "lint":  "eslint .",
                     "typecheck":  "tsc --noEmit",
                     "test":  "vitest run",
                     "test:watch":  "vitest",
                     "test:coverage":  "vitest run --coverage",
-                    "migrate:identity":  "node --experimental-strip-types integrations/persistence/mongodb/migrate.ts",
-                    "seed:identity":  "node scripts/identity-seed.mjs",
+                    "migrate:identity":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/migrate.ts",
+                    "seed:identity":  "node scripts/run-with-system-ca.mjs node scripts/identity-seed.mjs",
                     "benchmark:argon2id":  "node benchmarks/argon2id.mjs"
                 },
     "dependencies":  {

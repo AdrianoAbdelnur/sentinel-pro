@@ -12,5 +12,5 @@ export function isSameOrigin(request: Request) {
   return origin === new URL(request.url).origin;
 }
 
-export function forbidden() { return NextResponse.json({ error: "Forbidden." }, { status: 403 }); }
+export function forbidden() { return NextResponse.json({ error: "No tenés permisos para realizar esta acción." }, { status: 403 }); }
 export function expireSession(response: NextResponse) { response.cookies.set(SESSION_COOKIE, "", { ...sessionCookie, maxAge: 0 }); return response; }

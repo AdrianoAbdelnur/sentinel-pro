@@ -8,6 +8,6 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   if (!token) return forbidden();
   const result = await (await getIdentityApplication()).changePassword({ token, password: typeof body.password === "string" ? body.password : "" });
-  if (result.kind !== "changed") return NextResponse.json({ error: result.kind === "invalid_password" ? "Password must contain at least 8 characters." : "Forbidden." }, { status: result.kind === "invalid_password" ? 400 : 403 });
+  if (result.kind !== "changed") return NextResponse.json({ error: result.kind === "invalid_password" ? "La contraseña debe tener al menos 8 caracteres." : "No tenés permisos para realizar esta acción." }, { status: result.kind === "invalid_password" ? 400 : 403 });
   return expireSession(NextResponse.json({ next: "/login" }));
 }

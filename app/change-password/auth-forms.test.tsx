@@ -10,8 +10,8 @@ describe("auth delivery forms", () => {
   it("submits the mandatory password change", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ next: "/login" }), { status: 200 })));
     render(<ChangePasswordForm />);
-    fireEvent.change(screen.getByLabelText(/new password/i), { target: { value: "eightchars" } });
-    fireEvent.click(screen.getByRole("button", { name: /change password/i }));
+    fireEvent.change(screen.getByLabelText("Nueva contraseña"), { target: { value: "eightchars" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cambiar contraseña" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/login"));
     expect(fetch).toHaveBeenCalledWith("/api/auth/change-password", {
       method: "POST",
@@ -23,8 +23,8 @@ describe("auth delivery forms", () => {
   it("selects an organization through the route contract", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ next: "/live" }), { status: 200 })));
     render(<OrganizationSelectionForm />);
-    fireEvent.change(screen.getByLabelText(/organization id/i), { target: { value: "organization-2" } });
-    fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    fireEvent.change(screen.getByLabelText("ID de organización"), { target: { value: "organization-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/live"));
     expect(fetch).toHaveBeenCalledWith("/api/auth/select-organization", {
       method: "POST",
@@ -34,16 +34,16 @@ describe("auth delivery forms", () => {
   });
 
   it.each([
-    ["invalid password", "/api/auth/change-password", "Change password", "Password must contain at least 8 characters.", 400],
-    ["forbidden password change", "/api/auth/change-password", "Change password", "Forbidden.", 403],
-    ["forbidden organization selection", "/api/auth/select-organization", "Continue", "Forbidden.", 403],
+    ["invalid password", "/api/auth/change-password", "Cambiar contraseña", "La contraseña debe tener al menos 8 caracteres.", 400],
+    ["forbidden password change", "/api/auth/change-password", "Cambiar contraseña", "No tenés permisos para realizar esta acción.", 403],
+    ["forbidden organization selection", "/api/auth/select-organization", "Continuar", "No tenés permisos para realizar esta acción.", 403],
   ])("shows the %s route error without navigating", async (_name, endpoint, submitLabel, error, status) => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error }), { status })));
     render(endpoint === "/api/auth/change-password" ? <ChangePasswordForm /> : <OrganizationSelectionForm />);
     if (endpoint === "/api/auth/change-password") {
-      fireEvent.change(screen.getByLabelText(/new password/i), { target: { value: "eightchars" } });
+      fireEvent.change(screen.getByLabelText("Nueva contraseña"), { target: { value: "eightchars" } });
     } else {
-      fireEvent.change(screen.getByLabelText(/organization id/i), { target: { value: "organization-2" } });
+      fireEvent.change(screen.getByLabelText("ID de organización"), { target: { value: "organization-2" } });
     }
     fireEvent.click(screen.getByRole("button", { name: submitLabel }));
     expect(await screen.findByText(error)).toBeInTheDocument();

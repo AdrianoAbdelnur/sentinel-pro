@@ -49,9 +49,9 @@ describe("authenticated auth routes", () => {
     const invalid = await changePassword(new Request("https://sentinel.test/api/auth/change-password", { method: "POST", headers: sameOrigin, body: JSON.stringify({ password: "short" }) }));
     const forbiddenResponse = await changePassword(new Request("https://sentinel.test/api/auth/change-password", { method: "POST", headers: sameOrigin, body: JSON.stringify({ password: "eightchars" }) }));
     expect(invalid.status).toBe(400);
-    expect(await invalid.json()).toEqual({ error: "Password must contain at least 8 characters." });
+    expect(await invalid.json()).toEqual({ error: "La contraseña debe tener al menos 8 caracteres." });
     expect(forbiddenResponse.status).toBe(403);
-    expect(await forbiddenResponse.json()).toEqual({ error: "Forbidden." });
+    expect(await forbiddenResponse.json()).toEqual({ error: "No tenés permisos para realizar esta acción." });
     expect(forbiddenResponse.headers.get("set-cookie")).toBeNull();
   });
 
@@ -72,6 +72,6 @@ describe("authenticated auth routes", () => {
     application.selectOrganization.mockResolvedValue({ kind: "forbidden" });
     const response = await selectOrganization(new Request("https://sentinel.test/api/auth/select-organization", { method: "POST", headers: sameOrigin, body: JSON.stringify({ organizationId: "organization-2" }) }));
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({ error: "Forbidden." });
+    expect(await response.json()).toEqual({ error: "No tenés permisos para realizar esta acción." });
   });
 });
