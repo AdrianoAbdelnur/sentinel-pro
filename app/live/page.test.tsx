@@ -14,6 +14,10 @@ vi.mock("./create-operational-sources", () => ({
   createOperationalSources: sourceComposition.create,
 }));
 
+vi.mock("./live-logout-button", () => ({
+  LiveLogoutButton: () => <button type="button">Cerrar sesión</button>,
+}));
+
 vi.mock("@/components/live/live-map", () => ({
   LiveMap: ({ markers }: { markers: { vehicleId: string }[] }) => (
     <div data-testid="live-map-stub" data-marker-count={markers.length} />

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { LiveScreen } from "@/components/live/live-screen";
+import { LiveLogoutButton } from "./live-logout-button";
 import { aggregateOperationalSources } from "@/application/live";
 import {
   readInMemoryBottomPanelFixtures,
@@ -37,6 +38,7 @@ export default async function LivePage() {
         <h1 className="font-mono text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-300">
           Monitoreo en vivo
         </h1>
+        <LiveLogoutButton />
       </header>
 
       <LiveScreen
