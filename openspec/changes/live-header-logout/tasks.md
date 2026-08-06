@@ -1,4 +1,4 @@
-# Tasks: Live Header Logout
+﻿# Tasks: Live Header Logout
 
 ## Review Workload Forecast
 | Field | Value |
@@ -15,5 +15,5 @@
 ## TDD Evidence
 
 - RED: the logout interaction test initially failed because the header control did not exist.
-- GREEN: the component posts to the existing logout endpoint and uses outer.replace('/login') after its 204 response.
+- GREEN: the component posts to the existing logout endpoint and uses `router.replace('/login')` after its `204` response.
 - REFACTOR: the Live page composes the dedicated client control; focused tests pass 7/7 and typecheck passes.
