@@ -28,7 +28,7 @@ The system MUST define internal live entities for authenticated tenant Organizat
 - THEN the Fleet contains the union of their canonical Vehicles
 
 #### Scenario: One provider stops reporting a Vehicle
-- GIVEN a canonical Vehicle loses one provider contribution
+- GIVEN a complete successful synchronization marks one provider contribution absent
 - WHEN live state is projected
 - THEN the Vehicle remains and only affected capabilities change
 

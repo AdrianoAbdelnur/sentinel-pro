@@ -37,7 +37,7 @@ The importer MUST stage unbound company candidates and MUST compose Vehicles onl
 - THEN matching occurs only inside that Company
 
 ### Requirement: Full import is resumable and idempotent
-The system MUST process a 5,542-record-sized response in bounded batches. Repeated, concurrent, or resumed imports MUST NOT duplicate candidates, identities, Vehicles, or reviews.
+The system MUST process a 5,542-record-sized response in bounded batches. Initial and reconciliation runs MUST follow catalog synchronization behavior. Repeated, concurrent, or resumed imports MUST NOT duplicate candidates, identities, Vehicles, or reviews.
 
 #### Scenario: Full observed scale imports
 - GIVEN 5,542 valid records

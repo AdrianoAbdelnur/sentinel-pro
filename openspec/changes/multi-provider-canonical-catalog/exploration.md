@@ -13,15 +13,17 @@ Cybermapa is the preferred external catalog source when present, without excludi
 
 A canonical Fleet is the union of vehicles contributed by safely linked provider fleets, not their intersection. Partial Howen coverage enriches only linked Vehicles with video; Cybermapa-only and other-provider-only Vehicles remain in the Fleet. Provider absence removes or marks unavailable only that source capability and never deletes canonical existence. A later source identity attaches to the existing Vehicle when matching is deterministic or reviewed.
 
+Cybermapa and Howen require an initial full import, followed by automatic reconciliation every six hours and an authorized administrator `Sync now` action. Scheduled and manual triggers invoke the same provider-neutral synchronization use case. Each provider connection permits only one active run; repeated or concurrent triggers are idempotent. A scheduled trigger may skip a connection whose last successful sync completed within the preceding six hours, allowing a recent manual run to satisfy the cadence.
+
 ### Affected Areas
 - `domain/identity/*` and `application/identity/*` — remain the tenant, session, membership, role, and authorization boundary; no catalog company is added here.
 - New `domain/catalog/*` — tenant-owned companies, union fleets, vehicles, provider-agnostic fleet/vehicle bindings, source identities, review, and capability policy.
-- New `application/catalog/*` — company administration, Cybermapa-first composition, native creation, matching/review, idempotent imports, and fallback resolution.
+- New `application/catalog/*` — company administration, provider-neutral synchronization, Cybermapa-first composition, matching/review, idempotent imports, and fallback resolution.
 - New `integrations/cybermapa/*` — authenticate, fetch, validate, and map only the observed Cybermapa contract.
 - `integrations/howen/*` — contribute candidates/capabilities without owning catalog identity.
 - `integrations/persistence/mongodb/*` — persist tenant-scoped connections, company candidates/bindings, canonical hierarchy, identities, reviews, and import progress.
 - `domain/live/*`, `application/live/*`, and live composition — project canonical company/fleet/vehicle identities and per-capability sources without UI provider branches.
-- `app/admin/*` and catalog delivery — administer companies, bind external candidates, assign fleets, run imports, and resolve reviews under the active tenant.
+- `app/admin/*`, catalog delivery, and scheduler entrypoint — administer bindings, run `Sync now`, trigger six-hour reconciliation, and expose run state under the active tenant.
 
 ### Approaches
 1. **Equate provider company with auth tenant** — create an identity organization per `nombre_empresa`.
@@ -50,6 +52,8 @@ Model external fleet identities independently from the canonical Fleet. Multiple
 
 The verified Cybermapa `GETVEHICULOS` contract has no trustworthy external fleet identity, so the importer MUST NOT invent Cybermapa fleets. Current Cybermapa Vehicles enter the Company's canonical `Unassigned` Fleet unless an administrator places them elsewhere. The generic external-fleet linking rule applies only when a provider exposes a verified fleet identity, as Howen does.
 
+Use one provider-neutral `SynchronizeCatalogConnection` use case for initial, scheduled, and manual runs. It claims a single active run per connection, fetches and validates one complete snapshot, applies bounded idempotent batches, and records success or retryable failure. Only successful complete snapshots reconcile missing external records; omissions mark source presence/capabilities unavailable without deleting or moving canonical Vehicles. A provider failure affects only that connection and does not prevent other connections from synchronizing.
+
 Catalog-company context must be available to capability resolution while authorization continues to derive solely from the active tenant Organization. The UI receives canonical company/fleet/vehicle contracts and never selects behavior by provider.
 
 ### Risks
@@ -61,7 +65,9 @@ Catalog-company context must be available to capability resolution while authori
 - Existing transient Howen identities require a controlled canonical migration seam.
 - Treating fleet membership as a provider intersection would hide valid Cybermapa-only and other-provider-only Vehicles.
 - Similar fleet names can collide or drift, so they cannot establish canonical fleet identity.
-- Downstream proposal/spec/design/tasks artifacts must be regenerated to include the fleet-union rule.
+- Overlapping scheduler/manual triggers require an atomic per-connection run claim and idempotent completion.
+- Reconciling absence from a failed or partial snapshot would incorrectly disable source capabilities.
+- Downstream proposal/spec/design/tasks artifacts must be regenerated to include synchronization lifecycle and cadence.
 
 ### Ready for Proposal
-Yes — tenant ownership, canonical business-company hierarchy, union fleet composition, verified external fleet binding, per-company `Unassigned` placement, guarded vehicle matching, import ordering, and capability precedence are explicit. Regenerate proposal, specs, design, and tasks from this corrected boundary.
+Yes — ownership, union composition, bindings, `Unassigned`, matching, precedence, initial import, six-hour scheduling, `Sync now`, concurrency, absence reconciliation, and provider-failure isolation are explicit. Regenerate proposal, specs, design, and tasks from this boundary.

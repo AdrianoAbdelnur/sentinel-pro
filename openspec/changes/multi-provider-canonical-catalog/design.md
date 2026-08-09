@@ -2,67 +2,58 @@
 
 ## Technical Approach
 
-Create a hexagonal `catalog` slice. Identity `Organization` remains the authenticated tenant; catalog `Company -> Fleet -> Vehicle` is separate. Canonical hierarchy is durable and source-independent. Provider adapters emit company, verified fleet, and vehicle candidates; application use cases bind identities, match vehicles, track source presence, and project union rosters. Delivery remains thin Next.js 16 Route Handlers plus authenticated Server Components.
+Build a hexagonal `catalog` slice. Identity `Organization` stays the auth tenant; canonical `Company -> Fleet -> Vehicle` is durable and source-independent. Provider adapters only fetch and normalize. `SynchronizeCatalogConnection` owns every initial, scheduled, and manual run and delegates candidate application to `ImportCatalog`; no trigger duplicates import logic. Union projection and per-source presence preserve canonical assets across partial rosters.
 
 ## Architecture Decisions
 
 | Decision | Choice and rationale |
 |---|---|
-| Fleet identity | Store provider-agnostic, connection-scoped external Fleet identities separately from canonical Fleets. Many identities may target one Fleet; exact identity reuses its binding, while a new identity requires admin binding/review. Labels are descriptive only, preventing name collisions from merging fleets. |
-| Union ownership | `catalog_vehicles.fleetId` is canonical membership and the union projection reads canonical Vehicles, not provider intersections. A later safe source match enriches the existing Vehicle. A source cannot delete or move canonical records. |
-| Placement conflict | A bound external Fleet may place a new or non-admin-assigned `Unassigned` Vehicle. A match already placed elsewhere creates review; imports never override administrator placement. |
-| Presence | Each external vehicle identity stores last successful sighting plus bounded capability states. Only a successfully completed full provider run may mark unseen identities absent. Failed/partial runs change no absence state. This isolates capability loss from canonical existence. |
-| Cybermapa | GETVEHICULOS maps only observed fields and scoped `gps_id`. It exposes no verified fleet identity, so no Cybermapa Fleet is created; new Vehicles enter Company `Unassigned`, and later sync retains admin placement. |
-| Atomicity | Fetch/validate before writes, sort candidates deterministically, transact one candidate transition, checkpoint bounded batches, and finalize presence only after the full run. Unique indexes make replay idempotent. |
+| Fleet union | Connection-scoped external Fleet identities bind many-to-one to canonical Fleets through exact identity reuse or admin review, never labels. Canonical `fleetId` drives union projection; later safe source matches enrich existing Vehicles. |
+| Placement/presence | Imports may place new or non-admin-assigned `Unassigned` Vehicles. Conflicting placement enters review. External vehicle identities hold last sighting and bounded capability states; absence never changes canonical placement/existence. |
+| Unified synchronization | `SynchronizeCatalogConnection` receives connection, trigger, and injected clock. `SynchronizeDueCatalogConnections` computes `lastSuccessfulAt + 6h` and invokes it independently per due connection; scheduled execution rechecks freshness after leasing. Shared outcomes cover success, skipped-fresh, already-running, and retryable-failure. |
+| Mutual exclusion | Acquire a renewable per-connection lease, then create one active run protected by a partial unique index. Expired ownership is atomically abandoned/replaced. This handles concurrent cron/manual requests and process death without relying on in-memory locks. |
+| Snapshot safety | Fetch/validate a complete snapshot before absence changes. Existing `ImportCatalog` applies deterministic bounded batches and checkpoints. Only final successful completion marks unseen source identities absent; failures preserve presence and committed idempotent outcomes. |
+| Delivery security | Node-runtime `POST /api/internal/catalog/synchronize` validates a constant-time Bearer comparison against server-only `SENTINEL_CATALOG_SYNC_SECRET`, following existing `SENTINEL_*` environment conventions; it never logs/returns the secret. Manual POST uses existing same-origin, session, and fresh tenant-admin authorization. |
+| Cybermapa | GETVEHICULOS maps observed fields and scoped `gps_id`; it has no verified Fleet identity. New Vehicles enter Company `Unassigned`; admin placement survives synchronization. |
 
 ## MongoDB Model
 
-All documents use `schemaVersion`, timestamps, strict/error validators, and tenant-first indexes.
+All documents use `schemaVersion`, timestamps, strict/error validators, and tenant-first indexes. Existing catalog collections remain as designed: Companies, Fleets, Vehicles, provider connections, company candidates, Fleet/Vehicle identities, reviews, policies, and import items.
 
-| Collection | Purpose and indexes |
-|---|---|
-| `catalog_companies` | Canonical Company; unique `{organizationId,id}`. |
-| `catalog_fleets` | Canonical Fleet; unique tenant/id and partial unique `{organizationId,companyId,kind:"unassigned"}`. |
-| `catalog_vehicles` | Canonical placement and admin-ownership marker; unique tenant/id, Company/plate/status and Fleet indexes. |
-| `provider_connections` | Provider and `credentialRef` only; unique tenant/id. |
-| `external_company_candidates` | Company binding; unique tenant/connection/normalized label. |
-| `external_fleet_identities` | Verified external ID, label, Company, optional `canonicalFleetId`, binding status; unique `{organizationId,connectionId,externalId}`, plus canonical-Fleet lookup. |
-| `external_vehicle_identities` | External ID, canonical Vehicle, external Fleet identity, `presenceStatus`, `lastSeenRunId`, `lastSeenAt`, bounded capability states; unique tenant/connection/external ID and canonical lookup. |
-| `match_reviews`, `match_review_candidates` | Vehicle/fleet conflicts and explicit resolution; partial unique pending source and unique review/candidate. |
-| `capability_policy_entries` | Ranked source selector; unique scope/capability/rank and source. |
-| `catalog_import_runs`, `catalog_import_items` | Status/checkpoint/counts and per-candidate outcome; unique run/candidate key. |
+`catalog_import_runs` stores `trigger`, status, full-snapshot flag, timestamps, sanitized failure summary, checkpoint, and bounded processed/created/linked/reviewed/rejected/absent counts. Indexes: partial unique `{organizationId,connectionId}` for `status:"active"`; latest-run `{organizationId,connectionId,startedAt:-1}`; last-success `{organizationId,connectionId,status,completedAt:-1}`. Status reads derive freshness using the injected clock.
 
-Growing identities, candidates, policies, and import items are referenced, never embedded.
+`catalog_sync_leases` stores one `{organizationId,connectionId,runId,leaseUntil}` document. A unique tenant/connection index is the lock authority; TTL on `leaseUntil` is cleanup only. External vehicle identities index tenant/connection/`lastSeenRunId`/presence for bounded absence reconciliation. Growing import items remain referenced.
 
-## Interfaces and Data Flow
+## Interfaces and Sequence
 
 ```text
-Provider -> CatalogImportSource -> normalize/stage -> Company/Fleet binding gate
- -> ImportCatalog -> match/link/create/review -> checkpoint
- -> successful-run presence reconciliation
-Canonical Fleet -> ProjectCanonicalFleetUnion -> capability resolver -> live/UI
+cron POST -> secret auth -> SynchronizeDueCatalogConnections -> due connections
+admin POST -> authorizeAdminRequest -> SynchronizeCatalogConnection
+  -> lease claim -> freshness recheck (scheduled) -> active-run claim
+  -> CatalogImportSource.loadCompleteSnapshot
+  -> ImportCatalog batches/checkpoints
+  -> success: reconcile absence, counts, release
+  -> failure: record retryable failure, release; other connections continue
+admin page -> GetCatalogSyncStatus -> latest timing/status/counts/failure/freshness
 ```
 
-Ports: `CatalogHierarchyRepository`, `ProviderConnectionRepository`, `CompanyBindingRepository`, `FleetIdentityRepository`, `VehicleIdentityRepository`, `MatchReviewRepository`, `CapabilityPolicyRepository`, `ImportRunRepository`, `CatalogTransactionRunner`, `CredentialResolver`, and `CatalogImportSource`.
-
-Use cases: `BindProviderCompany`, `BindProviderFleet`, `ImportCatalog`, `ResolveFleetBindingReview`, `ResolveVehicleMatchReview`, `PlaceVehicle`, `SetCapabilityPolicy`, and `ProjectCanonicalLive`. Matching first reuses scoped identity, then exact-one safe Company plate; ambiguity, identity conflict, or incompatible Fleet placement enters review. Union projection deduplicates by canonical Vehicle ID and resolves each capability through Vehicle, Fleet, Company, tenant, system.
+Ports add `CatalogSyncRunRepository`, `CatalogSyncLeaseRepository`, and existing injected `Clock`; existing connection, identity, transaction, credential, and import-source ports remain. The scheduler returns per-connection outcomes rather than failing the entire batch.
 
 ## File Changes
 
-- Create `domain/catalog/{entities,matching,fleet-binding,union-projection,precedence}.ts` and tests.
-- Create `application/catalog/{contracts,ports,bind-provider-fleet,import-catalog,resolve-reviews,project-canonical-live}.ts` and tests.
-- Create Cybermapa client/response/mapper/source; add Howen fleet/vehicle candidate source and tests.
-- Add Mongo catalog documents, repositories, validators, migrations, indexes, and replica-set tests.
-- Add `app/api/admin/catalog/**` bindings/import/review/policy routes and `app/admin/catalog/**` Spanish UI.
-- Modify live contracts/composition only at the feature-switched canonical projection seam; update architecture docs.
+- Create `application/catalog/{synchronize-catalog-connection,synchronize-due-catalog-connections,get-catalog-sync-status,sync-contracts}.ts` and tests; reuse `import-catalog.ts`.
+- Extend Mongo catalog documents/repositories/validators/migrations with run, lease, freshness, count, and presence indexes plus replica-set tests.
+- Create `app/api/internal/catalog/synchronize/{route,delivery}.ts`, `integrations/security/authorize-internal-secret.ts`, and tests.
+- Create `app/api/admin/catalog/connections/[connectionId]/sync/route.ts`; extend catalog composition and Spanish admin status/`Sync now` UI.
+- Keep Cybermapa/Howen sources behind `CatalogImportSource`; modify live composition only at the canonical feature-switch seam; update architecture and environment documentation.
 
 ## Testing Strategy
 
-Strict TDD covers name non-binding, many-to-one fleet binding, partial-roster union, later identity enrichment, placement conflict review, provider-only Vehicles, and source absence. Replica-set tests prove uniqueness, transactions, crash replay, concurrent imports, and absence finalization only after successful runs. Adapter tests pin observed payloads; delivery tests cover same-origin/session/fresh-admin and tenant isolation. Run lint, typecheck, tests, coverage, then build.
+Strict TDD covers injected-clock six-hour boundaries, manual freshness, shared outcomes, unauthorized/manual and invalid-secret requests, atomic concurrent claims, lease expiry, duplicate trigger replay, provider isolation, retry recovery, status/count projection, full-success absence, and failed/partial non-reconciliation. Replica-set tests prove indexes, transactions, crash recovery, and races. Adapter tests pin provider snapshots; delivery tests assert secrets never leak. Run lint, typecheck, tests, coverage, then build.
 
 ## Migration and Rollback
 
-Add collections/indexes idempotently; import Cybermapa before Howen. Keep current Howen live composition behind a switch until union projection reaches parity. Rollback disables imports/routes and restores prior live composition; canonical data, bindings, reviews, and admin placement remain.
+Add collections/indexes idempotently, configure the server-only secret, run Cybermapa then Howen initial sync, and enable cron after parity. Keep current Howen live fallback. Rollback disables cron/manual routes and canonical projection; data, run history, bindings, reviews, and admin placement remain.
 
 ## Open Questions
 

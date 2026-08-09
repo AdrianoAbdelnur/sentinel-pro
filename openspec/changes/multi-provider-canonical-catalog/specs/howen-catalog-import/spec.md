@@ -24,7 +24,7 @@ Howen import MUST operate under a tenant connection assigned to a canonical Comp
 - THEN it is rejected while valid records continue
 
 ### Requirement: Import preserves canonical state
-Repeated or concurrent Howen imports MUST be idempotent and MUST NOT overwrite canonical Company, administrator Fleet assignment, or reviewed links.
+Initial and reconciliation runs MUST follow catalog synchronization behavior. Repeated or concurrent Howen imports MUST be idempotent and MUST NOT overwrite canonical Company, administrator Fleet assignment, or reviewed links.
 
 #### Scenario: Import repeats concurrently
 - GIVEN a roster was imported
