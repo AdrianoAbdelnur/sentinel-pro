@@ -6,7 +6,7 @@ Import the operational Cybermapa business catalog.
 ## Requirements
 
 ### Requirement: GETVEHICULOS uses the observed contract
-The importer MUST consume operational `GETVEHICULOS` and recognize only `alias`, `anio`, `color`, `consumo`, `descripcion`, `gps_id`, `gps_identificador`, `id`, `marca`, `modelo`, `nombre`, `nombre_empresa`, `nombre_modulo`, and `patente`. It MUST use connection-scoped `gps_id` as vehicle identity and MUST NOT invent fleet hierarchy.
+The importer MUST consume operational `GETVEHICULOS` and recognize only `alias`, `anio`, `color`, `consumo`, `descripcion`, `gps_id`, `gps_identificador`, `id`, `marca`, `modelo`, `nombre`, `nombre_empresa`, `nombre_modulo`, and `patente`. It MUST use connection-scoped `gps_id` as vehicle identity. Because the contract exposes no verified fleet identity, it MUST NOT create or infer a Cybermapa Fleet.
 
 #### Scenario: Observed record is valid
 - GIVEN usable `gps_id` and `nombre_empresa`
@@ -17,6 +17,11 @@ The importer MUST consume operational `GETVEHICULOS` and recognize only `alias`,
 - GIVEN `gps_id` or company label is unusable
 - WHEN normalized
 - THEN that record is rejected while valid records continue
+
+#### Scenario: Record has no fleet identity
+- GIVEN a valid Cybermapa record and bound Company
+- WHEN its canonical Vehicle is created
+- THEN it enters Company `Unassigned` without an invented Fleet
 
 ### Requirement: Company binding gates vehicle composition
 The importer MUST stage unbound company candidates and MUST compose Vehicles only inside their bound canonical Company.

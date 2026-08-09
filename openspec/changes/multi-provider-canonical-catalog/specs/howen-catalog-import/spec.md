@@ -35,3 +35,18 @@ Repeated or concurrent Howen imports MUST be idempotent and MUST NOT overwrite c
 - GIVEN no valid roster
 - WHEN import runs
 - THEN canonical state remains unchanged and failure is reported
+
+#### Scenario: Howen covers part of a canonical Fleet
+- GIVEN a bound Howen fleet overlaps some canonical Vehicles
+- WHEN its roster imports
+- THEN overlapping Vehicles gain Howen identity and video while other Vehicles remain
+
+#### Scenario: Howen-only Vehicle exists
+- GIVEN a valid Howen Vehicle has no other provider identity
+- WHEN its bound fleet imports
+- THEN it remains a canonical Vehicle in the union Fleet
+
+#### Scenario: Howen omits a previously linked Vehicle
+- GIVEN Howen previously linked a canonical Vehicle
+- WHEN a later roster omits it
+- THEN the Vehicle stays placed and only Howen capabilities become unavailable

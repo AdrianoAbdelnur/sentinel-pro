@@ -50,3 +50,8 @@ Each capability MUST use the first policy defined at Vehicle, Fleet, canonical c
 - GIVEN no ordered source is eligible
 - WHEN the capability resolves
 - THEN only that capability is unavailable
+
+#### Scenario: Linked source stops reporting a Vehicle
+- GIVEN a canonical Vehicle remains present but one source is absent
+- WHEN capabilities resolve
+- THEN only capabilities lacking another eligible source are unavailable

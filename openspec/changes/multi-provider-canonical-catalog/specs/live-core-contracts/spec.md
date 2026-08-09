@@ -22,6 +22,16 @@ The system MUST define internal live entities for authenticated tenant Organizat
 - WHEN live state is projected
 - THEN one Vehicle remains and each capability resolves independently
 
+#### Scenario: Bound fleets project a union roster
+- GIVEN multiple external fleet identities bind one canonical Fleet
+- WHEN live state is projected
+- THEN the Fleet contains the union of their canonical Vehicles
+
+#### Scenario: One provider stops reporting a Vehicle
+- GIVEN a canonical Vehicle loses one provider contribution
+- WHEN live state is projected
+- THEN the Vehicle remains and only affected capabilities change
+
 #### Scenario: UI consumes canonical projection
 - GIVEN a provider capability selection changes
 - WHEN the live view model is composed

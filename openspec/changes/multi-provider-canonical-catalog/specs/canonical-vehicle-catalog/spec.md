@@ -35,3 +35,11 @@ Each Company MUST have at most one system-managed `Unassigned` Fleet. It MUST be
 - GIVEN a native or other-provider-only Vehicle
 - WHEN the Company catalog is listed
 - THEN the Vehicle remains valid and visible
+
+### Requirement: Canonical existence is source independent
+A canonical Fleet and Vehicle MUST remain in the catalog when a linked provider stops reporting them. Synchronization MUST NOT move the Vehicle because of source absence.
+
+#### Scenario: Provider stops reporting a Vehicle
+- GIVEN a canonical Vehicle with one or more source identities
+- WHEN one provider omits it from a later roster
+- THEN the Vehicle remains in its canonical Fleet

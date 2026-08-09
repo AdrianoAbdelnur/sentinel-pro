@@ -2,16 +2,16 @@
 
 ## Intent
 
-Create a tenant catalog: `Identity Organization -> Catalog Company -> Fleet -> Vehicle`. Compose Cybermapa, Howen, and native records without leaking providers into authorization or UI.
+Create `Identity Organization -> Catalog Company -> Fleet -> Vehicle` and compose partial provider rosters without provider leakage.
 
 ## Scope
 
 ### In Scope
-- Tenant-owned Companies, fleets, vehicles, native creation, and one `Unassigned` fleet per Company.
-- Tenant connections and staged Cybermapa candidates admin-bound to catalog Companies.
-- Idempotent Cybermapa-first/Howen imports, scoped identities, guarded plate matching, and review.
-- Capability overrides at Vehicle, Fleet, catalog Company, or tenant Organization with ordered fallback.
-- A live seam retaining fallback.
+- Tenant-owned Companies, fleets, vehicles, native creation, and `Unassigned`.
+- Tenant connections with explicit Company/external-fleet bindings.
+- Cybermapa-first/Howen imports, guarded matching, review, and resumable idempotency.
+- Union Fleet membership and Vehicle-to-system capability precedence.
+- Canonical live projection with fallback.
 
 ### Out of Scope
 - Ruptela/Rinho adapters, raw telemetry expansion, inferred identity records, and UI provider branches.
@@ -19,51 +19,53 @@ Create a tenant catalog: `Identity Organization -> Catalog Company -> Fleet -> V
 ## Capabilities
 
 ### New Capabilities
-- `canonical-vehicle-catalog`: Tenant Companies, fleets, vehicles, native creation, and per-Company `Unassigned`.
-- `provider-company-binding`: Connection-scoped external company candidates and explicit admin binding to canonical catalog Companies.
-- `external-identity-linking`: Company-scoped identities, plate matching, and review.
-- `cybermapa-catalog-import`: Operational Cybermapa company/vehicle ingestion using observed fields and `gps_id` identity.
-- `howen-catalog-import`: Verified Howen ingestion without provider ownership of canonical records.
-- `capability-source-precedence`: Vehicle-to-tenant policy inheritance and fallback.
+- `canonical-vehicle-catalog`: Companies, fleets, vehicles, native assets, and `Unassigned`.
+- `provider-company-binding`: Connection-scoped company candidates admin-bound.
+- `provider-fleet-binding`: Many verified external fleet identities bind one Fleet; partial rosters form a union without name inference.
+- `external-identity-linking`: Company-scoped vehicle identities, guarded plate matching, and review.
+- `cybermapa-catalog-import`: Observed GETVEHICULOS ingestion using scoped `gps_id`.
+- `howen-catalog-import`: Verified Howen ingestion without canonical ownership.
+- `capability-source-precedence`: Per-capability hierarchical policy and ordered fallback.
 
 ### Modified Capabilities
-- `live-core-contracts`: Live uses Company/Fleet/Vehicle identity and independently resolved source capabilities.
+- `live-core-contracts`: Live uses canonical hierarchy and independently resolved sources.
 
 ## Approach
 
-Identity `Organization` remains the authorization tenant; each connection belongs to its tenant. Normalized `nombre_empresa` stages a candidate an admin binds to a Company. `gps_id` scopes vehicle identity. Exact plate auto-links only to one active vehicle in that Company without conflict; zero matches create in `Unassigned`; conflicts await review. Names/aliases never auto-link. Cybermapa composes first; provider-only/native vehicles remain. Policy resolves Vehicle, Fleet, Company, tenant, then system. Admin assignment wins over sync.
+Organization remains the auth tenant. Admins bind external company candidates to Companies. Existing scoped vehicle identity wins; otherwise exact plate links one safe active Company match, zero matches create in `Unassigned`, and ambiguity/conflict enters review. Names/aliases never auto-link.
+
+Fleet membership unions safely linked provider rosters. Multiple verified external fleet identities bind one Fleet only through deterministic identity or admin review; names never bind. Later source identities attach to existing Vehicles. Partial Howen coverage adds video only where linked. Provider absence affects only its capability, never canonical existence.
+
+Cybermapa composes first; Howen-only, other-provider-only, and native Vehicles remain. GETVEHICULOS has no trustworthy fleet identity, so it creates no Fleet: Vehicles use `Unassigned` or admin placement. Policy resolves Vehicle, Fleet, Company, tenant, then system.
 
 ## Affected Areas
 
 | Area | Impact |
 |---|---|
-| `domain/catalog`, `application/catalog` | Hierarchy, rules, ports, use cases |
-| `integrations/cybermapa`, `integrations/howen` | Import adapters |
-| `integrations/persistence/mongodb` | Durable catalog |
-| `app/admin`, `app/api/admin` | Company binding/import/review delivery |
-| `domain/live`, `application/live` | Canonical projection seam |
+| `domain/catalog`, `application/catalog` | Catalog rules/use cases |
+| `integrations/*` | Provider adapters and persistence |
+| `app/admin`, `app/api/admin`, `domain/live`, `application/live` | Delivery/projection |
 
 ## Risks
 
 | Risk | Mitigation |
 |---|---|
-| Tenant/company conflation | Separate contracts and ownership keys |
-| Duplicate plates/label drift | Guarded matching, bindings, review |
-| Import races/failure | Scoped uniqueness, resumable idempotency |
+| Tenant/Company or fleet/name conflation | Scoped contracts; explicit binding |
+| Partial rosters hide/delete assets | Union semantics; source-local availability |
+| Duplicate matches/import races | Review, uniqueness, resumable transactions |
 
 ## Rollback Plan
 
-Disable catalog routes/imports and restore Howen live composition. Snapshot additive collections before removal; identity data and admin fleet assignments remain untouched.
+Disable imports/routes and restore Howen live composition; retain catalog data and placement.
 
 ## Dependencies
 
-- Authentication/tenant authorization foundation.
-- Operational Cybermapa and Howen clients.
+- Tenant authorization and operational Cybermapa/Howen clients.
 
 ## Success Criteria
 
-- [ ] Imports never create identity organizations, users, or memberships.
-- [ ] Admin bindings produce catalog Companies and per-Company `Unassigned` fleets.
-- [ ] Repeated imports create no duplicate identities; matching yields safe link, creation, or review.
-- [ ] Provider-only/native vehicles and admin placement survive synchronization.
-- [ ] Vehicle→Fleet→Company→tenant→system precedence and live projection pass quality gates.
+- [ ] Imports create no identity organizations, users, or memberships.
+- [ ] External fleet bindings compose union membership without name auto-binding.
+- [ ] Provider loss preserves canonical assets and unrelated capabilities.
+- [ ] Cybermapa uses `Unassigned`/admin placement; Howen/native-only Vehicles remain.
+- [ ] Matching, precedence, projection, and rollback pass quality gates.

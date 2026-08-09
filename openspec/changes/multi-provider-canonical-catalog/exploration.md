@@ -9,11 +9,13 @@ Operational live still uses provider snapshots: Howen produces transient `howen:
 
 Cybermapa is operational. A Sentinel Pro `GETVEHICULOS` call returned 5,542 vehicles across 800 observed `nombre_empresa` labels. Records exposed `alias`, `anio`, `color`, `consumo`, `descripcion`, `gps_id`, `gps_identificador`, `id`, `marca`, `modelo`, `nombre`, `nombre_empresa`, `nombre_modulo`, and `patente`. `gps_id` was unique in all 5,542 records. Normalized plates were not: 118 duplicate groups catalog-wide and 107 duplicate company-plus-plate groups. The payload exposes business companies and vehicles but no trustworthy fleet hierarchy.
 
-Cybermapa is the preferred external catalog source when present, without excluding Howen/Ruptela/Rinho/other-provider-only or native vehicles. Multiple source identities link to one canonical vehicle. Catalog composition imports Cybermapa first; capability policy separately defaults to Cybermapa for GPS/operational alerts and Howen for video/video alerts, with tenant Organization, Fleet, or Vehicle overrides plus ordered fallback.
+Cybermapa is the preferred external catalog source when present, without excluding Howen/Ruptela/Rinho/other-provider-only or native vehicles. Multiple source identities link to one canonical vehicle. Catalog composition imports Cybermapa first; capability policy separately defaults to Cybermapa for GPS/operational alerts and Howen for video/video alerts, with Vehicle, Fleet, Company, tenant Organization, and system precedence plus ordered fallback.
+
+A canonical Fleet is the union of vehicles contributed by safely linked provider fleets, not their intersection. Partial Howen coverage enriches only linked Vehicles with video; Cybermapa-only and other-provider-only Vehicles remain in the Fleet. Provider absence removes or marks unavailable only that source capability and never deletes canonical existence. A later source identity attaches to the existing Vehicle when matching is deterministic or reviewed.
 
 ### Affected Areas
 - `domain/identity/*` and `application/identity/*` — remain the tenant, session, membership, role, and authorization boundary; no catalog company is added here.
-- New `domain/catalog/*` — tenant-owned companies, fleets, vehicles, provider-agnostic bindings, source identities, review, and capability policy.
+- New `domain/catalog/*` — tenant-owned companies, union fleets, vehicles, provider-agnostic fleet/vehicle bindings, source identities, review, and capability policy.
 - New `application/catalog/*` — company administration, Cybermapa-first composition, native creation, matching/review, idempotent imports, and fallback resolution.
 - New `integrations/cybermapa/*` — authenticate, fetch, validate, and map only the observed Cybermapa contract.
 - `integrations/howen/*` — contribute candidates/capabilities without owning catalog identity.
@@ -44,6 +46,10 @@ After company binding, use `(tenant, provider connection, vehicle, gps_id)` as t
 
 Each canonical Company has at most one internal, administratively visible `Unassigned` fleet. An administrator may move a vehicle to a real fleet; provider synchronization MUST NOT move it back. Imports must be resumable/idempotent, preserve committed canonical state on failure, and process Cybermapa before Howen without removing Howen-only or native vehicles.
 
+Model external fleet identities independently from the canonical Fleet. Multiple verified external fleet identities MAY bind to one canonical Fleet, producing the union of their safely linked Vehicles. Fleet names alone MUST NOT auto-merge; linking requires deterministic external identity or explicit administrator review/binding. Removing one provider association affects only that provider identity and its capabilities, not the canonical Fleet or Vehicles.
+
+The verified Cybermapa `GETVEHICULOS` contract has no trustworthy external fleet identity, so the importer MUST NOT invent Cybermapa fleets. Current Cybermapa Vehicles enter the Company's canonical `Unassigned` Fleet unless an administrator places them elsewhere. The generic external-fleet linking rule applies only when a provider exposes a verified fleet identity, as Howen does.
+
 Catalog-company context must be available to capability resolution while authorization continues to derive solely from the active tenant Organization. The UI receives canonical company/fleet/vehicle contracts and never selects behavior by provider.
 
 ### Risks
@@ -53,7 +59,9 @@ Catalog-company context must be available to capability resolution while authori
 - `gps_id` uniqueness is verified for one full snapshot, not yet across time.
 - Cybermapa scale requires batched, retry-safe persistence and import observability.
 - Existing transient Howen identities require a controlled canonical migration seam.
-- Downstream proposal/spec/design/tasks artifacts still conflate tenant and company and must be regenerated.
+- Treating fleet membership as a provider intersection would hide valid Cybermapa-only and other-provider-only Vehicles.
+- Similar fleet names can collide or drift, so they cannot establish canonical fleet identity.
+- Downstream proposal/spec/design/tasks artifacts must be regenerated to include the fleet-union rule.
 
 ### Ready for Proposal
-Yes — tenant ownership, canonical business-company hierarchy, connection/company binding, per-company `Unassigned` placement, guarded vehicle matching, import ordering, and capability precedence are explicit. Regenerate proposal, specs, design, and tasks from this corrected boundary.
+Yes — tenant ownership, canonical business-company hierarchy, union fleet composition, verified external fleet binding, per-company `Unassigned` placement, guarded vehicle matching, import ordering, and capability precedence are explicit. Regenerate proposal, specs, design, and tasks from this corrected boundary.

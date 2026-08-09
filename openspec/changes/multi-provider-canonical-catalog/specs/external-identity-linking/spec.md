@@ -18,6 +18,11 @@ External vehicle identity MUST be unique by tenant, provider connection, entity 
 - WHEN recorded
 - THEN distinct scoped identities remain
 
+#### Scenario: Later provider identifies an existing Vehicle
+- GIVEN a later source candidate has one safe Company-scoped Vehicle match
+- WHEN its identity is linked
+- THEN it attaches to that Vehicle without creating another Vehicle
+
 ### Requirement: Plate matching stays within Company
 An exact normalized plate MUST auto-link only when exactly one active Vehicle matches inside the bound Company and no deterministic identity conflicts. Names, aliases, and descriptions MUST NOT auto-link.
 
