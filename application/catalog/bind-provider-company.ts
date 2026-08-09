@@ -13,7 +13,7 @@ import type { CompanyBindingPorts } from "./ports";
 export function createCompanyBindingApplication(ports: CompanyBindingPorts) {
   async function stageCompanyCandidate({ connection, externalLabel }: { connection: ProviderConnection; externalLabel: string }): Promise<StageCompanyCandidateResult> {
     const normalizedLabel = normalizeCompanyLabel(externalLabel);
-    const existing = await ports.candidates.findByConnectionAndLabel(connection.id, normalizedLabel);
+    const existing = await ports.candidates.findByConnectionAndLabel(connection.organizationId, connection.id, normalizedLabel);
     if (existing) return { kind: "repeated", candidate: existing };
     const candidate = stageCandidate(ports.ids.create(), connection, externalLabel);
     await ports.candidates.save(candidate);

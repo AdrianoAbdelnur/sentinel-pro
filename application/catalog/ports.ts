@@ -1,4 +1,4 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, Company, CompanyCandidate, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
@@ -19,16 +19,26 @@ export type VehicleRepository = {
 
 export type IdGenerator = { create(): string };
 
+export type CatalogTransactionRepositories = {
+  companies: CompanyRepository;
+  fleets: FleetRepository;
+};
+
+export type CatalogTransactionRunner = {
+  run<T>(work: (repositories: CatalogTransactionRepositories) => Promise<T>): Promise<T>;
+};
+
 export type CatalogApplicationPorts = {
   companies: CompanyRepository;
   fleets: FleetRepository;
   vehicles: VehicleRepository;
   ids: IdGenerator;
+  transactions: CatalogTransactionRunner;
 };
 
 export type CompanyCandidateRepository = {
   findById(id: string): Promise<CompanyCandidate | undefined>;
-  findByConnectionAndLabel(connectionId: string, normalizedLabel: string): Promise<CompanyCandidate | undefined>;
+  findByConnectionAndLabel(organizationId: string, connectionId: string, normalizedLabel: string): Promise<CompanyCandidate | undefined>;
   save(candidate: CompanyCandidate): Promise<void>;
 };
 
@@ -36,6 +46,11 @@ export type CompanyBindingPorts = {
   companies: CompanyRepository;
   candidates: CompanyCandidateRepository;
   ids: IdGenerator;
+};
+
+export type ProviderConnectionRepository = {
+  findById(organizationId: string, id: string): Promise<ProviderConnection | undefined>;
+  save(connection: ProviderConnection): Promise<void>;
 };
 
 export type CapabilityPolicyRepository = {

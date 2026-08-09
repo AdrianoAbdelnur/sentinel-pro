@@ -30,8 +30,10 @@ export function createCatalogApplication(ports: CatalogApplicationPorts) {
     if (actor.role !== "admin") return { kind: "forbidden" };
     const company: Company = { id: ports.ids.create(), organizationId: actor.organizationId, name };
     const unassignedFleet = createUnassignedFleet(ports.ids.create(), company.id);
-    await ports.companies.save(company);
-    await ports.fleets.save(unassignedFleet);
+    await ports.transactions.run(async ({ companies, fleets }) => {
+      await companies.save(company);
+      await fleets.save(unassignedFleet);
+    });
     return { kind: "created", company, unassignedFleet };
   }
 

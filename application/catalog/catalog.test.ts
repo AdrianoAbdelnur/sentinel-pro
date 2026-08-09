@@ -10,22 +10,25 @@ function createFixture() {
   const fleets = new Map<string, Fleet>();
   const vehicles = new Map<string, Vehicle>();
   let sequence = 0;
+  const companyPort = {
+    findById: async (id: string) => companies.get(id),
+    save: async (company: Company) => { companies.set(company.id, company); },
+  };
+  const fleetPort = {
+    findById: async (id: string) => fleets.get(id),
+    listByCompany: async (companyId: string) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId),
+    save: async (fleet: Fleet) => { fleets.set(fleet.id, fleet); },
+  };
   const ports: CatalogApplicationPorts = {
-    companies: {
-      findById: async (id) => companies.get(id),
-      save: async (company) => { companies.set(company.id, company); },
-    },
-    fleets: {
-      findById: async (id) => fleets.get(id),
-      listByCompany: async (companyId) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId),
-      save: async (fleet) => { fleets.set(fleet.id, fleet); },
-    },
+    companies: companyPort,
+    fleets: fleetPort,
     vehicles: {
       findById: async (id) => vehicles.get(id),
       listByCompany: async (companyId) => [...vehicles.values()].filter((vehicle) => vehicle.companyId === companyId),
       save: async (vehicle) => { vehicles.set(vehicle.id, vehicle); },
     },
     ids: { create: () => `id-${++sequence}` },
+    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort }) },
   };
   return { app: createCatalogApplication(ports), companies, fleets, vehicles };
 }

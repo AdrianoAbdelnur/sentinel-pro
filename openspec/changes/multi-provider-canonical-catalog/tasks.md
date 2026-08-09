@@ -30,8 +30,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 
 ## Phase 2: MongoDB
 
-- [ ] 2.1 **RED:** Replica-set test validators, indexes, Company `Unassigned` uniqueness.
-- [ ] 2.2 **GREEN/REFACTOR:** Add hierarchy/connection Mongo persistence/migrations.
+- [x] 2.1 **RED:** Replica-set test validators, indexes, Company `Unassigned` uniqueness.
+- [x] 2.2 **GREEN/REFACTOR:** Add hierarchy/connection Mongo persistence/migrations.
 - [ ] 2.3 **RED:** Test identity uniqueness, many-to-one lookup, presence, reviews, policies, checkpoints.
 - [ ] 2.4 **GREEN/REFACTOR:** Add identity/review/policy/import Mongo repositories.
 - [ ] 2.5 **RED:** Test active-run uniqueness, lease claim/expiry, last-success, counts, crashes, absence indexes [`catalog-synchronization`].

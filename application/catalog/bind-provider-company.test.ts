@@ -17,26 +17,28 @@ function createFixture() {
     findById: async (id: string) => companies.get(id),
     save: async (company: Company) => { companies.set(company.id, company); },
   };
+  const fleetPort = {
+    findById: async (id: string) => fleets.get(id),
+    listByCompany: async (companyId: string) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId),
+    save: async (fleet: Fleet) => { fleets.set(fleet.id, fleet); },
+  };
   const catalogPorts: CatalogApplicationPorts = {
     companies: companyPort,
-    fleets: {
-      findById: async (id) => fleets.get(id),
-      listByCompany: async (companyId) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId),
-      save: async (fleet) => { fleets.set(fleet.id, fleet); },
-    },
+    fleets: fleetPort,
     vehicles: {
       findById: async (id) => vehicles.get(id),
       listByCompany: async (companyId) => [...vehicles.values()].filter((vehicle) => vehicle.companyId === companyId),
       save: async (vehicle) => { vehicles.set(vehicle.id, vehicle); },
     },
     ids,
+    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort }) },
   };
   const bindingPorts: CompanyBindingPorts = {
     companies: companyPort,
     candidates: {
       findById: async (id) => candidates.get(id),
-      findByConnectionAndLabel: async (connectionId, normalizedLabel) =>
-        [...candidates.values()].find((candidate) => candidate.connectionId === connectionId && candidate.normalizedLabel === normalizedLabel),
+      findByConnectionAndLabel: async (organizationId, connectionId, normalizedLabel) =>
+        [...candidates.values()].find((candidate) => candidate.organizationId === organizationId && candidate.connectionId === connectionId && candidate.normalizedLabel === normalizedLabel),
       save: async (candidate) => { candidates.set(candidate.id, candidate); },
     },
     ids,

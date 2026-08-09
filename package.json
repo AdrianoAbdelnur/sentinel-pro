@@ -12,6 +12,7 @@
                     "test:watch":  "vitest",
                     "test:coverage":  "vitest run --coverage",
                     "migrate:identity":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/migrate.ts",
+                    "migrate:catalog":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/catalog-migrate.ts",
                     "seed:identity":  "node scripts/run-with-system-ca.mjs node scripts/identity-seed.mjs",
                     "benchmark:argon2id":  "node benchmarks/argon2id.mjs"
                 },

@@ -4,3 +4,7 @@ export { identityIndexes, migrateIdentityDatabase } from "./migrations";
 export { createMongoIdentityRepositories } from "./repositories";
 export { MongoTransactionRunner } from "./transaction-runner";
 export { runInitialIdentitySeed } from "./seed";
+export { catalogValidators } from "./catalog-validators";
+export { catalogIndexes, migrateCatalogDatabase } from "./catalog-migrations";
+export { createMongoCatalogRepositories } from "./catalog-repositories";
+export { MongoCatalogTransactionRunner } from "./catalog-transaction-runner";
