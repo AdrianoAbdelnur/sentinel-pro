@@ -99,7 +99,7 @@ describe("provider company binding", () => {
     expect(bound).toEqual({ kind: "bound", candidate: { ...staged.candidate, companyId: company.company.id } });
   });
 
-  it("lets an administrator create and bind a new Company without creating any identity organization, user, or membership", async () => {
+  it("lets an administrator create a new Company and bind the staged candidate to it", async () => {
     const fixture = createFixture();
     const staged = await fixture.binding.stageCompanyCandidate({ connection: connectionA, externalLabel: "Acme Transport" });
     if (staged.kind !== "staged") throw new Error("expected staged");
@@ -123,5 +123,17 @@ describe("provider company binding", () => {
     await expect(fixture.binding.bindProviderCompany({ actor: otherTenantAdmin, candidateId: staged.candidate.id, companyId: company.company.id })).resolves.toEqual({ kind: "forbidden" });
 
     expect(fixture.candidates.get(staged.candidate.id)?.companyId).toBeUndefined();
+  });
+
+  it("rejects binding a candidate from one tenant to a Company legitimately owned by another tenant's administrator", async () => {
+    const fixture = createFixture();
+    const staged = await fixture.binding.stageCompanyCandidate({ connection: connectionA, externalLabel: "Acme Transport" });
+    if (staged.kind !== "staged") throw new Error("expected staged");
+    const otherCompany = await fixture.catalog.createCompany({ actor: otherTenantAdmin, name: "Globex" });
+    if (otherCompany.kind !== "created") throw new Error("expected company creation");
+
+    await expect(fixture.binding.bindProviderCompany({ actor: otherTenantAdmin, candidateId: staged.candidate.id, companyId: otherCompany.company.id })).resolves.toEqual({ kind: "forbidden" });
+
+    expect(fixture.candidates.get(staged.candidate.id)).toEqual(staged.candidate);
   });
 });
