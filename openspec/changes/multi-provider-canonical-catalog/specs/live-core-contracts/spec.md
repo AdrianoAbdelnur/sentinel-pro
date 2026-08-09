@@ -3,21 +3,26 @@
 ## MODIFIED Requirements
 
 ### Requirement: Operational live entities
-The system MUST define internal live entities for organization, fleet, canonical vehicle, linked devices, telemetry, capabilities, and selection. A vehicle MAY have multiple provider links contributing capabilities.
+The system MUST define internal live entities for authenticated tenant Organization, canonical catalog Company, Fleet, Vehicle, linked devices, telemetry, independently resolved capabilities, and live selection. A Vehicle MAY have multiple provider identities contributing capabilities. Raw provider identifiers MUST NOT replace canonical business identity.
 
-(Previously: Operational entities lacked durable canonical identity and multiple capability links.)
+(Previously: Operational entities existed without explicit tenant-to-Company ownership or independently resolved multi-source capabilities.)
 
 #### Scenario: Normalized operational model exists
-- GIVEN live implementation begins
-- WHEN contracts are read
-- THEN every operational concept has an internal definition
+- GIVEN Sentinel Pro starts live feature implementation
+- WHEN developers read the project contracts
+- THEN they find internal definitions for tenant, Company, Fleet, Vehicle, Device, telemetry, capabilities, and selection
 
-#### Scenario: Provider identity stays external
-- GIVEN provider payload identifiers
+#### Scenario: Provider identity does not replace business identity
+- GIVEN provider payloads contain external identifiers
 - WHEN normalized
-- THEN live uses canonical vehicle identity and retains source links
+- THEN live uses canonical Company, Fleet, Vehicle, and Device contracts within the authorized tenant
 
-#### Scenario: Providers contribute capabilities
-- GIVEN multiple identities link one vehicle
-- WHEN live is composed
-- THEN one vehicle remains and capabilities resolve independently
+#### Scenario: Multiple providers contribute capabilities
+- GIVEN multiple identities link one canonical Vehicle
+- WHEN live state is projected
+- THEN one Vehicle remains and each capability resolves independently
+
+#### Scenario: UI consumes canonical projection
+- GIVEN a provider capability selection changes
+- WHEN the live view model is composed
+- THEN UI contracts do not require a provider-specific branch

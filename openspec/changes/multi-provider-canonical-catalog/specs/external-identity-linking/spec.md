@@ -1,37 +1,55 @@
 # External Identity Linking Specification
 
 ## Purpose
-Link sources to canonical vehicles safely.
+Link source vehicles within a bound catalog Company.
 
 ## Requirements
 
-### Requirement: Identities are scoped
-External identity MUST be unique by organization, provider connection, entity kind, and external identifier. Multiple identities MAY link to one vehicle.
+### Requirement: Vehicle identities are tenant and connection scoped
+External vehicle identity MUST be unique by tenant, provider connection, entity kind, and external identifier. A link MUST target a Vehicle inside the connection's bound Company. Multiple identities MAY link one Vehicle.
 
-#### Scenario: Connections reuse identifiers
-- GIVEN two connections report one identifier
-- WHEN identities are recorded
+#### Scenario: Deterministic identity repeats
+- GIVEN a scoped identity already links a Vehicle
+- WHEN it appears again
+- THEN the same link is reused without duplication
+
+#### Scenario: Connections reuse an identifier
+- GIVEN two connections report one external identifier
+- WHEN recorded
 - THEN distinct scoped identities remain
 
-#### Scenario: Sources share one vehicle
-- GIVEN deterministic evidence identifies one vehicle
-- WHEN another identity arrives
-- THEN it links without duplicating the vehicle
+### Requirement: Plate matching stays within Company
+An exact normalized plate MUST auto-link only when exactly one active Vehicle matches inside the bound Company and no deterministic identity conflicts. Names, aliases, and descriptions MUST NOT auto-link.
 
-### Requirement: Ambiguity requires review
-Only deterministic matches MUST link automatically. Ambiguity MUST retain review and MUST NOT cause automatic link, merge, rename, or move.
-
-#### Scenario: Match is deterministic
-- GIVEN exactly one deterministic match
+#### Scenario: Plate has one safe Company match
+- GIVEN one active plate match in the bound Company and no conflict
 - WHEN evaluated
-- THEN it links automatically
+- THEN the source identity auto-links to that Vehicle
 
-#### Scenario: Match is ambiguous
-- GIVEN multiple plausible matches
+#### Scenario: Plate has no Company match
+- GIVEN no matching Vehicle in the bound Company
 - WHEN evaluated
-- THEN no merge occurs and review remains pending
+- THEN a Vehicle is created in that Company's `Unassigned` Fleet
+
+#### Scenario: Match is multiple or conflicting
+- GIVEN multiple Company matches or a deterministic conflict
+- WHEN evaluated
+- THEN no merge occurs and pending review is retained
+
+#### Scenario: Match exists only outside Company
+- GIVEN the plate matches a Vehicle in another Company or tenant
+- WHEN evaluated
+- THEN it does not auto-link
+
+#### Scenario: Only name or alias matches
+- GIVEN no exact Company plate match
+- WHEN a name or alias matches
+- THEN it does not auto-link
+
+### Requirement: Review resolution is explicit
+Only an authorized tenant administrator MUST resolve pending review to a Vehicle in the bound Company or to a new Vehicle there.
 
 #### Scenario: Admin resolves review
 - GIVEN pending review
-- WHEN an authorized administrator selects a vehicle
-- THEN the identity links only there
+- WHEN an authorized administrator chooses its outcome
+- THEN exactly one Company-scoped link is retained

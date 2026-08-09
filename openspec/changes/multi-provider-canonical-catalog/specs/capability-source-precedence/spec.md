@@ -6,40 +6,47 @@ Resolve sources independently per capability.
 ## Requirements
 
 ### Requirement: Capabilities resolve independently
-GPS, operational alerts, video, and video alerts MUST resolve separately. Defaults MUST prefer Cybermapa for the first two and Howen for the latter two.
+GPS, operational alerts, video, and video alerts MUST resolve separately. Defaults MUST prefer Cybermapa for GPS/operational alerts and Howen for video/video alerts.
 
 #### Scenario: Defaults use mixed sources
-- GIVEN Cybermapa and Howen sources
+- GIVEN eligible Cybermapa and Howen sources for a canonical Vehicle
 - WHEN all capabilities resolve
-- THEN each uses its declared default
+- THEN each capability uses its declared default
 
-#### Scenario: Vehicle has one provider
-- GIVEN one capable source
+#### Scenario: Vehicle has one capable source
+- GIVEN only one eligible provider-only source
 - WHEN a capability resolves
 - THEN that source MAY serve it
 
-### Requirement: Specific policy controls fallback
-Each capability MUST use the first policy found at vehicle, fleet, organization, then default level, preserving its ordered sources.
+### Requirement: Business and tenant policy levels control fallback
+Each capability MUST use the first policy defined at Vehicle, Fleet, canonical catalog Company, authenticated tenant Organization, then system level and MUST preserve declared source order.
 
-#### Scenario: Vehicle overrides ancestors
-- GIVEN policies at all levels
-- WHEN capability resolves
-- THEN vehicle order applies
+#### Scenario: Vehicle overrides broader levels
+- GIVEN policies exist at Vehicle, Fleet, Company, and tenant Organization
+- WHEN the capability resolves
+- THEN the Vehicle policy order applies
+
+#### Scenario: Fleet overrides Company and tenant
+- GIVEN no Vehicle policy and Fleet, Company, and tenant policies exist
+- WHEN the capability resolves
+- THEN the Fleet policy order applies
+
+#### Scenario: Company overrides tenant
+- GIVEN no Vehicle or Fleet policy and Company/tenant policies exist
+- WHEN the capability resolves
+- THEN the Company policy order applies
+
+#### Scenario: Tenant supplies broader default
+- GIVEN no Vehicle, Fleet, or Company policy and a tenant policy exists
+- WHEN the capability resolves
+- THEN the tenant Organization policy order applies
 
 #### Scenario: Preferred source cannot serve
-- GIVEN it is absent, unsupported, stale, or unavailable
-- WHEN capability resolves
-- THEN the next eligible ordered source is tried
+- GIVEN the first source is absent, unsupported, stale, or unavailable
+- WHEN the capability resolves
+- THEN the next eligible source is tried in order
 
 #### Scenario: No source can serve
-- GIVEN no eligible source
-- WHEN capability resolves
-- THEN it is unavailable without affecting other capabilities
-
-### Requirement: Cybermapa is contract-only
-Cybermapa MUST be representable in ports and policy, but this change MUST NOT expose its import while `GETVEHICULOS` is unverifiable.
-
-#### Scenario: Cybermapa adapter is absent
-- GIVEN policy prefers Cybermapa
-- WHEN no verified source serves it
-- THEN fallback continues without import
+- GIVEN no ordered source is eligible
+- WHEN the capability resolves
+- THEN only that capability is unavailable

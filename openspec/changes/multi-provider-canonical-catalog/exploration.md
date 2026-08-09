@@ -1,59 +1,59 @@
 ## Exploration: Multi-provider canonical catalog
 
 ### Current State
-Sentinel Pro does not yet have an organization-scoped persisted fleet and vehicle catalog. The identity foundation now provides persisted organizations, memberships, active-organization sessions, and fresh admin authorization, and it is merged into `main`; authentication is therefore no longer a blocker for catalog proposal work.
+Sentinel Pro has two distinct ownership concepts. Identity `Organization` is the authenticated tenant and membership/authorization boundary. The catalog still needs a business `Company`/`Customer` inside that tenant. `docs/architecture/03-live-core-domain.md` explicitly deferred customer and tenant ownership rather than equating them; the validated operational hierarchy is `Company -> Fleet -> Vehicle`.
 
-Operational live currently treats provider snapshots as the roster. `domain/live/entities.ts` permits devices to reference internal vehicle IDs, but `LiveVehicleState` carries only one optional device. The Howen mapper creates transient `howen:*` fleet, vehicle, and device identities, and `aggregateOperationalSources` rejects a later source atomically when identities collide rather than linking multiple source identities to one canonical vehicle.
+The required hierarchy is therefore `Identity Organization (tenant) -> Catalog Company -> Fleet -> Vehicle`. One tenant may contain many business companies, and one tenant-scoped provider connection may expose many external companies. Importing provider companies MUST NOT create identity organizations, users, or memberships.
 
-Howen is the only implemented external operational source. Its verified roster exposes fleet identity and label, device number, vehicle headline, channel count, GPS, and online state, which is enough to support the first import adapter. There is no Cybermapa integration or contract in either repository. The recorded `GETVEHICULOS` failure prevents verifying a Cybermapa import now, so only its future port contract and default precedence policy belong in this change.
+Operational live still uses provider snapshots: Howen produces transient `howen:*` identities, `LiveVehicleState` carries one optional device, and aggregation rejects identity collisions instead of linking sources to canonical vehicles.
 
-The confirmed domain direction is that Sentinel owns the canonical organization, fleet, and vehicle catalog. A canonical vehicle may originate from Cybermapa, Howen, Ruptela, Rinho, another provider, or native manual creation. Multiple scoped external identities may link to one canonical vehicle. Provider-only vehicles remain valid, while ambiguous matches require explicit review and MUST NOT merge automatically.
+Cybermapa is operational. A Sentinel Pro `GETVEHICULOS` call returned 5,542 vehicles across 800 observed `nombre_empresa` labels. Records exposed `alias`, `anio`, `color`, `consumo`, `descripcion`, `gps_id`, `gps_identificador`, `id`, `marca`, `modelo`, `nombre`, `nombre_empresa`, `nombre_modulo`, and `patente`. `gps_id` was unique in all 5,542 records. Normalized plates were not: 118 duplicate groups catalog-wide and 107 duplicate company-plus-plate groups. The payload exposes business companies and vehicles but no trustworthy fleet hierarchy.
 
-Source choice is capability-specific rather than vehicle-wide. The default order prefers Cybermapa for GPS and operational alerts, and Howen for video and video alerts. An organization, fleet, or vehicle may override each capability with an ordered fallback; the most specific applicable policy should win.
+Cybermapa is the preferred external catalog source when present, without excluding Howen/Ruptela/Rinho/other-provider-only or native vehicles. Multiple source identities link to one canonical vehicle. Catalog composition imports Cybermapa first; capability policy separately defaults to Cybermapa for GPS/operational alerts and Howen for video/video alerts, with tenant Organization, Fleet, or Vehicle overrides plus ordered fallback.
 
 ### Affected Areas
-- `domain/identity/*` and `application/identity/*` — existing organization and authorization contracts establish the tenant and admin boundary; they should be reused rather than duplicated as a catalog customer model.
-- New `domain/catalog/*` — canonical fleets, vehicles, scoped external identities, capabilities, precedence policies, and match-review states.
-- New `application/catalog/*` — manual creation, idempotent provider import, deterministic linking, ambiguous-match review, and capability-source resolution use cases and ports.
-- `integrations/persistence/mongodb/*` — organization-scoped catalog documents, uniqueness constraints, repositories, and atomic import persistence.
-- `integrations/howen/*` — adapt the verified roster to import candidates without allowing Howen identities to become canonical identities.
-- `domain/live/entities.ts` and `application/live/contracts.ts` — later consume multiple linked devices/capability contributions for one canonical vehicle instead of one provider-owned snapshot identity.
-- `application/live/aggregate-operational-sources.ts` and `app/live/create-operational-sources.ts` — later replace collision-based roster concatenation with canonical catalog composition and per-capability source resolution.
-- `app/admin/*` and future catalog Route Handlers — deliver authorized manual catalog and import/review workflows without owning matching or provider logic.
-- `openspec/specs/live-core-contracts/spec.md` and related live specs — currently require internal business identity but do not yet specify durable canonical identity, matching, or per-capability precedence.
+- `domain/identity/*` and `application/identity/*` — remain the tenant, session, membership, role, and authorization boundary; no catalog company is added here.
+- New `domain/catalog/*` — tenant-owned companies, fleets, vehicles, provider-agnostic bindings, source identities, review, and capability policy.
+- New `application/catalog/*` — company administration, Cybermapa-first composition, native creation, matching/review, idempotent imports, and fallback resolution.
+- New `integrations/cybermapa/*` — authenticate, fetch, validate, and map only the observed Cybermapa contract.
+- `integrations/howen/*` — contribute candidates/capabilities without owning catalog identity.
+- `integrations/persistence/mongodb/*` — persist tenant-scoped connections, company candidates/bindings, canonical hierarchy, identities, reviews, and import progress.
+- `domain/live/*`, `application/live/*`, and live composition — project canonical company/fleet/vehicle identities and per-capability sources without UI provider branches.
+- `app/admin/*` and catalog delivery — administer companies, bind external candidates, assign fleets, run imports, and resolve reviews under the active tenant.
 
 ### Approaches
-1. **Replicate provider rosters as separate catalogs** — preserve one fleet and vehicle tree per external source.
-   - Pros: Simple imports and direct traceability.
-   - Cons: Duplicates real vehicles, forces operators to understand providers, and cannot resolve capabilities consistently.
-   - Effort: Medium.
+1. **Equate provider company with auth tenant** — create an identity organization per `nombre_empresa`.
+   - Pros: Superficially simple hierarchy.
+   - Cons: Corrupts authorization semantics, invents memberships, and cannot represent 800 companies under one tenant connection.
+   - Effort: Medium, unacceptable model.
 
-2. **Sentinel-owned canonical catalog with explicit source links** — persist one organization-scoped fleet and vehicle model, link provider identities separately, and resolve sources through capability policies.
-   - Pros: Stable business identity, native manual records, provider-only records, durable reviewed links, and provider-agnostic UI/application contracts.
-   - Cons: Requires matching, review, idempotent synchronization, policy inheritance, and migration away from transient IDs.
+2. **Tenant-owned canonical business catalog** — keep auth organization separate; bind connection-scoped external company candidates to canonical catalog companies.
+   - Pros: Correct authorization boundary, stable business hierarchy, safe imports, provider-only/native support, and reviewed links.
+   - Cons: Requires company administration, binding, `Unassigned` fleets, and review workflows.
    - Effort: High.
 
-3. **Infer canonical matches and precedence at read time** — retain raw snapshots and reconstruct vehicle identity for each request.
-   - Pros: Minimal initial persistence.
-   - Cons: Ambiguity is not durably resolved, corrections cannot be audited, results may change between requests, and precedence logic spreads into live composition.
+3. **Infer company/vehicle identity during reads** — retain provider snapshots and reconstruct the hierarchy repeatedly.
+   - Pros: Less persistence initially.
+   - Cons: Duplicate plates, mutable labels, no durable corrections, and inconsistent tenant scoping.
    - Effort: Medium initially, High operationally.
 
 ### Recommendation
-Use approach 2. Reuse the authenticated organization as the catalog ownership boundary, then persist Sentinel-owned fleets and vehicles separately from provider connections and scoped external identities. A source link should identify at least the organization connection, provider entity kind, and external ID so identifiers from different accounts cannot collide.
+Use approach 2. Every provider connection belongs to one identity Organization tenant. Each Cybermapa `nombre_empresa` becomes a staged company candidate keyed by `(tenant, provider connection, normalized label)`. An authorized administrator of that tenant explicitly creates or selects a canonical catalog Company and binds the candidate. No identity organization, user, membership, or permission is inferred.
 
-The first delivery should include the canonical catalog, native manual fleet/vehicle creation, Howen import, deterministic high-confidence linking, an explicit review state for ambiguity, and per-capability precedence contracts. Imports must be idempotent and must not silently rename canonical fleets, move vehicles, or merge ambiguous records.
+After company binding, use `(tenant, provider connection, vehicle, gps_id)` as the Cybermapa scoped external identity. An exact normalized plate may auto-link only when exactly one active canonical vehicle matches inside the bound catalog Company and no deterministic identity conflicts. Zero matches create a canonical vehicle in that Company's system-managed `Unassigned` fleet. Multiple matches or any conflict create pending review. Names, aliases, module names, and descriptions never auto-link.
 
-Resolve capability policy from vehicle to fleet to organization to system default, preserving an ordered fallback list at each selected level. Document Cybermapa as the default GPS and operational-alert source and Howen as the default video and video-alert source, while allowing an available lower-priority source to serve a capability when the preferred source is absent or unavailable.
+Each canonical Company has at most one internal, administratively visible `Unassigned` fleet. An administrator may move a vehicle to a real fleet; provider synchronization MUST NOT move it back. Imports must be resumable/idempotent, preserve committed canonical state on failure, and process Cybermapa before Howen without removing Howen-only or native vehicles.
 
-Defer the Cybermapa adapter/import until `GETVEHICULOS` can be exercised and verified. Also defer direct Ruptela/Rinho ingestion, raw payload retention, telemetry projections, and broad live-screen migration unless a later task is required to expose the first catalog slice safely.
+Catalog-company context must be available to capability resolution while authorization continues to derive solely from the active tenant Organization. The UI receives canonical company/fleet/vehicle contracts and never selects behavior by provider.
 
 ### Risks
-- Weak identifiers such as labels or plates can merge unrelated vehicles; only deterministic matches may link automatically, and ambiguous candidates need persisted review.
-- Provider external IDs may be unique only within an account, so uniqueness must include the provider connection and organization scope.
-- Import retries or concurrent runs can create duplicates unless candidate identity and persistence writes are idempotent and atomic.
-- Current transient `howen:*` identities and the single-device live state require an explicit migration path before canonical IDs drive live views.
-- Capability fallback must distinguish source absence, unsupported capability, stale data, and temporary unavailability or it may select misleading operational data.
-- Cybermapa field mappings and import behavior cannot be validated until its vehicle endpoint works; documenting more than the port and policy would invent a contract.
+- Confusing tenant Organization with business Company would leak catalog imports into authentication and authorization.
+- `nombre_empresa` is a mutable observed label, so binding history must prevent duplicate company candidates.
+- Plate matching requires exact-one-active-match and no-conflict guards; duplicates exist within company scope.
+- `gps_id` uniqueness is verified for one full snapshot, not yet across time.
+- Cybermapa scale requires batched, retry-safe persistence and import observability.
+- Existing transient Howen identities require a controlled canonical migration seam.
+- Downstream proposal/spec/design/tasks artifacts still conflate tenant and company and must be regenerated.
 
 ### Ready for Proposal
-Yes — the auth and tenant-authorization prerequisite is implemented and merged, the canonical ownership and matching rules are confirmed, and the first delivery boundary is explicit: canonical catalog, native manual creation, and Howen import, with Cybermapa contracts/default policy documented but its adapter deferred.
+Yes — tenant ownership, canonical business-company hierarchy, connection/company binding, per-company `Unassigned` placement, guarded vehicle matching, import ordering, and capability precedence are explicit. Regenerate proposal, specs, design, and tasks from this corrected boundary.

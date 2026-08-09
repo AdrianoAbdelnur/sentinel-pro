@@ -2,67 +2,68 @@
 
 ## Intent
 
-Replace provider-owned rosters with a Sentinel-owned organization, fleet, and vehicle catalog. One asset needs one identity across external sources and native creation. Source selection must vary by capability without leaking provider rules into UI.
+Create a tenant catalog: `Identity Organization -> Catalog Company -> Fleet -> Vehicle`. Compose Cybermapa, Howen, and native records without leaking providers into authorization or UI.
 
 ## Scope
 
 ### In Scope
-- Organization-scoped fleets and vehicles with admin-only creation.
-- Scoped external identities, deterministic linking, and ambiguous-match review.
-- Idempotent Howen roster import using verified fields only.
-- Per-capability precedence at organization, fleet, and vehicle levels with ordered fallback.
-- Cybermapa port and default policy contracts: Cybermapa for GPS/operational alerts; Howen for video/video alerts.
+- Tenant-owned Companies, fleets, vehicles, native creation, and one `Unassigned` fleet per Company.
+- Tenant connections and staged Cybermapa candidates admin-bound to catalog Companies.
+- Idempotent Cybermapa-first/Howen imports, scoped identities, guarded plate matching, and review.
+- Capability overrides at Vehicle, Fleet, catalog Company, or tenant Organization with ordered fallback.
+- A live seam retaining fallback.
 
 ### Out of Scope
-- Cybermapa adapter/import until `GETVEHICULOS` is verifiable.
-- Ruptela/Rinho ingestion, telemetry projections, raw payload retention, automatic ambiguous merges, and broad live migration.
+- Ruptela/Rinho adapters, raw telemetry expansion, inferred identity records, and UI provider branches.
 
 ## Capabilities
 
 ### New Capabilities
-- `canonical-vehicle-catalog`: Tenant-isolated Sentinel ownership and native fleet/vehicle creation.
-- `external-identity-linking`: Scoped identities, deterministic linking, and ambiguous-match review.
-- `howen-catalog-import`: Verified, idempotent Howen roster ingestion into canonical records and links.
-- `capability-source-precedence`: Capability-specific policy inheritance, defaults, overrides, and ordered fallback.
+- `canonical-vehicle-catalog`: Tenant Companies, fleets, vehicles, native creation, and per-Company `Unassigned`.
+- `provider-company-binding`: Connection-scoped external company candidates and explicit admin binding to canonical catalog Companies.
+- `external-identity-linking`: Company-scoped identities, plate matching, and review.
+- `cybermapa-catalog-import`: Operational Cybermapa company/vehicle ingestion using observed fields and `gps_id` identity.
+- `howen-catalog-import`: Verified Howen ingestion without provider ownership of canonical records.
+- `capability-source-precedence`: Vehicle-to-tenant policy inheritance and fallback.
 
 ### Modified Capabilities
-- `live-core-contracts`: Live business identity becomes canonical while multiple provider links may contribute capabilities.
+- `live-core-contracts`: Live uses Company/Fleet/Vehicle identity and independently resolved source capabilities.
 
 ## Approach
 
-Reuse authenticated organizations as ownership boundaries. Add catalog models/use cases, MongoDB repositories with scoped uniqueness, a Howen import adapter, and thin admin delivery. Resolve policy from vehicle to fleet to organization to system default. Synchronization never silently renames fleets, moves vehicles, or merges ambiguity.
+Identity `Organization` remains the authorization tenant; each connection belongs to its tenant. Normalized `nombre_empresa` stages a candidate an admin binds to a Company. `gps_id` scopes vehicle identity. Exact plate auto-links only to one active vehicle in that Company without conflict; zero matches create in `Unassigned`; conflicts await review. Names/aliases never auto-link. Cybermapa composes first; provider-only/native vehicles remain. Policy resolves Vehicle, Fleet, Company, tenant, then system. Admin assignment wins over sync.
 
 ## Affected Areas
 
-| Area | Impact | Description |
-|------|--------|-------------|
-| `domain/catalog`, `application/catalog` | New | Canonical rules, ports, and use cases |
-| `integrations/persistence/mongodb` | Modified | Catalog persistence and constraints |
-| `integrations/howen` | Modified | Import candidate adapter |
-| `app/admin`, `app/api/admin` | Modified | Authorized catalog workflows |
-| `domain/live`, `application/live` | Modified | Canonical identity contract |
+| Area | Impact |
+|---|---|
+| `domain/catalog`, `application/catalog` | Hierarchy, rules, ports, use cases |
+| `integrations/cybermapa`, `integrations/howen` | Import adapters |
+| `integrations/persistence/mongodb` | Durable catalog |
+| `app/admin`, `app/api/admin` | Company binding/import/review delivery |
+| `domain/live`, `application/live` | Canonical projection seam |
 
 ## Risks
 
-| Risk | Likelihood | Mitigation |
-|------|------------|------------|
-| False vehicle merge | High | Auto-link deterministic identities only; persist ambiguity |
-| Duplicate concurrent imports | Medium | Scoped unique indexes and atomic idempotent writes |
-| Incorrect fallback | Medium | Pure policy resolver with exhaustive tests |
+| Risk | Mitigation |
+|---|---|
+| Tenant/company conflation | Separate contracts and ownership keys |
+| Duplicate plates/label drift | Guarded matching, bindings, review |
+| Import races/failure | Scoped uniqueness, resumable idempotency |
 
 ## Rollback Plan
 
-Disable new routes/import jobs, redeploy the previous revision, and retain existing Howen live composition. Snapshot catalog collections before removing indexes or data; identity collections remain unchanged.
+Disable catalog routes/imports and restore Howen live composition. Snapshot additive collections before removal; identity data and admin fleet assignments remain untouched.
 
 ## Dependencies
 
-- Merged authentication/tenant authorization foundation.
-- Verified Howen roster client and mapper.
+- Authentication/tenant authorization foundation.
+- Operational Cybermapa and Howen clients.
 
 ## Success Criteria
 
-- [ ] Admins create tenant-isolated fleets/vehicles without provider data.
-- [ ] Repeated Howen imports create no duplicates; ambiguous candidates remain unmerged for review.
-- [ ] Capability resolution honors vehicle, fleet, organization, defaults, and fallback order.
-- [ ] Cybermapa remains limited to contracts/default policy.
-- [ ] Quality gates pass.
+- [ ] Imports never create identity organizations, users, or memberships.
+- [ ] Admin bindings produce catalog Companies and per-Company `Unassigned` fleets.
+- [ ] Repeated imports create no duplicate identities; matching yields safe link, creation, or review.
+- [ ] Provider-only/native vehicles and admin placement survive synchronization.
+- [ ] Vehicle→Fleet→Company→tenant→system precedence and live projection pass quality gates.
