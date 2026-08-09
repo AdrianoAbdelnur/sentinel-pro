@@ -1,4 +1,4 @@
-import type { Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
+import type { CapabilityPolicy, Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
 
 export type CreateCompanyResult =
   | { kind: "created"; company: Company; unassignedFleet: Fleet }
@@ -21,3 +21,5 @@ export type StageCompanyCandidateResult =
   | { kind: "repeated"; candidate: CompanyCandidate };
 
 export type BindProviderCompanyResult = { kind: "bound"; candidate: CompanyCandidate } | { kind: "forbidden" };
+
+export type SetCapabilityPolicyResult = { kind: "set"; policy: CapabilityPolicy } | { kind: "forbidden" };

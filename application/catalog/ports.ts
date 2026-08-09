@@ -1,4 +1,4 @@
-import type { Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
@@ -35,5 +35,23 @@ export type CompanyCandidateRepository = {
 export type CompanyBindingPorts = {
   companies: CompanyRepository;
   candidates: CompanyCandidateRepository;
+  ids: IdGenerator;
+};
+
+export type CapabilityPolicyRepository = {
+  findByScope(
+    organizationId: string,
+    scope: CapabilityPolicyScope,
+    scopeId: string,
+    capability: Capability,
+  ): Promise<CapabilityPolicy | undefined>;
+  save(policy: CapabilityPolicy): Promise<void>;
+};
+
+export type CapabilityPolicyPorts = {
+  companies: CompanyRepository;
+  fleets: FleetRepository;
+  vehicles: VehicleRepository;
+  policies: CapabilityPolicyRepository;
   ids: IdGenerator;
 };

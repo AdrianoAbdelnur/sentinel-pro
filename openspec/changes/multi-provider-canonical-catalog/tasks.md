@@ -25,8 +25,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 - [x] 1.6 **GREEN/REFACTOR:** Add `domain/catalog/{fleet-binding,union-projection}.ts` and reviews.
 - [x] 1.7 **RED:** Test vehicle identity reuse, Company plate outcomes/conflicts, forbidden names, review [`external-identity-linking`].
 - [x] 1.8 **GREEN/REFACTOR:** Add `domain/catalog/matching.ts` and vehicle review.
-- [ ] 1.9 **RED:** Test capability independence, five levels, fallback, defaults, absence, unavailability [`capability-source-precedence`].
-- [ ] 1.10 **GREEN/REFACTOR:** Add `domain/catalog/precedence.ts` and `SetCapabilityPolicy`.
+- [x] 1.9 **RED:** Test capability independence, five levels, fallback, defaults, absence, unavailability [`capability-source-precedence`].
+- [x] 1.10 **GREEN/REFACTOR:** Add `domain/catalog/precedence.ts` and `SetCapabilityPolicy`.
 
 ## Phase 2: MongoDB
 
