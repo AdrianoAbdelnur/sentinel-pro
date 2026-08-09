@@ -21,8 +21,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 - [x] 1.2 **GREEN/REFACTOR:** Add Organization/Company contracts under `domain/catalog/` and `application/catalog/`.
 - [x] 1.3 **RED:** Test Company candidate scope/repetition, admin binding, no identity creation [`provider-company-binding`].
 - [x] 1.4 **GREEN/REFACTOR:** Add credential references in `bind-provider-company.ts`.
-- [ ] 1.5 **RED:** Test many-to-one Fleets, name rejection, review, union, enrichment, retention, placement conflict [`provider-fleet-binding`].
-- [ ] 1.6 **GREEN/REFACTOR:** Add `domain/catalog/{fleet-binding,union-projection}.ts` and reviews.
+- [x] 1.5 **RED:** Test many-to-one Fleets, name rejection, review, union, enrichment, retention, placement conflict [`provider-fleet-binding`].
+- [x] 1.6 **GREEN/REFACTOR:** Add `domain/catalog/{fleet-binding,union-projection}.ts` and reviews.
 - [ ] 1.7 **RED:** Test vehicle identity reuse, Company plate outcomes/conflicts, forbidden names, review [`external-identity-linking`].
 - [ ] 1.8 **GREEN/REFACTOR:** Add `domain/catalog/matching.ts` and vehicle review.
 - [ ] 1.9 **RED:** Test capability independence, five levels, fallback, defaults, absence, unavailability [`capability-source-precedence`].
