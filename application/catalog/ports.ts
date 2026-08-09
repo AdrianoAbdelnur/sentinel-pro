@@ -1,4 +1,4 @@
-import type { Company, Fleet, Vehicle } from "@/domain/catalog";
+import type { Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
@@ -23,5 +23,17 @@ export type CatalogApplicationPorts = {
   companies: CompanyRepository;
   fleets: FleetRepository;
   vehicles: VehicleRepository;
+  ids: IdGenerator;
+};
+
+export type CompanyCandidateRepository = {
+  findById(id: string): Promise<CompanyCandidate | undefined>;
+  findByConnectionAndLabel(connectionId: string, normalizedLabel: string): Promise<CompanyCandidate | undefined>;
+  save(candidate: CompanyCandidate): Promise<void>;
+};
+
+export type CompanyBindingPorts = {
+  companies: CompanyRepository;
+  candidates: CompanyCandidateRepository;
   ids: IdGenerator;
 };
