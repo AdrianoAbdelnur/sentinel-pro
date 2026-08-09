@@ -17,8 +17,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 
 ## Phase 1: Core
 
-- [ ] 1.1 **RED:** Test isolation, provider/native Vehicles, `Unassigned`, placement, durable existence [`canonical-vehicle-catalog`].
-- [ ] 1.2 **GREEN/REFACTOR:** Add Organization/Company contracts under `domain/catalog/` and `application/catalog/`.
+- [x] 1.1 **RED:** Test isolation, provider/native Vehicles, `Unassigned`, placement, durable existence [`canonical-vehicle-catalog`].
+- [x] 1.2 **GREEN/REFACTOR:** Add Organization/Company contracts under `domain/catalog/` and `application/catalog/`.
 - [ ] 1.3 **RED:** Test Company candidate scope/repetition, admin binding, no identity creation [`provider-company-binding`].
 - [ ] 1.4 **GREEN/REFACTOR:** Add credential references in `bind-provider-company.ts`.
 - [ ] 1.5 **RED:** Test many-to-one Fleets, name rejection, review, union, enrichment, retention, placement conflict [`provider-fleet-binding`].
