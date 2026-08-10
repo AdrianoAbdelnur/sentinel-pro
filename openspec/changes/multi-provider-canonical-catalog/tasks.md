@@ -39,8 +39,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 
 ## Phase 3: Providers
 
-- [ ] 3.1 **RED:** Test observed Cybermapa fields, scoped `gps_id`, no Fleet identity [`cybermapa-catalog-import`].
-- [ ] 3.2 **GREEN/REFACTOR:** Add Cybermapa client, mapper, source, credentials.
+- [x] 3.1 **RED:** Test observed Cybermapa fields, scoped `gps_id`, no Fleet identity [`cybermapa-catalog-import`].
+- [x] 3.2 **GREEN/REFACTOR:** Add Cybermapa client, mapper, source, credentials.
 - [ ] 3.3 **RED:** Test 5,542 candidates, binding, duplicate plates, resume, `Unassigned`, order/placement.
 - [ ] 3.4 **GREEN/REFACTOR:** Add batching/checkpoints in `application/catalog/import-catalog.ts`.
 - [ ] 3.5 **RED:** Test Howen fields, partial union, enrichment, retention, omission, concurrency, failure [`howen-catalog-import`].

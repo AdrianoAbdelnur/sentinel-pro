@@ -1,4 +1,4 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogSyncFailure, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
 export type Clock = { now(): Date };
 
@@ -111,4 +111,19 @@ export type CatalogImportItemRepository = {
   findByRunAndExternalId(organizationId: string, connectionId: string, runId: string, externalId: string): Promise<CatalogImportItem | undefined>;
   listPendingByRun(organizationId: string, connectionId: string, runId: string): Promise<CatalogImportItem[]>;
   save(item: CatalogImportItem): Promise<void>;
+};
+
+export type CatalogImportCandidate = {
+  externalId: string;
+  companyLabel: string;
+  normalizedPlate?: string;
+  label?: string;
+};
+
+export type CatalogSnapshotResult =
+  | { kind: "complete"; candidates: CatalogImportCandidate[] }
+  | { kind: "failed"; failure: CatalogSyncFailure };
+
+export type CatalogImportSource = {
+  loadCompleteSnapshot(): Promise<CatalogSnapshotResult>;
 };
