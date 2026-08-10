@@ -155,3 +155,14 @@ export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
   syncLeases: CatalogSyncLeaseRepository;
   clock: Clock;
 };
+
+export type SynchronizeDueCatalogConnectionsPorts = {
+  syncRuns: Pick<CatalogSyncRunRepository, "findLastSuccess">;
+  clock: Clock;
+};
+
+export type GetCatalogSyncStatusPorts = {
+  connections: Pick<ProviderConnectionRepository, "findById">;
+  syncRuns: Pick<CatalogSyncRunRepository, "findLatest" | "findLastSuccess">;
+  clock: Clock;
+};

@@ -48,8 +48,8 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 
 ## Phase 4: Synchronization
 
-- [ ] 4.1 **RED:** Inject clock; test initial sync, six-hour boundary, freshness skip, shared outcomes, exclusion, isolation/retry, successful-full-snapshot-only reconciliation, failed/partial-preservation [`catalog-synchronization`].
-- [ ] 4.2 **GREEN/REFACTOR:** Add shared sync/due/status use cases; reuse `ImportCatalog`.
+- [x] 4.1 **RED:** Inject clock; test initial sync, six-hour boundary, freshness skip, shared outcomes, exclusion, isolation/retry, successful-full-snapshot-only reconciliation, failed/partial-preservation [`catalog-synchronization`].
+- [x] 4.2 **GREEN/REFACTOR:** Add shared sync/due/status use cases; reuse `ImportCatalog`.
 - [ ] 4.3 **RED:** Test invalid cron secret, non-disclosure, connection isolation, retryable failure.
 - [ ] 4.4 **GREEN/REFACTOR:** Add internal sync Route Handler and constant-time authorization.
 
