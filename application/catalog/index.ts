@@ -4,3 +4,5 @@ export * from "./use-cases";
 export * from "./bind-provider-company";
 export * from "./set-capability-policy";
 export * from "./import-catalog";
+export * from "./sync-contracts";
+export * from "./synchronize-catalog-connection";

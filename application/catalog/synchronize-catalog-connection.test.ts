@@ -1,0 +1,299 @@
+import { describe, expect, it, vi } from "vitest";
+
+import type { CatalogImportItem, CatalogReview, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+
+import type { CatalogImportCandidate, CatalogImportSource, CatalogSyncLeaseClaimResult, SynchronizeCatalogConnectionPorts } from "./ports";
+import { createSynchronizeCatalogConnectionApplication } from "./synchronize-catalog-connection";
+
+type Lease = { organizationId: string; connectionId: string; runId: string; leaseUntil: Date };
+
+function createLeasePort(store: Map<string, Lease>) {
+  return {
+    async claim(organizationId: string, connectionId: string, runId: string, now: Date, leaseDurationMs: number): Promise<CatalogSyncLeaseClaimResult> {
+      const key = `${organizationId}:${connectionId}`;
+      const existing = store.get(key);
+      if (existing && existing.runId !== runId && existing.leaseUntil.getTime() > now.getTime()) return { outcome: "held" };
+      const previousRunId = existing && existing.runId !== runId ? existing.runId : undefined;
+      store.set(key, { organizationId, connectionId, runId, leaseUntil: new Date(now.getTime() + leaseDurationMs) });
+      return previousRunId ? { outcome: "claimed", previousRunId } : { outcome: "claimed" };
+    },
+    async release(organizationId: string, connectionId: string, runId: string): Promise<void> {
+      const key = `${organizationId}:${connectionId}`;
+      const existing = store.get(key);
+      if (existing && existing.runId === runId) store.delete(key);
+    },
+  };
+}
+
+function createFixture() {
+  const companies = new Map<string, Company>();
+  const fleets = new Map<string, Fleet>();
+  const vehicles = new Map<string, Vehicle>();
+  const candidates = new Map<string, CompanyCandidate>();
+  const vehicleIdentities = new Map<string, ExternalVehicleIdentity>();
+  const fleetIdentities = new Map<string, ExternalFleetIdentity>();
+  const reviews = new Map<string, CatalogReview>();
+  const importItems = new Map<string, CatalogImportItem>();
+  const syncRuns = new Map<string, CatalogSyncRun>();
+  const leases = new Map<string, Lease>();
+  const connections = new Map<string, ProviderConnection>();
+  let sequence = 0;
+  const ids = { create: () => `id-${++sequence}` };
+  const vehicleSaveCrash = { crashOnCallNumber: undefined as number | undefined, calls: 0 };
+
+  const companyPort = { findById: async (id: string) => companies.get(id), save: async (c: Company) => { companies.set(c.id, c); } };
+  const fleetPort = { findById: async (id: string) => fleets.get(id), listByCompany: async (companyId: string) => [...fleets.values()].filter((f) => f.companyId === companyId), save: async (f: Fleet) => { fleets.set(f.id, f); } };
+  const vehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (companyId: string) => [...vehicles.values()].filter((v) => v.companyId === companyId), save: async (v: Vehicle) => { vehicles.set(v.id, v); } };
+
+  const identityPort = {
+    findByConnectionAndExternalId: async (organizationId: string, connectionId: string, externalId: string) => [...vehicleIdentities.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
+    listByConnection: async (organizationId: string, connectionId: string) => [...vehicleIdentities.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
+    listStaleByRun: async (organizationId: string, connectionId: string, currentRunId: string) => [...vehicleIdentities.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.presence !== "absent" && i.lastSeenRunId !== currentRunId),
+    save: async (i: ExternalVehicleIdentity) => { vehicleIdentities.set(i.id, i); },
+  };
+  const fleetIdentityPort = {
+    findByConnectionAndExternalId: async (organizationId: string, connectionId: string, externalId: string) => [...fleetIdentities.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
+    listByConnection: async (organizationId: string, connectionId: string) => [...fleetIdentities.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
+    listByFleetId: async (organizationId: string, fleetId: string) => [...fleetIdentities.values()].filter((i) => i.organizationId === organizationId && i.fleetId === fleetId),
+    save: async (i: ExternalFleetIdentity) => { fleetIdentities.set(i.id, i); },
+  };
+  const importItemPort = {
+    findByRunAndExternalId: async (organizationId: string, connectionId: string, runId: string, externalId: string) => [...importItems.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.externalId === externalId),
+    listPendingByRun: async (organizationId: string, connectionId: string, runId: string) => [...importItems.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.status === "pending"),
+    save: async (i: CatalogImportItem) => { importItems.set(i.id, i); },
+  };
+
+  let clockNow = new Date("2026-08-09T00:00:00Z");
+  const clock = { now: () => clockNow };
+  const setNow = (value: string) => { clockNow = new Date(value); };
+
+  const ports: SynchronizeCatalogConnectionPorts = {
+    companies: companyPort,
+    fleets: fleetPort,
+    vehicles: vehiclePort,
+    candidates: {
+      findById: async (id) => candidates.get(id),
+      findByConnectionAndLabel: async (organizationId, connectionId, normalizedLabel) => [...candidates.values()].find((c) => c.organizationId === organizationId && c.connectionId === connectionId && c.normalizedLabel === normalizedLabel),
+      save: async (c) => { candidates.set(c.id, c); },
+    },
+    vehicleIdentities: identityPort,
+    fleetIdentities: fleetIdentityPort,
+    reviews: {
+      findById: async (id) => reviews.get(id),
+      findByConnectionAndExternalId: async (organizationId, connectionId, externalId, subject) => [...reviews.values()].find((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.externalId === externalId && r.subject === subject),
+      listPendingByOrganization: async (organizationId) => [...reviews.values()].filter((r) => r.organizationId === organizationId && r.status === "pending"),
+      save: async (r) => { reviews.set(r.id, r); },
+      resolve: async (r) => { reviews.set(r.id, r); return "resolved"; },
+    },
+    importItems: importItemPort,
+    syncRuns: {
+      findById: async (id) => syncRuns.get(id),
+      findLatest: async (organizationId, connectionId) => [...syncRuns.values()].filter((r) => r.organizationId === organizationId && r.connectionId === connectionId).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0],
+      findLastSuccess: async (organizationId, connectionId) => [...syncRuns.values()].filter((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.status === "succeeded").sort((a, b) => (b.completedAt as Date).getTime() - (a.completedAt as Date).getTime())[0],
+      claimActive: async (run) => {
+        const activeExists = [...syncRuns.values()].some((r) => r.organizationId === run.organizationId && r.connectionId === run.connectionId && r.status === "active" && r.id !== run.id);
+        if (activeExists) return "already-active";
+        syncRuns.set(run.id, run);
+        return "claimed";
+      },
+      save: async (run) => { syncRuns.set(run.id, run); },
+    },
+    syncLeases: createLeasePort(leases),
+    connections: { findById: async (organizationId, id) => [...connections.values()].find((c) => c.organizationId === organizationId && c.id === id), save: async (c) => { connections.set(c.id, c); } },
+    clock,
+    ids,
+    transactions: {
+      run: async (work) => {
+        const pendingVehicles: Vehicle[] = [], pendingIdentities: ExternalVehicleIdentity[] = [], pendingItems: CatalogImportItem[] = [];
+        const txVehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (c: string) => [...vehicles.values()].filter((v) => v.companyId === c), save: async (v: Vehicle) => { vehicleSaveCrash.calls += 1; if (vehicleSaveCrash.crashOnCallNumber === vehicleSaveCrash.calls) throw new Error("simulated mid-item crash"); pendingVehicles.push(v); } };
+        const result = await work({ companies: companyPort, fleets: fleetPort, vehicles: txVehiclePort, vehicleIdentities: { ...identityPort, save: async (i: ExternalVehicleIdentity) => { pendingIdentities.push(i); } }, importItems: { ...importItemPort, save: async (i: CatalogImportItem) => { pendingItems.push(i); } } });
+        for (const v of pendingVehicles) vehicles.set(v.id, v);
+        for (const i of pendingIdentities) vehicleIdentities.set(i.id, i);
+        for (const i of pendingItems) importItems.set(i.id, i);
+        return result;
+      },
+    },
+  };
+
+  return { ports, setNow, vehicleSaveCrash, sync: createSynchronizeCatalogConnectionApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, fleetIdentities, reviews, importItems, syncRuns, leases, connections };
+}
+
+const connectionA: ProviderConnection = { id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" };
+const connectionOtherTenant: ProviderConnection = { id: "conn-stolen", organizationId: "org-b", credentialRef: "vault:cybermapa/org-b" };
+
+const fakeSource = (candidates: CatalogImportCandidate[]): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates }) });
+const failingSource = (): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "failed", failure: { category: "connectivity" } }) });
+
+async function bindCompany(fixture: ReturnType<typeof createFixture>, connection: ProviderConnection, label: string) {
+  const companyId = fixture.ports.ids.create();
+  const unassignedId = fixture.ports.ids.create();
+  await fixture.ports.companies.save({ id: companyId, organizationId: connection.organizationId, name: label });
+  await fixture.ports.fleets.save({ id: unassignedId, companyId, name: "Unassigned", kind: "unassigned" });
+  const candidateId = fixture.ports.ids.create();
+  await fixture.ports.candidates.save({ id: candidateId, organizationId: connection.organizationId, connectionId: connection.id, normalizedLabel: label.trim().toLowerCase(), companyId });
+  return { companyId, unassignedId };
+}
+
+describe("initial synchronization", () => {
+  it("runs a first-ever synchronization to completion regardless of trigger, since a connection with no prior success is always due", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "initial", source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+
+    expect(outcome.kind).toBe("succeeded");
+    expect(outcome.kind === "succeeded" ? outcome.run.counts.created : -1).toBe(1);
+    expect(fixture.leases.size).toBe(0);
+  });
+});
+
+describe("scheduled trigger rechecks freshness after leasing", () => {
+  it("skips a scheduled trigger as fresh when a manual success completed less than six hours before the injected clock, proving a recent manual run satisfies automatic cadence", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+    fixture.setNow("2026-08-09T05:00:00Z");
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", source: fakeSource([]) });
+
+    expect(outcome.kind).toBe("skipped-fresh");
+    expect(fixture.leases.size).toBe(0);
+    expect([...fixture.syncRuns.values()]).toHaveLength(1);
+  });
+
+  it("runs a scheduled trigger once the last success is exactly six hours old, and a manual trigger always runs regardless of freshness", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+    fixture.setNow("2026-08-09T06:00:00Z");
+
+    const scheduledOutcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", source: fakeSource([]) });
+    fixture.setNow("2026-08-09T06:00:01Z");
+    const manualOutcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+
+    expect(scheduledOutcome.kind).toBe("succeeded");
+    expect(manualOutcome.kind).toBe("succeeded");
+  });
+});
+
+describe("mutual exclusion", () => {
+  it("returns already-running without starting a second run when a lease is already held, even before any active run document has been written", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    fixture.leases.set("org-a:conn-cyber", { organizationId: "org-a", connectionId: "conn-cyber", runId: "run-held", leaseUntil: new Date("2026-08-09T00:05:00Z") });
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+
+    expect(outcome).toEqual({ kind: "already-running" });
+    expect(fixture.syncRuns.size).toBe(0);
+  });
+
+  it("lets exactly one of two concurrent triggers against the same connection start a run, and the loser reports already-running without invoking the import source", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates: [] }));
+    const sharedSource: CatalogImportSource = { loadCompleteSnapshot };
+
+    const [first, second] = await Promise.all([
+      fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: sharedSource }),
+      fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", source: sharedSource }),
+    ]);
+
+    const outcomes = [first.kind, second.kind].sort();
+    expect(outcomes).toEqual(["already-running", "succeeded"]);
+    expect(loadCompleteSnapshot).toHaveBeenCalledTimes(1);
+    expect([...fixture.syncRuns.values()].filter((r) => r.status === "active")).toHaveLength(0);
+  });
+});
+
+describe("retryable failure and recovery", () => {
+  it("marks the run as a retryable failure and preserves canonical state when the source snapshot fetch fails outright", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: failingSource() });
+
+    expect(outcome.kind).toBe("retryable-failure");
+    expect(outcome.kind === "retryable-failure" ? outcome.run.status : undefined).toBe("failed");
+    expect(fixture.vehicles.size).toBe(0);
+    expect(fixture.leases.size).toBe(0);
+  });
+
+  it("recovers on a retried manual trigger after a mid-import crash, without duplicating the vehicle and identity already committed before the crash", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const candidates: CatalogImportCandidate[] = [{ externalId: "ext-1", companyLabel: "Acme Transport" }, { externalId: "ext-2", companyLabel: "Acme Transport" }];
+    fixture.vehicleSaveCrash.crashOnCallNumber = 2;
+
+    const failed = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(candidates) });
+    expect(failed.kind).toBe("retryable-failure");
+    expect(fixture.vehicles.size).toBe(1);
+
+    fixture.vehicleSaveCrash.crashOnCallNumber = undefined;
+    const recovered = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(candidates) });
+
+    expect(recovered.kind).toBe("succeeded");
+    expect(recovered.kind === "succeeded" ? { created: recovered.run.counts.created, linked: recovered.run.counts.linked } : {}).toEqual({ created: 1, linked: 1 });
+    expect(fixture.vehicles.size).toBe(2);
+  });
+});
+
+describe("absence reconciliation gated on a successful full snapshot", () => {
+  it("marks a previously linked identity absent once a later successful full snapshot omits it, leaving the canonical Vehicle in place", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+    const [vehicle] = [...fixture.vehicles.values()];
+    const [identityAfterFirstRun] = [...fixture.vehicleIdentities.values()];
+    expect(identityAfterFirstRun.presence).toBe("present");
+    fixture.setNow("2026-08-09T07:00:00Z");
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+
+    expect(outcome.kind === "succeeded" ? outcome.run.counts.absent : -1).toBe(1);
+    expect(fixture.vehicleIdentities.get(identityAfterFirstRun.id)?.presence).toBe("absent");
+    expect(fixture.vehicles.get(vehicle.id)).toEqual(vehicle);
+  });
+
+  it("never reconciles absence for a failed run, so a transiently-omitted device stays present and cannot later be silently auto-linked into a different plate-colliding Vehicle", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport", normalizedPlate: "AAA111" }]) });
+    const [identityAfterFirstRun] = [...fixture.vehicleIdentities.values()];
+    fixture.setNow("2026-08-09T07:00:00Z");
+
+    const failedRun = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: failingSource() });
+    expect(failedRun.kind).toBe("retryable-failure");
+    expect(fixture.vehicleIdentities.get(identityAfterFirstRun.id)?.presence).toBe("present");
+
+    fixture.setNow("2026-08-09T08:00:00Z");
+    const nextSnapshot = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([{ externalId: "ext-2", companyLabel: "Acme Transport", normalizedPlate: "AAA111" }]) });
+
+    expect(nextSnapshot.kind === "succeeded" ? nextSnapshot.run.counts.reviewed : -1).toBe(1);
+    expect(fixture.vehicles.size).toBe(1);
+    expect([...fixture.reviews.values()]).toHaveLength(1);
+  });
+});
+
+describe("connection scoping closes forged organizationId access (Risk #2)", () => {
+  it("refuses to synchronize when the caller's trusted organizationId does not own the requested connectionId in the repository, leaving no run, lease, or candidate behind", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionOtherTenant.id, connectionOtherTenant);
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: connectionOtherTenant.id, trigger: "manual", source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+
+    expect(outcome).toEqual({ kind: "not-found" });
+    expect(fixture.syncRuns.size).toBe(0);
+    expect(fixture.leases.size).toBe(0);
+    expect(fixture.candidates.size).toBe(0);
+  });
+});

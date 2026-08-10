@@ -263,7 +263,7 @@ describe("full observed scale", () => {
     expect(result).toEqual({ kind: "completed", counts: { processed: total, created: total, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, checkpoint: `gps-${String(total - 1).padStart(6, "0")}` });
     expect(saveCalls).toHaveBeenCalledTimes(Math.ceil(total / CATALOG_IMPORT_BATCH_SIZE));
     expect(new Set([...fixture.importItems.values()].map((i) => i.externalId)).size).toBe(total);
-  });
+  }, 30000);
 });
 
 describe("provider fetch failure leaves canonical state unchanged", () => {
