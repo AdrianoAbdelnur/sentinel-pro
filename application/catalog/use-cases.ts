@@ -32,7 +32,8 @@ export function computeVehiclePlacement(
   const placement = existing
     ? reconcilePlacement(existing.placement, trustedCandidate, unassignedFleetId)
     : resolvePlacement(trustedCandidate, unassignedFleetId);
-  return existing ? { ...existing, placement } : { id: candidate.externalRef, companyId, origin: "provider", placement, plate: candidate.plate, label: candidate.label };
+  if (!existing) return { id: candidate.externalRef, companyId, origin: "provider", placement, plate: candidate.plate, label: candidate.label };
+  return { ...existing, placement, plate: existing.plate ?? candidate.plate };
 }
 
 export function createCatalogApplication(ports: CatalogApplicationPorts) {

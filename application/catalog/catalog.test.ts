@@ -73,6 +73,21 @@ describe("catalog application use cases", () => {
     expect(hierarchy.hierarchy.fleets.filter((fleet) => fleet.kind === "unassigned")).toEqual([company.unassignedFleet]);
   });
 
+  it("backfills a missing plate onto an existing Vehicle when a later source supplies one, without overwriting a plate that already exists", async () => {
+    const fixture = createFixture();
+    const company = await fixture.app.createCompany({ actor: admin, name: "Acme" });
+    if (company.kind !== "created") throw new Error("expected company creation");
+    await fixture.app.placeVehicleCandidates({ organizationId: admin.organizationId, companyId: company.company.id, candidates: [{ externalRef: "cybermapa:900" }] });
+
+    const backfilled = await fixture.app.placeVehicleCandidates({ organizationId: admin.organizationId, companyId: company.company.id, candidates: [{ externalRef: "cybermapa:900", plate: "AAA111" }] });
+    if (backfilled.kind !== "placed") throw new Error("expected placement");
+    expect(backfilled.vehicles[0].plate).toBe("AAA111");
+
+    const notOverwritten = await fixture.app.placeVehicleCandidates({ organizationId: admin.organizationId, companyId: company.company.id, candidates: [{ externalRef: "cybermapa:900", plate: "BBB222" }] });
+    if (notOverwritten.kind !== "placed") throw new Error("expected placement");
+    expect(notOverwritten.vehicles[0].plate).toBe("AAA111");
+  });
+
   it("places an unmatched import candidate into the Company's Unassigned fleet", async () => {
     const fixture = createFixture();
     const company = await fixture.app.createCompany({ actor: admin, name: "Acme" });

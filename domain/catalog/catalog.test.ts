@@ -54,6 +54,21 @@ describe("catalog domain rules", () => {
     });
   });
 
+  it("keeps a real-Fleet system-sourced placement when a later source supplies no fleet opinion, instead of resetting it to Unassigned", () => {
+    const current = { fleetId: "fleet-real", source: "system" as const };
+
+    expect(reconcilePlacement(current, {}, "fleet-unassigned")).toEqual(current);
+  });
+
+  it("still re-resolves a real-Fleet system-sourced placement when a later source supplies a different real fleet opinion", () => {
+    const current = { fleetId: "fleet-real-a", source: "system" as const };
+
+    expect(reconcilePlacement(current, { matchedFleetId: "fleet-real-b" }, "fleet-unassigned")).toEqual({
+      fleetId: "fleet-real-b",
+      source: "system",
+    });
+  });
+
   it("normalizes an external company label so equivalent spellings match", () => {
     expect(normalizeCompanyLabel("  Acme   Transport  ")).toBe("acme transport");
     expect(normalizeCompanyLabel("ACME TRANSPORT")).toBe("acme transport");

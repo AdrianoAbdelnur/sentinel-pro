@@ -21,5 +21,7 @@ export function reconcilePlacement(
   candidate: PlacementCandidate,
   unassignedFleetId: string,
 ): VehiclePlacement {
-  return current.source === "admin" ? current : resolvePlacement(candidate, unassignedFleetId);
+  if (current.source === "admin") return current;
+  if (current.fleetId !== unassignedFleetId && candidate.matchedFleetId === undefined) return current;
+  return resolvePlacement(candidate, unassignedFleetId);
 }
