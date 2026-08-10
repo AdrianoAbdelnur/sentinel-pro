@@ -141,6 +141,19 @@ describe("Mongo catalog persistence", () => {
     await expect(repos.fleetIdentities.findByConnectionAndExternalId("org-b", "shared-connection", "F100")).resolves.toMatchObject({ id: "identity-b" });
   });
 
+  it("lists external Fleet identities scoped to one tenant and connection, excluding another tenant's or another connection's identities even when the external id repeats", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.fleetIdentities.save({ id: "identity-a", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H100", label: "north route" });
+    await repos.fleetIdentities.save({ id: "identity-b", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H200", label: "south route" });
+    await repos.fleetIdentities.save({ id: "identity-other-tenant", organizationId: "org-b", connectionId: "conn-howen", entityKind: "fleet", externalId: "H100", label: "north route" });
+    await repos.fleetIdentities.save({ id: "identity-other-connection", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "fleet", externalId: "H100", label: "north route" });
+
+    const listed = await repos.fleetIdentities.listByConnection("org-a", "conn-howen");
+
+    expect(listed.map((identity) => identity.id).sort()).toEqual(["identity-a", "identity-b"]);
+  });
+
   it("rejects a duplicate scoped external Vehicle identity at the database level, while a different connection or a different tenant may reuse the same external id", async () => {
     const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
     const now = new Date();
@@ -274,8 +287,18 @@ describe("Mongo catalog persistence", () => {
     await repos.reviews.save(stageVehicleMatchReview("review-other-tenant", { organizationId: "org-b", connectionId: "conn-cyber", companyId: "company-b", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-3"] }));
     await repos.reviews.save(stageVehicleMatchReview("review-other-connection", { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-4"] }));
 
-    await expect(repos.reviews.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ id: "review-a" });
-    await expect(repos.reviews.findByConnectionAndExternalId("org-b", "conn-cyber", "gps-9002")).resolves.toBeUndefined();
+    await expect(repos.reviews.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001", "vehicle-match")).resolves.toMatchObject({ id: "review-a" });
+    await expect(repos.reviews.findByConnectionAndExternalId("org-b", "conn-cyber", "gps-9002", "vehicle-match")).resolves.toBeUndefined();
+  });
+
+  it("does not let a fleet-binding review and a vehicle-match review sharing one connection and external id collide with each other", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.reviews.save(stageFleetBindingReview("review-fleet", { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "shared-id", label: "north route", candidateFleetIds: [] }));
+    await repos.reviews.save(stageVehicleMatchReview("review-vehicle", { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "shared-id", normalizedPlate: "", candidateVehicleIds: ["vehicle-1"] }));
+
+    await expect(repos.reviews.findByConnectionAndExternalId("org-a", "conn-howen", "shared-id", "fleet-binding")).resolves.toMatchObject({ id: "review-fleet" });
+    await expect(repos.reviews.findByConnectionAndExternalId("org-a", "conn-howen", "shared-id", "vehicle-match")).resolves.toMatchObject({ id: "review-vehicle" });
   });
 
   it("lists pending catalog reviews scoped to their own tenant, excluding resolved reviews", async () => {

@@ -47,6 +47,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     },
     fleetIdentities: {
       async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await fleetIdentities.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toExternalFleetIdentityDomain(document) : undefined; },
+      async listByConnection(organizationId, connectionId) { return (await fleetIdentities.find({ organizationId, connectionId }, options(session)).toArray()).map(toExternalFleetIdentityDomain); },
       async listByFleetId(organizationId, fleetId) { return (await fleetIdentities.find({ organizationId, fleetId }, options(session)).toArray()).map(toExternalFleetIdentityDomain); },
       async save(identity) { const existing = await fleetIdentities.findOne({ id: identity.id }, options(session)); await fleetIdentities.replaceOne({ id: identity.id }, toExternalFleetIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
@@ -58,7 +59,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     },
     reviews: {
       async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
-      async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await reviews.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
+      async findByConnectionAndExternalId(organizationId, connectionId, externalId, subject) { const document = await reviews.findOne({ organizationId, connectionId, externalId, subject }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
       async listPendingByOrganization(organizationId) { return (await reviews.find({ organizationId, status: "pending" }, options(session)).toArray()).map(toCatalogReviewDomain); },
       async save(review) { const existing = await reviews.findOne({ id: review.id }, options(session)); await reviews.replaceOne({ id: review.id }, toCatalogReviewDocument(review, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
       async resolve(review) {

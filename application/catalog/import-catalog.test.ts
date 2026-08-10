@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { startCatalogSyncRun, type CatalogImportItem, type CatalogReview, type CatalogSyncRun, type Company, type CompanyCandidate, type ExternalVehicleIdentity, type Fleet, type ProviderConnection, type Vehicle } from "@/domain/catalog";
+import { startCatalogSyncRun, type CatalogImportItem, type CatalogReview, type CatalogSyncRun, type Company, type CompanyCandidate, type ExternalFleetIdentity, type ExternalVehicleIdentity, type Fleet, type ProviderConnection, type Vehicle } from "@/domain/catalog";
+import { mapHowenCatalog } from "@/integrations/howen/map-howen-catalog";
 
 import { createCompanyBindingApplication } from "./bind-provider-company";
 import { CATALOG_IMPORT_BATCH_SIZE, createImportCatalogApplication } from "./import-catalog";
@@ -13,6 +14,14 @@ function toIdentityPort(getStore: () => Map<string, ExternalVehicleIdentity>) {
     listByConnection: async (organizationId: string, connectionId: string) => [...getStore().values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
     listStaleByRun: async () => [],
     save: async (i: ExternalVehicleIdentity) => { getStore().set(i.id, i); },
+  };
+}
+function toFleetIdentityPort(getStore: () => Map<string, ExternalFleetIdentity>) {
+  return {
+    findByConnectionAndExternalId: async (organizationId: string, connectionId: string, externalId: string) => [...getStore().values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
+    listByConnection: async (organizationId: string, connectionId: string) => [...getStore().values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
+    listByFleetId: async (organizationId: string, fleetId: string) => [...getStore().values()].filter((i) => i.organizationId === organizationId && i.fleetId === fleetId),
+    save: async (i: ExternalFleetIdentity) => { getStore().set(i.id, i); },
   };
 }
 function toImportItemPort(getStore: () => Map<string, CatalogImportItem>) {
@@ -29,6 +38,7 @@ function createFixture() {
   const vehicles = new Map<string, Vehicle>();
   const candidates = new Map<string, CompanyCandidate>();
   const vehicleIdentities = new Map<string, ExternalVehicleIdentity>();
+  const fleetIdentities = new Map<string, ExternalFleetIdentity>();
   const reviews = new Map<string, CatalogReview>();
   const importItems = new Map<string, CatalogImportItem>();
   const syncRuns = new Map<string, CatalogSyncRun>();
@@ -50,9 +60,10 @@ function createFixture() {
       save: async (c) => { candidates.set(c.id, c); },
     },
     vehicleIdentities: toIdentityPort(() => vehicleIdentities),
+    fleetIdentities: toFleetIdentityPort(() => fleetIdentities),
     reviews: {
       findById: async (id) => reviews.get(id),
-      findByConnectionAndExternalId: async (organizationId, connectionId, externalId) => [...reviews.values()].find((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.externalId === externalId),
+      findByConnectionAndExternalId: async (organizationId, connectionId, externalId, subject) => [...reviews.values()].find((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.externalId === externalId && r.subject === subject),
       listPendingByOrganization: async (organizationId) => [...reviews.values()].filter((r) => r.organizationId === organizationId && r.status === "pending"),
       save: async (r) => { reviews.set(r.id, r); },
       resolve: async (r) => { reviews.set(r.id, r); return "resolved"; },
@@ -79,11 +90,12 @@ function createFixture() {
     },
   };
 
-  return { ports, txCrash, catalog: createCatalogApplication(ports), binding: createCompanyBindingApplication(ports), importer: createImportCatalogApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, reviews, importItems, syncRuns };
+  return { ports, txCrash, catalog: createCatalogApplication(ports), binding: createCompanyBindingApplication(ports), importer: createImportCatalogApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, fleetIdentities, reviews, importItems, syncRuns };
 }
 
 const admin = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
 const connection: ProviderConnection = { id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/conn-a" };
+const connectionHowen: ProviderConnection = { id: "conn-howen", organizationId: "org-a", credentialRef: "vault:howen/conn-a" };
 
 const fakeSource = (candidates: CatalogImportCandidate[]): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates }) });
 const newRun = (id = "run-1"): CatalogSyncRun => startCatalogSyncRun(id, { organizationId: "org-a", connectionId: connection.id, trigger: "initial", fullSnapshot: true }, new Date("2026-08-09T00:00:00Z"));
@@ -94,6 +106,11 @@ async function bindCompany(fixture: ReturnType<typeof createFixture>, label: str
   const staged = await fixture.binding.stageCompanyCandidate({ connection, externalLabel: label });
   await fixture.binding.bindProviderCompany({ actor: admin, candidateId: staged.candidate.id, companyId: created.company.id });
   return created;
+}
+
+async function bindConnectionToCompany(fixture: ReturnType<typeof createFixture>, conn: ProviderConnection, companyId: string, label: string) {
+  const staged = await fixture.binding.stageCompanyCandidate({ connection: conn, externalLabel: label });
+  await fixture.binding.bindProviderCompany({ actor: admin, candidateId: staged.candidate.id, companyId });
 }
 
 describe("company binding gates vehicle composition", () => {
@@ -298,5 +315,96 @@ describe("checkpoint set-change (Finding 3) — decision: self-heals on the next
     const healedResult = await fixture.importer.importCatalog({ connection, run: newRun("run-full"), source: fakeSource([{ externalId: "ext-00003", companyLabel: "Acme Transport" }]) });
 
     expect(healedResult.kind === "completed" ? healedResult.counts.created : -1).toBe(1);
+  });
+});
+
+describe("canonical Fleet union across bound provider identities (Howen fleet binding)", () => {
+  it("keeps the canonical Fleet roster as the union of Cybermapa- and Howen-contributed Vehicles, adding Howen's Vehicles alongside the admin-placed ones without touching what Howen never reports", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
+    const realFleet = await fixture.catalog.createFleet({ actor: admin, companyId: company.company.id, name: "North" });
+    if (realFleet.kind !== "created") throw new Error("expected fleet creation");
+    await fixture.importer.importCatalog({ connection, run: newRun("run-cyber"), source: fakeSource([{ externalId: "cyber-v1", companyLabel: "Acme Transport", normalizedPlate: "AAA111" }, { externalId: "cyber-v2", companyLabel: "Acme Transport", normalizedPlate: "BBB222" }]) });
+    const [v1, v2] = [...fixture.vehicles.values()];
+    await fixture.catalog.assignVehicleFleet({ actor: admin, vehicleId: v1.id, fleetId: realFleet.fleet.id });
+    await fixture.catalog.assignVehicleFleet({ actor: admin, vehicleId: v2.id, fleetId: realFleet.fleet.id });
+    fixture.fleetIdentities.set("preseed", { id: "preseed", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H900", label: "north route", fleetId: realFleet.fleet.id });
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen"), source: fakeSource([{ externalId: "howen-d1", companyLabel: "Acme Transport", externalFleetId: "H900", fleetLabel: "North Route" }, { externalId: "howen-d2", companyLabel: "Acme Transport", externalFleetId: "H900", fleetLabel: "North Route" }]) });
+
+    expect(result.kind === "completed" ? result.counts.created : -1).toBe(2);
+    expect(fixture.vehicles.size).toBe(4);
+    const roster = [...fixture.vehicles.values()].filter((v) => v.placement.fleetId === realFleet.fleet.id).map((v) => v.id).sort();
+    expect(roster).toEqual([...fixture.vehicles.values()].map((v) => v.id).sort());
+    expect(fixture.vehicles.get(v1.id)?.placement.fleetId).toBe(realFleet.fleet.id);
+    expect(fixture.vehicles.get(v2.id)?.placement.fleetId).toBe(realFleet.fleet.id);
+  });
+
+  it("does not auto-link a Howen device whose devicename exactly equals an existing Cybermapa Vehicle's plate, creating a separate Vehicle instead of a false merge", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
+    await fixture.importer.importCatalog({ connection, run: newRun("run-cyber"), source: fakeSource([{ externalId: "cyber-v2", companyLabel: "Acme Transport", normalizedPlate: "AA264KK" }]) });
+    const [v2] = [...fixture.vehicles.values()];
+    const howenCandidates = mapHowenCatalog([{ deviceno: "howen-d1", devicename: "AA264KK", fleetid: "F1", fleetname: "North" }], "Acme Transport");
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen"), source: fakeSource(howenCandidates) });
+
+    expect(result.kind === "completed" ? { created: result.counts.created, linked: result.counts.linked } : {}).toEqual({ created: 1, linked: 0 });
+    expect(fixture.vehicles.size).toBe(2);
+    expect(fixture.vehicles.has(v2.id)).toBe(true);
+  });
+});
+
+describe("Howen Fleet identity pending admin review", () => {
+  it("places a new Howen-only Vehicle into the Company's Unassigned Fleet and stages exactly one pending Fleet binding review until an administrator binds it, never auto-binding by label", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
+    const candidate = fakeSource([{ externalId: "howen-v9", companyLabel: "Acme Transport", externalFleetId: "H999", fleetLabel: "West Route" }]);
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-1"), source: candidate });
+
+    expect(result.kind === "completed" ? result.counts.created : -1).toBe(1);
+    const [vehicle] = [...fixture.vehicles.values()];
+    expect(vehicle.placement).toEqual({ fleetId: company.unassignedFleet.id, source: "system" });
+    expect([...fixture.reviews.values()].filter((r) => r.subject === "fleet-binding")).toHaveLength(1);
+
+    await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-2"), source: candidate });
+    expect([...fixture.reviews.values()].filter((r) => r.subject === "fleet-binding")).toHaveLength(1);
+    expect(fixture.fleetIdentities.size).toBe(1);
+  });
+});
+
+describe("Howen omitting a previously linked Vehicle from a later roster", () => {
+  it("leaves a previously Howen-linked Vehicle in its Fleet when a later roster omits it, moving or deleting nothing", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
+    const realFleet = await fixture.catalog.createFleet({ actor: admin, companyId: company.company.id, name: "North" });
+    if (realFleet.kind !== "created") throw new Error("expected fleet creation");
+    fixture.fleetIdentities.set("preseed", { id: "preseed", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H900", label: "north route", fleetId: realFleet.fleet.id });
+    await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-1"), source: fakeSource([{ externalId: "howen-v3", companyLabel: "Acme Transport", externalFleetId: "H900", fleetLabel: "North Route" }]) });
+    const [v3] = [...fixture.vehicles.values()];
+    expect(v3.placement.fleetId).toBe(realFleet.fleet.id);
+
+    await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-2"), source: fakeSource([]) });
+
+    expect(fixture.vehicles.size).toBe(1);
+    expect(fixture.vehicles.get(v3.id)?.placement).toEqual({ fleetId: realFleet.fleet.id, source: "system" });
+  });
+});
+
+describe("Company unavailable gates Howen Fleet composition too", () => {
+  it("creates no canonical Fleet, Vehicle, or Fleet-binding review when a Howen connection's Company is not yet bound", async () => {
+    const fixture = createFixture();
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun(), source: fakeSource([{ externalId: "howen-v1", companyLabel: "Acme Transport", externalFleetId: "H900", fleetLabel: "North Route" }]) });
+
+    expect(result.kind === "completed" ? result.counts.rejected : -1).toBe(1);
+    expect(fixture.vehicles.size).toBe(0);
+    expect(fixture.fleetIdentities.size).toBe(0);
+    expect(fixture.reviews.size).toBe(0);
   });
 });

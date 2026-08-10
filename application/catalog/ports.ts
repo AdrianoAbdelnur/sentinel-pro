@@ -1,4 +1,4 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogSyncFailure, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogReviewSubject, CatalogSyncFailure, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
 export type Clock = { now(): Date };
 
@@ -78,6 +78,7 @@ export type CapabilityPolicyPorts = {
 
 export type ExternalFleetIdentityRepository = {
   findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalFleetIdentity | undefined>;
+  listByConnection(organizationId: string, connectionId: string): Promise<ExternalFleetIdentity[]>;
   listByFleetId(organizationId: string, fleetId: string): Promise<ExternalFleetIdentity[]>;
   save(identity: ExternalFleetIdentity): Promise<void>;
 };
@@ -106,7 +107,7 @@ export type CatalogSyncRunRepository = {
 
 export type CatalogReviewRepository = {
   findById(id: string): Promise<CatalogReview | undefined>;
-  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<CatalogReview | undefined>;
+  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string, subject: CatalogReviewSubject): Promise<CatalogReview | undefined>;
   listPendingByOrganization(organizationId: string): Promise<CatalogReview[]>;
   save(review: CatalogReview): Promise<void>;
   resolve(review: CatalogReview): Promise<"resolved" | "already-resolved">;
@@ -123,6 +124,8 @@ export type CatalogImportCandidate = {
   companyLabel: string;
   normalizedPlate?: string;
   label?: string;
+  externalFleetId?: string;
+  fleetLabel?: string;
 };
 
 export type CatalogSnapshotResult =
@@ -139,6 +142,7 @@ export type ImportCatalogPorts = {
   vehicles: VehicleRepository;
   candidates: CompanyCandidateRepository;
   vehicleIdentities: ExternalVehicleIdentityRepository;
+  fleetIdentities: ExternalFleetIdentityRepository;
   reviews: CatalogReviewRepository;
   importItems: CatalogImportItemRepository;
   syncRuns: CatalogSyncRunRepository;

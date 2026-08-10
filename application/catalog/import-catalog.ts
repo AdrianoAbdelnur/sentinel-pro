@@ -1,15 +1,20 @@
 import {
   bindExternalVehicleIdentity,
   markCatalogImportItemProcessed,
+  normalizeFleetName,
   normalizePlate,
+  resolveExternalFleetBinding,
   resolveVehicleMatch,
   stageCatalogImportItem,
+  stageExternalFleetIdentity,
   stageExternalVehicleIdentity,
+  stageFleetBindingReview,
   stageVehicleMatchReview,
   type ActiveCompanyVehicle,
   type CatalogImportItem,
   type CatalogImportItemOutcome,
   type CatalogSyncRun,
+  type ExternalFleetIdentity,
   type ExternalVehicleIdentity,
   type Fleet,
   type ProviderConnection,
@@ -63,11 +68,43 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return loaded;
   }
 
+  async function resolveCandidateFleetPlacement(
+    connection: ProviderConnection,
+    companyId: string,
+    candidate: CatalogImportCandidate,
+    fleetIdentities: ExternalFleetIdentity[],
+  ): Promise<string | undefined> {
+    if (!candidate.externalFleetId) return undefined;
+    const label = normalizeFleetName(candidate.fleetLabel ?? candidate.externalFleetId);
+    const outcome = resolveExternalFleetBinding(
+      { organizationId: connection.organizationId, connectionId: connection.id, entityKind: "fleet", externalId: candidate.externalFleetId, label },
+      fleetIdentities,
+    );
+    if (outcome.kind === "reused") return outcome.fleetId;
+
+    const alreadyStaged = fleetIdentities.some((identity) => identity.connectionId === connection.id && identity.externalId === candidate.externalFleetId);
+    if (!alreadyStaged) {
+      const identity = stageExternalFleetIdentity(ports.ids.create(), connection, candidate.externalFleetId, candidate.fleetLabel ?? candidate.externalFleetId);
+      await ports.fleetIdentities.save(identity);
+      fleetIdentities.push(identity);
+    }
+
+    const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalFleetId, "fleet-binding");
+    if (!existingReview) {
+      await ports.reviews.save(
+        stageFleetBindingReview(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalFleetId, label: candidate.fleetLabel ?? candidate.externalFleetId, candidateFleetIds: outcome.candidateFleetIds ?? [] }),
+      );
+    }
+
+    return undefined;
+  }
+
   async function processBoundCandidate(
     connection: ProviderConnection,
     companyId: string,
     candidate: CatalogImportCandidate,
     identities: ExternalVehicleIdentity[],
+    fleetIdentities: ExternalFleetIdentity[],
     companyVehiclesCache: Map<string, ActiveCompanyVehicle[]>,
     companyFleetsCache: Map<string, Fleet[]>,
     item: CatalogImportItem,
@@ -81,7 +118,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     );
 
     if (match.kind === "review") {
-      const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalId);
+      const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalId, "vehicle-match");
       if (!existingReview) {
         await ports.reviews.save(
           stageVehicleMatchReview(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalId, normalizedPlate, candidateVehicleIds: match.candidateVehicleIds }),
@@ -97,6 +134,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
       : undefined;
     const fleets = await loadCompanyFleets(companyId, companyFleetsCache);
     const unassignedFleetId = fleets.find((fleet) => fleet.kind === "unassigned")?.id;
+    const matchedFleetId = await resolveCandidateFleetPlacement(connection, companyId, candidate, fleetIdentities);
 
     const outcome = await ports.transactions.run(async (txRepos) => {
       const existingVehicle = await txRepos.vehicles.findById(vehicleId);
@@ -104,7 +142,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
         await txRepos.importItems.save(markCatalogImportItemProcessed(item, "rejected"));
         return { kind: "rejected" as const, vehicle: undefined };
       }
-      const vehicle = computeVehiclePlacement(existingVehicle, companyId, unassignedFleetId, fleets, { externalRef: vehicleId, plate: candidate.normalizedPlate, label: candidate.label });
+      const vehicle = computeVehiclePlacement(existingVehicle, companyId, unassignedFleetId, fleets, { externalRef: vehicleId, plate: candidate.normalizedPlate, label: candidate.label, matchedFleetId });
       await txRepos.vehicles.save(vehicle);
       if (identity) await txRepos.vehicleIdentities.save(identity);
       const finalOutcome: CatalogImportItemOutcome = match.kind === "unmatched" ? "created" : "linked";
@@ -128,6 +166,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     const remaining = sorted.filter((candidate) => run.checkpoint === undefined || candidate.externalId > (run.checkpoint as string));
     const batches = toBatches(remaining);
     const identities = await ports.vehicleIdentities.listByConnection(connection.organizationId, connection.id);
+    const fleetIdentities = await ports.fleetIdentities.listByConnection(connection.organizationId, connection.id);
     const companyVehiclesCache = new Map<string, ActiveCompanyVehicle[]>();
     const companyFleetsCache = new Map<string, Fleet[]>();
     let counts = { ...run.counts };
@@ -148,7 +187,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
           const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
           let outcome: CatalogImportItemOutcome;
           if (staged.candidate.companyId) {
-            outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, companyVehiclesCache, companyFleetsCache, item);
+            outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item);
           } else {
             outcome = "rejected";
             await ports.importItems.save(markCatalogImportItemProcessed(item, outcome));
