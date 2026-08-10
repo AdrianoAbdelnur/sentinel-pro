@@ -64,7 +64,7 @@ export function createCatalogApplication(ports: CatalogApplicationPorts) {
     return { kind: "found", hierarchy: { company, fleets, vehicles } };
   }
 
-  async function placeVehicleCandidates({ organizationId, companyId, candidates }: { organizationId: string; companyId: string; candidates: Array<{ externalRef: string } & PlacementCandidate> }): Promise<PlaceVehicleCandidatesResult> {
+  async function placeVehicleCandidates({ organizationId, companyId, candidates }: { organizationId: string; companyId: string; candidates: Array<{ externalRef: string; plate?: string; label?: string } & PlacementCandidate> }): Promise<PlaceVehicleCandidatesResult> {
     const company = await requireCompanyInTenant(companyId, organizationId);
     if (!company) return { kind: "forbidden" };
     const fleets = await ports.fleets.listByCompany(companyId);
@@ -79,7 +79,7 @@ export function createCatalogApplication(ports: CatalogApplicationPorts) {
       const placement = existing
         ? reconcilePlacement(existing.placement, trustedCandidate, unassigned.id)
         : resolvePlacement(trustedCandidate, unassigned.id);
-      const vehicle: Vehicle = existing ? { ...existing, placement } : { id: candidate.externalRef, companyId, origin: "provider", placement };
+      const vehicle: Vehicle = existing ? { ...existing, placement } : { id: candidate.externalRef, companyId, origin: "provider", placement, plate: candidate.plate, label: candidate.label };
       await ports.vehicles.save(vehicle);
       placed.push(vehicle);
     }

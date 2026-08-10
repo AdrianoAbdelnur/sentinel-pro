@@ -81,6 +81,7 @@ export type ExternalFleetIdentityRepository = {
 
 export type ExternalVehicleIdentityRepository = {
   findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalVehicleIdentity | undefined>;
+  listByConnection(organizationId: string, connectionId: string): Promise<ExternalVehicleIdentity[]>;
   listStaleByRun(organizationId: string, connectionId: string, currentRunId: string): Promise<ExternalVehicleIdentity[]>;
   save(identity: ExternalVehicleIdentity): Promise<void>;
 };
@@ -102,6 +103,7 @@ export type CatalogSyncRunRepository = {
 
 export type CatalogReviewRepository = {
   findById(id: string): Promise<CatalogReview | undefined>;
+  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<CatalogReview | undefined>;
   listPendingByOrganization(organizationId: string): Promise<CatalogReview[]>;
   save(review: CatalogReview): Promise<void>;
   resolve(review: CatalogReview): Promise<"resolved" | "already-resolved">;
@@ -126,4 +128,17 @@ export type CatalogSnapshotResult =
 
 export type CatalogImportSource = {
   loadCompleteSnapshot(): Promise<CatalogSnapshotResult>;
+};
+
+export type ImportCatalogPorts = {
+  companies: CompanyRepository;
+  fleets: FleetRepository;
+  vehicles: VehicleRepository;
+  candidates: CompanyCandidateRepository;
+  vehicleIdentities: ExternalVehicleIdentityRepository;
+  reviews: CatalogReviewRepository;
+  importItems: CatalogImportItemRepository;
+  syncRuns: CatalogSyncRunRepository;
+  ids: IdGenerator;
+  transactions: CatalogTransactionRunner;
 };

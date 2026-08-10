@@ -52,11 +52,13 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     },
     vehicleIdentities: {
       async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await vehicleIdentities.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toExternalVehicleIdentityDomain(document) : undefined; },
+      async listByConnection(organizationId, connectionId) { return (await vehicleIdentities.find({ organizationId, connectionId }, options(session)).toArray()).map(toExternalVehicleIdentityDomain); },
       async listStaleByRun(organizationId, connectionId, currentRunId) { return (await vehicleIdentities.find({ organizationId, connectionId, presence: { $ne: "absent" }, lastSeenRunId: { $ne: currentRunId } }, options(session)).toArray()).map(toExternalVehicleIdentityDomain); },
       async save(identity) { const existing = await vehicleIdentities.findOne({ id: identity.id }, options(session)); await vehicleIdentities.replaceOne({ id: identity.id }, toExternalVehicleIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
     reviews: {
       async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
+      async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await reviews.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
       async listPendingByOrganization(organizationId) { return (await reviews.find({ organizationId, status: "pending" }, options(session)).toArray()).map(toCatalogReviewDomain); },
       async save(review) { const existing = await reviews.findOne({ id: review.id }, options(session)); await reviews.replaceOne({ id: review.id }, toCatalogReviewDocument(review, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
       async resolve(review) {
