@@ -7,6 +7,22 @@ import { CATALOG_IMPORT_BATCH_SIZE, createImportCatalogApplication } from "./imp
 import type { CatalogImportCandidate, CatalogImportSource, ImportCatalogPorts } from "./ports";
 import { createCatalogApplication } from "./use-cases";
 
+function toIdentityPort(getStore: () => Map<string, ExternalVehicleIdentity>) {
+  return {
+    findByConnectionAndExternalId: async (organizationId: string, connectionId: string, externalId: string) => [...getStore().values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
+    listByConnection: async (organizationId: string, connectionId: string) => [...getStore().values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
+    listStaleByRun: async () => [],
+    save: async (i: ExternalVehicleIdentity) => { getStore().set(i.id, i); },
+  };
+}
+function toImportItemPort(getStore: () => Map<string, CatalogImportItem>) {
+  return {
+    findByRunAndExternalId: async (organizationId: string, connectionId: string, runId: string, externalId: string) => [...getStore().values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.externalId === externalId),
+    listPendingByRun: async (organizationId: string, connectionId: string, runId: string) => [...getStore().values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.status === "pending"),
+    save: async (i: CatalogImportItem) => { getStore().set(i.id, i); },
+  };
+}
+
 function createFixture() {
   const companies = new Map<string, Company>();
   const fleets = new Map<string, Fleet>();
@@ -18,10 +34,11 @@ function createFixture() {
   const syncRuns = new Map<string, CatalogSyncRun>();
   let sequence = 0;
   const ids = { create: () => `id-${++sequence}` };
+  const txCrash = { afterVehicleSave: false };
 
   const companyPort = { findById: async (id: string) => companies.get(id), save: async (c: Company) => { companies.set(c.id, c); } };
   const fleetPort = { findById: async (id: string) => fleets.get(id), listByCompany: async (companyId: string) => [...fleets.values()].filter((f) => f.companyId === companyId), save: async (f: Fleet) => { fleets.set(f.id, f); } };
-  const vehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (companyId: string) => [...vehicles.values()].filter((v) => v.companyId === companyId), save: async (v: Vehicle) => { vehicles.set(v.id, v); } };
+  const vehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (companyId: string) => [...vehicles.values()].filter((v) => v.companyId === companyId), save: async (v: Vehicle) => { vehicles.set(v.id, v); if (txCrash.afterVehicleSave) throw new Error("simulated mid-item crash"); } };
 
   const ports: ImportCatalogPorts = {
     companies: companyPort,
@@ -32,12 +49,7 @@ function createFixture() {
       findByConnectionAndLabel: async (organizationId, connectionId, normalizedLabel) => [...candidates.values()].find((c) => c.organizationId === organizationId && c.connectionId === connectionId && c.normalizedLabel === normalizedLabel),
       save: async (c) => { candidates.set(c.id, c); },
     },
-    vehicleIdentities: {
-      findByConnectionAndExternalId: async (organizationId, connectionId, externalId) => [...vehicleIdentities.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
-      listByConnection: async (organizationId, connectionId) => [...vehicleIdentities.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId),
-      listStaleByRun: async () => [],
-      save: async (i) => { vehicleIdentities.set(i.id, i); },
-    },
+    vehicleIdentities: toIdentityPort(() => vehicleIdentities),
     reviews: {
       findById: async (id) => reviews.get(id),
       findByConnectionAndExternalId: async (organizationId, connectionId, externalId) => [...reviews.values()].find((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.externalId === externalId),
@@ -45,11 +57,7 @@ function createFixture() {
       save: async (r) => { reviews.set(r.id, r); },
       resolve: async (r) => { reviews.set(r.id, r); return "resolved"; },
     },
-    importItems: {
-      findByRunAndExternalId: async (organizationId, connectionId, runId, externalId) => [...importItems.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.externalId === externalId),
-      listPendingByRun: async (organizationId, connectionId, runId) => [...importItems.values()].filter((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.runId === runId && i.status === "pending"),
-      save: async (i) => { importItems.set(i.id, i); },
-    },
+    importItems: toImportItemPort(() => importItems),
     syncRuns: {
       findById: async (id) => syncRuns.get(id),
       findLatest: async () => undefined,
@@ -58,10 +66,20 @@ function createFixture() {
       save: async (run) => { syncRuns.set(run.id, run); },
     },
     ids,
-    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort }) },
+    transactions: {
+      run: async (work) => {
+        const pendingVehicles: Vehicle[] = [], pendingIdentities: ExternalVehicleIdentity[] = [], pendingItems: CatalogImportItem[] = [];
+        const txVehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (c: string) => [...vehicles.values()].filter((v) => v.companyId === c), save: async (v: Vehicle) => { pendingVehicles.push(v); if (txCrash.afterVehicleSave) throw new Error("simulated mid-item crash"); } };
+        const result = await work({ companies: companyPort, fleets: fleetPort, vehicles: txVehiclePort, vehicleIdentities: { ...toIdentityPort(() => vehicleIdentities), save: async (i: ExternalVehicleIdentity) => { pendingIdentities.push(i); } }, importItems: { ...toImportItemPort(() => importItems), save: async (i: CatalogImportItem) => { pendingItems.push(i); } } });
+        for (const v of pendingVehicles) vehicles.set(v.id, v);
+        for (const i of pendingIdentities) vehicleIdentities.set(i.id, i);
+        for (const i of pendingItems) importItems.set(i.id, i);
+        return result;
+      },
+    },
   };
 
-  return { ports, catalog: createCatalogApplication(ports), binding: createCompanyBindingApplication(ports), importer: createImportCatalogApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, reviews, importItems, syncRuns };
+  return { ports, txCrash, catalog: createCatalogApplication(ports), binding: createCompanyBindingApplication(ports), importer: createImportCatalogApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, reviews, importItems, syncRuns };
 }
 
 const admin = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
@@ -225,5 +243,60 @@ describe("provider fetch failure leaves canonical state unchanged", () => {
     expect(result).toEqual({ kind: "failed", failure: { category: "connectivity" } });
     expect(fixture.vehicles.size).toBe(0);
     expect(fixture.candidates.size).toBe(0);
+  });
+});
+
+describe("Vehicle and its identity commit together (Finding 1)", () => {
+  it("leaves no orphaned Vehicle when the process crashes between the Vehicle write and its identity write, and resume creates exactly one of each", async () => {
+    const fixture = createFixture();
+    await bindCompany(fixture, "Acme Transport");
+    fixture.txCrash.afterVehicleSave = true;
+
+    const attempt = await fixture.importer.importCatalog({ connection, run: newRun("run-1"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+    expect(attempt).toEqual({ kind: "failed", failure: { category: "internal" } });
+    expect(fixture.vehicles.size).toBe(0);
+    expect(fixture.vehicleIdentities.size).toBe(0);
+
+    fixture.txCrash.afterVehicleSave = false;
+    const resumed = await fixture.importer.importCatalog({ connection, run: newRun("run-1"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+
+    expect(resumed.kind === "completed" ? resumed.counts.created : -1).toBe(1);
+    expect(fixture.vehicles.size).toBe(1);
+    expect(fixture.vehicleIdentities.size).toBe(1);
+  });
+});
+
+describe("a swallowed placement write reports its real outcome (Finding 6)", () => {
+  it("reports rejected instead of linked when the matched identity's Vehicle belongs to a different Company than the currently bound candidate", async () => {
+    const fixture = createFixture();
+    const companyA = await bindCompany(fixture, "Acme Transport");
+    await fixture.importer.importCatalog({ connection, run: newRun("run-1"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+    const [vehicleUnderA] = [...fixture.vehicles.values()];
+    const companyB = await fixture.catalog.createCompany({ actor: admin, name: "Globex" });
+    if (companyB.kind !== "created") throw new Error("expected company creation");
+    const [candidate] = [...fixture.candidates.values()];
+    fixture.candidates.set(candidate.id, { ...candidate, companyId: companyB.company.id });
+
+    const result = await fixture.importer.importCatalog({ connection, run: newRun("run-2"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+
+    expect(result.kind === "completed" ? result.counts.rejected : -1).toBe(1);
+    expect(fixture.vehicles.get(vehicleUnderA.id)?.companyId).toBe(companyA.company.id);
+  });
+});
+
+describe("checkpoint set-change (Finding 3) — decision: self-heals on the next checkpoint-less run", () => {
+  it("silently skips a newly-appeared externalId sorting below the current checkpoint, then picks it up on a later run with no checkpoint", async () => {
+    const fixture = createFixture();
+    await bindCompany(fixture, "Acme Transport");
+    const midRun = { ...newRun("run-mid"), checkpoint: "ext-00010" };
+
+    const midResult = await fixture.importer.importCatalog({ connection, run: midRun, source: fakeSource([{ externalId: "ext-00003", companyLabel: "Acme Transport" }, { externalId: "ext-00020", companyLabel: "Acme Transport" }]) });
+
+    expect(midResult.kind === "completed" ? midResult.counts.processed : -1).toBe(1);
+    expect([...fixture.importItems.values()].some((item) => item.externalId === "ext-00003")).toBe(false);
+
+    const healedResult = await fixture.importer.importCatalog({ connection, run: newRun("run-full"), source: fakeSource([{ externalId: "ext-00003", companyLabel: "Acme Transport" }]) });
+
+    expect(healedResult.kind === "completed" ? healedResult.counts.created : -1).toBe(1);
   });
 });

@@ -19,16 +19,19 @@ function createFixture() {
     listByCompany: async (companyId: string) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId),
     save: async (fleet: Fleet) => { fleets.set(fleet.id, fleet); },
   };
+  const vehiclePort = {
+    findById: async (id: string) => vehicles.get(id),
+    listByCompany: async (companyId: string) => [...vehicles.values()].filter((vehicle) => vehicle.companyId === companyId),
+    save: async (vehicle: Vehicle) => { vehicles.set(vehicle.id, vehicle); },
+  };
+  const noopIdentities = { findByConnectionAndExternalId: async () => undefined, listByConnection: async () => [], listStaleByRun: async () => [], save: async () => {} };
+  const noopImportItems = { findByRunAndExternalId: async () => undefined, listPendingByRun: async () => [], save: async () => {} };
   const ports: CatalogApplicationPorts = {
     companies: companyPort,
     fleets: fleetPort,
-    vehicles: {
-      findById: async (id) => vehicles.get(id),
-      listByCompany: async (companyId) => [...vehicles.values()].filter((vehicle) => vehicle.companyId === companyId),
-      save: async (vehicle) => { vehicles.set(vehicle.id, vehicle); },
-    },
+    vehicles: vehiclePort,
     ids: { create: () => `id-${++sequence}` },
-    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort }) },
+    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort, vehicles: vehiclePort, vehicleIdentities: noopIdentities, importItems: noopImportItems }) },
   };
   return { app: createCatalogApplication(ports), companies, fleets, vehicles };
 }

@@ -20,6 +20,21 @@ import type {
 } from "./contracts";
 import type { CatalogApplicationPorts } from "./ports";
 
+export function computeVehiclePlacement(
+  existing: Vehicle | undefined,
+  companyId: string,
+  unassignedFleetId: string,
+  fleets: Fleet[],
+  candidate: { externalRef: string; plate?: string; label?: string } & PlacementCandidate,
+): Vehicle {
+  const trustedFleetId = candidate.matchedFleetId && fleets.some((fleet) => fleet.id === candidate.matchedFleetId) ? candidate.matchedFleetId : undefined;
+  const trustedCandidate: PlacementCandidate = { matchedFleetId: trustedFleetId };
+  const placement = existing
+    ? reconcilePlacement(existing.placement, trustedCandidate, unassignedFleetId)
+    : resolvePlacement(trustedCandidate, unassignedFleetId);
+  return existing ? { ...existing, placement } : { id: candidate.externalRef, companyId, origin: "provider", placement, plate: candidate.plate, label: candidate.label };
+}
+
 export function createCatalogApplication(ports: CatalogApplicationPorts) {
   async function requireCompanyInTenant(companyId: string, organizationId: string): Promise<Company | undefined> {
     const company = await ports.companies.findById(companyId);
@@ -74,12 +89,7 @@ export function createCatalogApplication(ports: CatalogApplicationPorts) {
     for (const candidate of candidates) {
       const existing = await ports.vehicles.findById(candidate.externalRef);
       if (existing && existing.companyId !== companyId) continue;
-      const trustedFleetId = candidate.matchedFleetId && fleets.some((fleet) => fleet.id === candidate.matchedFleetId) ? candidate.matchedFleetId : undefined;
-      const trustedCandidate: PlacementCandidate = { matchedFleetId: trustedFleetId };
-      const placement = existing
-        ? reconcilePlacement(existing.placement, trustedCandidate, unassigned.id)
-        : resolvePlacement(trustedCandidate, unassigned.id);
-      const vehicle: Vehicle = existing ? { ...existing, placement } : { id: candidate.externalRef, companyId, origin: "provider", placement, plate: candidate.plate, label: candidate.label };
+      const vehicle = computeVehiclePlacement(existing, companyId, unassigned.id, fleets, candidate);
       await ports.vehicles.save(vehicle);
       placed.push(vehicle);
     }

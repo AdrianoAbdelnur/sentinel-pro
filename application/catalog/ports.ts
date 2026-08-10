@@ -24,6 +24,9 @@ export type IdGenerator = { create(): string };
 export type CatalogTransactionRepositories = {
   companies: CompanyRepository;
   fleets: FleetRepository;
+  vehicles: VehicleRepository;
+  vehicleIdentities: ExternalVehicleIdentityRepository;
+  importItems: CatalogImportItemRepository;
 };
 
 export type CatalogTransactionRunner = {

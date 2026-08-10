@@ -191,6 +191,19 @@ describe("Mongo catalog persistence", () => {
     await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-3", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9003", capabilityStates: { gps: "bogus" }, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
   });
 
+  it("lists external Vehicle identities scoped to one tenant and connection, excluding another tenant's or another connection's identities even when the external id repeats", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.vehicleIdentities.save({ id: "identity-a", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-1", vehicleId: "vehicle-a" });
+    await repos.vehicleIdentities.save({ id: "identity-b", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-2", vehicleId: "vehicle-b" });
+    await repos.vehicleIdentities.save({ id: "identity-other-tenant", organizationId: "org-b", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-1", vehicleId: "vehicle-c" });
+    await repos.vehicleIdentities.save({ id: "identity-other-connection", organizationId: "org-a", connectionId: "conn-howen", entityKind: "vehicle", externalId: "gps-1", vehicleId: "vehicle-d" });
+
+    const listed = await repos.vehicleIdentities.listByConnection("org-a", "conn-cyber");
+
+    expect(listed.map((identity) => identity.id).sort()).toEqual(["identity-a", "identity-b"]);
+  });
+
   it("rejects a duplicate import item for the same run and external id at the database level, while a different run, connection, or tenant may reuse the same external id", async () => {
     const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
     const now = new Date();
@@ -252,6 +265,17 @@ describe("Mongo catalog persistence", () => {
 
     await expect(repos.reviews.findById("review-1")).resolves.toEqual({ ...pending, status: "resolved", resolvedVehicleId: "vehicle-1" });
     expect(await db.collection("catalog_reviews").countDocuments({ id: "review-1" })).toBe(1);
+  });
+
+  it("finds a catalog review by connection and external id scoped to its own tenant, never a same-external-id review from another tenant or connection", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.reviews.save(stageVehicleMatchReview("review-a", { organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-1", "vehicle-2"] }));
+    await repos.reviews.save(stageVehicleMatchReview("review-other-tenant", { organizationId: "org-b", connectionId: "conn-cyber", companyId: "company-b", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-3"] }));
+    await repos.reviews.save(stageVehicleMatchReview("review-other-connection", { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-4"] }));
+
+    await expect(repos.reviews.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ id: "review-a" });
+    await expect(repos.reviews.findByConnectionAndExternalId("org-b", "conn-cyber", "gps-9002")).resolves.toBeUndefined();
   });
 
   it("lists pending catalog reviews scoped to their own tenant, excluding resolved reviews", async () => {
