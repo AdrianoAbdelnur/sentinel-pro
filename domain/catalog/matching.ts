@@ -1,5 +1,7 @@
 import type { ProviderConnection } from "./company-candidate";
 
+export type VehicleIdentityPresence = "present" | "absent";
+
 export type ExternalVehicleIdentity = {
   id: string;
   organizationId: string;
@@ -7,6 +9,8 @@ export type ExternalVehicleIdentity = {
   entityKind: "vehicle";
   externalId: string;
   vehicleId?: string;
+  lastSeenRunId?: string;
+  presence?: VehicleIdentityPresence;
 };
 
 export function stageExternalVehicleIdentity(

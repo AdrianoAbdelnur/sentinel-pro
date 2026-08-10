@@ -7,6 +7,8 @@ export const catalogIndexes = {
   vehicles: [{ key: { id: 1 }, options: { unique: true, name: "vehicles_id_unique" } }, { key: { companyId: 1 }, options: { name: "vehicles_company_lookup" } }],
   company_candidates: [{ key: { organizationId: 1, connectionId: 1, normalizedLabel: 1 }, options: { unique: true, name: "company_candidates_tenant_connection_label_unique" } }, { key: { id: 1 }, options: { unique: true, name: "company_candidates_id_unique" } }],
   provider_connections: [{ key: { organizationId: 1, id: 1 }, options: { unique: true, name: "provider_connections_tenant_id_unique" } }],
+  external_fleet_identities: [{ key: { id: 1 }, options: { unique: true, name: "external_fleet_identities_id_unique" } }, { key: { organizationId: 1, connectionId: 1, entityKind: 1, externalId: 1 }, options: { unique: true, name: "external_fleet_identities_tenant_connection_kind_external_unique" } }, { key: { organizationId: 1, fleetId: 1 }, options: { name: "external_fleet_identities_fleet_lookup" } }],
+  external_vehicle_identities: [{ key: { id: 1 }, options: { unique: true, name: "external_vehicle_identities_id_unique" } }, { key: { organizationId: 1, connectionId: 1, entityKind: 1, externalId: 1 }, options: { unique: true, name: "external_vehicle_identities_tenant_connection_kind_external_unique" } }, { key: { organizationId: 1, connectionId: 1, lastSeenRunId: 1, presence: 1 }, options: { name: "external_vehicle_identities_presence_reconciliation" } }],
 } as const;
 
 export async function migrateCatalogDatabase(db: Db) {

@@ -16,6 +16,7 @@ export type {
   PlateMatchQuery,
   VehicleIdentityCandidate,
   VehicleIdentityMatchOutcome,
+  VehicleIdentityPresence,
   VehicleMatchOutcome,
 } from "./matching";
 export {

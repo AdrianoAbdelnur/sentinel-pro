@@ -21,6 +21,8 @@ describe("Mongo catalog persistence", () => {
     await expect(db.collection("vehicles").insertOne({ schemaVersion: 1, id: "v", companyId: "c", origin: "bogus", placement: { fleetId: "f", source: "system" }, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("company_candidates").insertOne({ schemaVersion: 1, id: "cand", organizationId: "org", connectionId: "conn", normalizedLabel: "acme", unexpected: true, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("provider_connections").insertOne({ schemaVersion: 1, id: "conn", organizationId: "org", credentialRef: "vault:cybermapa/org-a", credentialValue: "leaked-secret", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-x", organizationId: "org", connectionId: "conn", entityKind: "vehicle", externalId: "F1", label: "north", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-y", organizationId: "org", connectionId: "conn", entityKind: "vehicle", externalId: "gps-1", vehicleId: "v", unexpected: true, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
   });
 
   it("upgrades an already-existing collection's validator on repeated migration instead of failing", async () => {
@@ -89,5 +91,84 @@ describe("Mongo catalog persistence", () => {
     await expect(app.createCompany({ actor: { userId: "admin", organizationId: "org-a", role: "admin" }, name: "Acme" })).rejects.toThrow();
 
     expect(await db.collection("companies").countDocuments({ id: "colliding-company" })).toBe(0);
+  });
+
+  it("rejects a duplicate scoped external Fleet identity at the database level, while a different connection or a different tenant may reuse the same external id", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F100", label: "north route", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-1-dup", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F100", label: "north route again", createdAt: now, updatedAt: now })).rejects.toThrow();
+    await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-2", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "F100", label: "north route", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+    await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-3", organizationId: "org-b", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F100", label: "north route", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+  });
+
+  it("rejects a duplicate id on external Fleet identity at the database level even when tenant, connection, and external id all differ", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-shared", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F100", label: "north route", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-shared", organizationId: "org-b", connectionId: "conn-howen", entityKind: "fleet", externalId: "F200", label: "south route", createdAt: now, updatedAt: now })).rejects.toThrow();
+  });
+
+  it("returns every external Fleet identity bound to a canonical Fleet within its own tenant, and resolves a single identity back to its one canonical Fleet", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.fleetIdentities.save({ id: "identity-cyber", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F100", label: "north route", fleetId: "fleet-1" });
+    await repos.fleetIdentities.save({ id: "identity-howen", organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H900", label: "north route howen", fleetId: "fleet-1" });
+    await repos.fleetIdentities.save({ id: "identity-other-tenant", organizationId: "org-b", connectionId: "conn-cyber", entityKind: "fleet", externalId: "F900", label: "north route", fleetId: "fleet-1" });
+
+    const bound = await repos.fleetIdentities.listByFleetId("org-a", "fleet-1");
+    expect(bound.map((identity) => identity.id).sort()).toEqual(["identity-cyber", "identity-howen"]);
+
+    await expect(repos.fleetIdentities.findByConnectionAndExternalId("org-a", "conn-howen", "H900")).resolves.toMatchObject({ fleetId: "fleet-1" });
+  });
+
+  it("scopes external Fleet identity lookup by connection and external id to its own tenant", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.fleetIdentities.save({ id: "identity-a", organizationId: "org-a", connectionId: "shared-connection", entityKind: "fleet", externalId: "F100", label: "north route", fleetId: "fleet-a" });
+    await repos.fleetIdentities.save({ id: "identity-b", organizationId: "org-b", connectionId: "shared-connection", entityKind: "fleet", externalId: "F100", label: "north route", fleetId: "fleet-b" });
+
+    await expect(repos.fleetIdentities.findByConnectionAndExternalId("org-a", "shared-connection", "F100")).resolves.toMatchObject({ id: "identity-a" });
+    await expect(repos.fleetIdentities.findByConnectionAndExternalId("org-b", "shared-connection", "F100")).resolves.toMatchObject({ id: "identity-b" });
+  });
+
+  it("rejects a duplicate scoped external Vehicle identity at the database level, while a different connection or a different tenant may reuse the same external id", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-1-dup", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", createdAt: now, updatedAt: now })).rejects.toThrow();
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-2", organizationId: "org-a", connectionId: "conn-howen", entityKind: "vehicle", externalId: "gps-9001", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-3", organizationId: "org-b", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+  });
+
+  it("rejects a duplicate id on external Vehicle identity at the database level even when tenant, connection, and external id all differ", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-shared", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-shared", organizationId: "org-b", connectionId: "conn-howen", entityKind: "vehicle", externalId: "gps-9002", createdAt: now, updatedAt: now })).rejects.toThrow();
+  });
+
+  it("scopes external Vehicle identity lookup by connection and external id to its own tenant", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.vehicleIdentities.save({ id: "identity-a", organizationId: "org-a", connectionId: "shared-connection", entityKind: "vehicle", externalId: "gps-1", vehicleId: "vehicle-a" });
+    await repos.vehicleIdentities.save({ id: "identity-b", organizationId: "org-b", connectionId: "shared-connection", entityKind: "vehicle", externalId: "gps-1", vehicleId: "vehicle-b" });
+
+    await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-a", "shared-connection", "gps-1")).resolves.toMatchObject({ id: "identity-a" });
+    await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-b", "shared-connection", "gps-1")).resolves.toMatchObject({ id: "identity-b" });
+  });
+
+  it("persists last-sighting and presence on an external Vehicle identity without touching the canonical Vehicle it links", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.vehicleIdentities.save({ id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", vehicleId: "vehicle-1", lastSeenRunId: "run-1", presence: "present" });
+
+    await repos.vehicleIdentities.save({ id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
+
+    await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
   });
 });

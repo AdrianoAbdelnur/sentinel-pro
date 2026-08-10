@@ -1,11 +1,11 @@
 import type { ClientSession, Db } from "mongodb";
-import type { CompanyCandidateRepository, CompanyRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
-import { toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CompanyCandidateDocument, type CompanyDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
+import type { CompanyCandidateRepository, CompanyRepository, ExternalFleetIdentityRepository, ExternalVehicleIdentityRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
+import { toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toExternalFleetIdentityDocument, toExternalFleetIdentityDomain, toExternalVehicleIdentityDocument, toExternalVehicleIdentityDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CompanyCandidateDocument, type CompanyDocument, type ExternalFleetIdentityDocument, type ExternalVehicleIdentityDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
 
-export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository };
+export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository; fleetIdentities: ExternalFleetIdentityRepository; vehicleIdentities: ExternalVehicleIdentityRepository };
 
 export function createMongoCatalogRepositories(db: Db, session?: ClientSession): MongoCatalogRepositories {
   const companies = db.collection<CompanyDocument>("companies");
@@ -13,6 +13,8 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
   const vehicles = db.collection<VehicleDocument>("vehicles");
   const candidates = db.collection<CompanyCandidateDocument>("company_candidates");
   const connections = db.collection<ProviderConnectionDocument>("provider_connections");
+  const fleetIdentities = db.collection<ExternalFleetIdentityDocument>("external_fleet_identities");
+  const vehicleIdentities = db.collection<ExternalVehicleIdentityDocument>("external_vehicle_identities");
   return {
     companies: {
       async findById(id) { const document = await companies.findOne({ id }, options(session)); return document ? toCompanyDomain(document) : undefined; },
@@ -36,6 +38,15 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     connections: {
       async findById(organizationId, id) { const document = await connections.findOne({ id, organizationId }, options(session)); return document ? toProviderConnectionDomain(document) : undefined; },
       async save(connection) { const existing = await connections.findOne({ id: connection.id, organizationId: connection.organizationId }, options(session)); await connections.replaceOne({ id: connection.id, organizationId: connection.organizationId }, toProviderConnectionDocument(connection, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+    },
+    fleetIdentities: {
+      async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await fleetIdentities.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toExternalFleetIdentityDomain(document) : undefined; },
+      async listByFleetId(organizationId, fleetId) { return (await fleetIdentities.find({ organizationId, fleetId }, options(session)).toArray()).map(toExternalFleetIdentityDomain); },
+      async save(identity) { const existing = await fleetIdentities.findOne({ id: identity.id }, options(session)); await fleetIdentities.replaceOne({ id: identity.id }, toExternalFleetIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+    },
+    vehicleIdentities: {
+      async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await vehicleIdentities.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toExternalVehicleIdentityDomain(document) : undefined; },
+      async save(identity) { const existing = await vehicleIdentities.findOne({ id: identity.id }, options(session)); await vehicleIdentities.replaceOne({ id: identity.id }, toExternalVehicleIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
   };
 }

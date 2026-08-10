@@ -1,5 +1,5 @@
 import type { ObjectId } from "mongodb";
-import type { Company, CompanyCandidate, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle, VehicleIdentityPresence } from "@/domain/catalog";
 
 export type CompanyDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; name: string; createdAt: Date; updatedAt: Date };
 export type FleetDocument = { _id?: ObjectId; schemaVersion: number; id: string; companyId: string; name: string; kind: "standard" | "unassigned"; createdAt: Date; updatedAt: Date };
@@ -17,3 +17,11 @@ export function toCompanyCandidateDomain({ id, organizationId, connectionId, nor
 export function toCompanyCandidateDocument({ companyId, ...candidate }: CompanyCandidate, now: Date, existing?: CompanyCandidateDocument): CompanyCandidateDocument { return { schemaVersion: 1, ...candidate, ...(companyId !== undefined ? { companyId } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
 export function toProviderConnectionDomain({ id, organizationId, credentialRef }: ProviderConnectionDocument): ProviderConnection { return { id, organizationId, credentialRef }; }
 export function toProviderConnectionDocument(connection: ProviderConnection, now: Date, existing?: ProviderConnectionDocument): ProviderConnectionDocument { return { schemaVersion: 1, ...connection, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+
+export type ExternalFleetIdentityDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; connectionId: string; entityKind: "fleet"; externalId: string; label: string; fleetId?: string; createdAt: Date; updatedAt: Date };
+export type ExternalVehicleIdentityDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; connectionId: string; entityKind: "vehicle"; externalId: string; vehicleId?: string; lastSeenRunId?: string; presence?: VehicleIdentityPresence; createdAt: Date; updatedAt: Date };
+
+export function toExternalFleetIdentityDomain({ id, organizationId, connectionId, entityKind, externalId, label, fleetId }: ExternalFleetIdentityDocument): ExternalFleetIdentity { return { id, organizationId, connectionId, entityKind, externalId, label, ...(fleetId !== undefined ? { fleetId } : {}) }; }
+export function toExternalFleetIdentityDocument({ fleetId, ...identity }: ExternalFleetIdentity, now: Date, existing?: ExternalFleetIdentityDocument): ExternalFleetIdentityDocument { return { schemaVersion: 1, ...identity, ...(fleetId !== undefined ? { fleetId } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toExternalVehicleIdentityDomain({ id, organizationId, connectionId, entityKind, externalId, vehicleId, lastSeenRunId, presence }: ExternalVehicleIdentityDocument): ExternalVehicleIdentity { return { id, organizationId, connectionId, entityKind, externalId, ...(vehicleId !== undefined ? { vehicleId } : {}), ...(lastSeenRunId !== undefined ? { lastSeenRunId } : {}), ...(presence !== undefined ? { presence } : {}) }; }
+export function toExternalVehicleIdentityDocument({ vehicleId, lastSeenRunId, presence, ...identity }: ExternalVehicleIdentity, now: Date, existing?: ExternalVehicleIdentityDocument): ExternalVehicleIdentityDocument { return { schemaVersion: 1, ...identity, ...(vehicleId !== undefined ? { vehicleId } : {}), ...(lastSeenRunId !== undefined ? { lastSeenRunId } : {}), ...(presence !== undefined ? { presence } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
