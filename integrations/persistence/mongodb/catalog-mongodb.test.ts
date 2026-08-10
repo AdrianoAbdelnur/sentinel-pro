@@ -3,7 +3,7 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { catalogIndexes, createMongoCatalogRepositories, migrateCatalogDatabase, MongoCatalogTransactionRunner } from "./index";
 import { createCatalogApplication } from "@/application/catalog";
-import { resolveCatalogReviewToFleet, resolveCatalogReviewToVehicle, stageFleetBindingReview, stageVehicleMatchReview } from "@/domain/catalog";
+import { markCatalogImportItemProcessed, resolveCatalogReviewToFleet, resolveCatalogReviewToVehicle, stageCatalogImportItem, stageFleetBindingReview, stageVehicleMatchReview } from "@/domain/catalog";
 
 let replSet: MongoMemoryReplSet; let client: MongoClient;
 beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); client = new MongoClient(replSet.getUri()); await client.connect(); }, 60_000);
@@ -28,6 +28,7 @@ describe("Mongo catalog persistence", () => {
     await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-leak", organizationId: "org", connectionId: "conn", companyId: "company", subject: "vehicle-match", externalId: "gps-1", status: "pending", normalizedPlate: "ABC123", candidateVehicleIds: [], credentialRef: "leaked-secret", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-unbounded", organizationId: "org", connectionId: "conn", companyId: "company", subject: "vehicle-match", externalId: "gps-1", status: "pending", normalizedPlate: "ABC123", candidateVehicleIds: ["v1", "v2", "v3", "v4", "v5", "v6"], createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "policy-x", organizationId: "org", scope: "bogus", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-1"], createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-x", organizationId: "org", connectionId: "conn", runId: "run-1", externalId: "gps-1", status: "bogus", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
   });
 
   it("upgrades an already-existing collection's validator on repeated migration instead of failing", async () => {
@@ -175,6 +176,65 @@ describe("Mongo catalog persistence", () => {
     await repos.vehicleIdentities.save({ id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
 
     await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
+  });
+
+  it("persists bounded per-capability source states on an external Vehicle identity, rejecting an out-of-bound capability key or an out-of-bound state value at the database level", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.vehicleIdentities.save({ id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", vehicleId: "vehicle-1", capabilityStates: { gps: "eligible", operationalAlerts: "unsupported" } });
+
+    await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ capabilityStates: { gps: "eligible", operationalAlerts: "unsupported" } });
+
+    const now = new Date();
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-2", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9002", capabilityStates: { video: "eligible", audio: "eligible" }, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-3", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9003", capabilityStates: { gps: "bogus" }, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+  });
+
+  it("rejects a duplicate import item for the same run and external id at the database level, while a different run, connection, or tenant may reuse the same external id", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-1", organizationId: "org-a", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-1-dup", organizationId: "org-a", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now })).rejects.toThrow();
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-2", organizationId: "org-a", connectionId: "conn-cyber", runId: "run-2", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-3", organizationId: "org-a", connectionId: "conn-howen", runId: "run-1", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-4", organizationId: "org-b", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now })).resolves.toBeDefined();
+  });
+
+  it("rejects a duplicate id on catalog import item at the database level even when tenant, connection, run, and external id all differ", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-shared", organizationId: "org-a", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-9001", status: "pending", createdAt: now, updatedAt: now });
+
+    await expect(db.collection("catalog_import_items").insertOne({ schemaVersion: 1, id: "item-shared", organizationId: "org-b", connectionId: "conn-howen", runId: "run-2", externalId: "gps-9002", status: "pending", createdAt: now, updatedAt: now })).rejects.toThrow();
+  });
+
+  it("resolves an import item only when organization, connection, run, and external id all match, returning nothing when any single field differs", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.importItems.save(stageCatalogImportItem("item-1", { organizationId: "org-a", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-9001" }));
+
+    await expect(repos.importItems.findByRunAndExternalId("org-a", "conn-cyber", "run-1", "gps-9001")).resolves.toMatchObject({ id: "item-1", status: "pending" });
+    await expect(repos.importItems.findByRunAndExternalId("org-b", "conn-cyber", "run-1", "gps-9001")).resolves.toBeUndefined();
+    await expect(repos.importItems.findByRunAndExternalId("org-a", "conn-howen", "run-1", "gps-9001")).resolves.toBeUndefined();
+    await expect(repos.importItems.findByRunAndExternalId("org-a", "conn-cyber", "run-2", "gps-9001")).resolves.toBeUndefined();
+    await expect(repos.importItems.findByRunAndExternalId("org-a", "conn-cyber", "run-1", "gps-9002")).resolves.toBeUndefined();
+  });
+
+  it("resumes an interrupted import run by returning exactly the items still pending for that run, without reprocessing already-committed items, skipping any that remain, or leaking another tenant's or connection's same-run item", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    const staged = (externalId: string) => stageCatalogImportItem(`item-${externalId}`, { organizationId: "org-a", connectionId: "conn-cyber", runId: "run-1", externalId });
+    await repos.importItems.save(markCatalogImportItemProcessed(staged("gps-1"), "created"));
+    await repos.importItems.save(staged("gps-2"));
+    await repos.importItems.save(staged("gps-3"));
+    await repos.importItems.save(stageCatalogImportItem("item-other-run", { organizationId: "org-a", connectionId: "conn-cyber", runId: "run-2", externalId: "gps-1" }));
+    await repos.importItems.save(stageCatalogImportItem("item-other-tenant", { organizationId: "org-b", connectionId: "conn-cyber", runId: "run-1", externalId: "gps-4" }));
+    await repos.importItems.save(stageCatalogImportItem("item-other-connection", { organizationId: "org-a", connectionId: "conn-howen", runId: "run-1", externalId: "gps-5" }));
+
+    const pending = await repos.importItems.listPendingByRun("org-a", "conn-cyber", "run-1");
+
+    expect(pending.map((item) => item.externalId)).toEqual(["gps-2", "gps-3"]);
   });
 
   it("retains a pending catalog review and resolves it to exactly one Company-scoped Vehicle link", async () => {

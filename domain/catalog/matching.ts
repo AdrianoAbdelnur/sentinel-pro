@@ -1,6 +1,8 @@
 import type { ProviderConnection } from "./company-candidate";
+import type { Capability, CapabilitySourceStatus } from "./precedence";
 
 export type VehicleIdentityPresence = "present" | "absent";
+export type VehicleIdentityCapabilityStates = Partial<Record<Capability, CapabilitySourceStatus>>;
 
 export type ExternalVehicleIdentity = {
   id: string;
@@ -11,7 +13,15 @@ export type ExternalVehicleIdentity = {
   vehicleId?: string;
   lastSeenRunId?: string;
   presence?: VehicleIdentityPresence;
+  capabilityStates?: VehicleIdentityCapabilityStates;
 };
+
+export function setVehicleIdentityCapabilityStates(
+  identity: ExternalVehicleIdentity,
+  capabilityStates: VehicleIdentityCapabilityStates,
+): ExternalVehicleIdentity {
+  return { ...identity, capabilityStates };
+}
 
 export function stageExternalVehicleIdentity(
   id: string,
@@ -103,7 +113,8 @@ export function resolvePlateMatch(
       identity.organizationId === query.organizationId &&
       identity.connectionId === query.connectionId &&
       identity.entityKind === "vehicle" &&
-      identity.externalId !== query.externalId,
+      identity.externalId !== query.externalId &&
+      identity.presence !== "absent",
   );
   if (conflictingIdentity) return { kind: "review", candidateVehicleIds: [match.vehicleId] };
   return { kind: "auto-linked", vehicleId: match.vehicleId };

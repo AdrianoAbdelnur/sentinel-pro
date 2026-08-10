@@ -4,11 +4,13 @@ export * from "./company-candidate";
 export * from "./fleet-binding";
 export * from "./union-projection";
 export * from "./review";
+export * from "./import-item";
 export {
   bindExternalVehicleIdentity,
   normalizePlate,
   resolveExternalVehicleIdentity,
   resolveVehicleMatch,
+  setVehicleIdentityCapabilityStates,
   stageExternalVehicleIdentity,
 } from "./matching";
 export type {
@@ -16,6 +18,7 @@ export type {
   ExternalVehicleIdentity,
   PlateMatchQuery,
   VehicleIdentityCandidate,
+  VehicleIdentityCapabilityStates,
   VehicleIdentityMatchOutcome,
   VehicleIdentityPresence,
   VehicleMatchOutcome,

@@ -7,6 +7,7 @@ import {
   resolveExternalVehicleIdentity,
   resolvePlateMatch,
   resolveVehicleMatch,
+  setVehicleIdentityCapabilityStates,
   stageExternalVehicleIdentity,
   type ActiveCompanyVehicle,
   type ExternalVehicleIdentity,
@@ -90,6 +91,14 @@ describe("external vehicle identity linking", () => {
     );
 
     expect(outcome).toEqual({ kind: "reused", vehicleId: "vehicle-1" });
+  });
+
+  it("sets bounded per-capability source states on an external Vehicle identity independently of presence and last sighting", () => {
+    const identity = bindExternalVehicleIdentity(stageExternalVehicleIdentity("identity-1", connectionCybermapa, "gps-9001"), "vehicle-1");
+
+    const updated = setVehicleIdentityCapabilityStates(identity, { gps: "eligible", operationalAlerts: "unsupported" });
+
+    expect(updated).toEqual({ ...identity, capabilityStates: { gps: "eligible", operationalAlerts: "unsupported" } });
   });
 });
 
@@ -236,6 +245,23 @@ describe("Company-scoped plate matching", () => {
     );
 
     expect(outcome).toEqual({ kind: "unmatched" });
+  });
+
+  it("auto-links a replacement device onto the plate-matched Vehicle when the prior conflicting identity on the same connection is marked absent", () => {
+    const companyVehicles: ActiveCompanyVehicle[] = [
+      { vehicleId: "vehicle-1", organizationId: "org-a", companyId: companyA, normalizedPlate: "ABC123", active: true },
+    ];
+    const existingIdentities: ExternalVehicleIdentity[] = [
+      { ...bindExternalVehicleIdentity(stageExternalVehicleIdentity("identity-old", connectionCybermapa, "gps-old"), "vehicle-1"), presence: "absent" },
+    ];
+
+    const outcome = resolvePlateMatch(
+      { organizationId: "org-a", connectionId: "conn-cyber", companyId: companyA, externalId: "gps-new", normalizedPlate: "ABC123" },
+      companyVehicles,
+      existingIdentities,
+    );
+
+    expect(outcome).toEqual({ kind: "auto-linked", vehicleId: "vehicle-1" });
   });
 
   it("never auto-links two unrelated Vehicles that both have missing plate data, even when they normalize to the same blank value", () => {

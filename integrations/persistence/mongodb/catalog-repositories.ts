@@ -1,11 +1,11 @@
 import type { ClientSession, Db } from "mongodb";
-import type { CapabilityPolicyRepository, CatalogReviewRepository, CompanyCandidateRepository, CompanyRepository, ExternalFleetIdentityRepository, ExternalVehicleIdentityRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
-import { toCapabilityPolicyDocument, toCapabilityPolicyDomain, toCatalogReviewDocument, toCatalogReviewDomain, toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toExternalFleetIdentityDocument, toExternalFleetIdentityDomain, toExternalVehicleIdentityDocument, toExternalVehicleIdentityDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CapabilityPolicyDocument, type CatalogReviewDocument, type CompanyCandidateDocument, type CompanyDocument, type ExternalFleetIdentityDocument, type ExternalVehicleIdentityDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
+import type { CapabilityPolicyRepository, CatalogImportItemRepository, CatalogReviewRepository, CompanyCandidateRepository, CompanyRepository, ExternalFleetIdentityRepository, ExternalVehicleIdentityRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
+import { toCapabilityPolicyDocument, toCapabilityPolicyDomain, toCatalogImportItemDocument, toCatalogImportItemDomain, toCatalogReviewDocument, toCatalogReviewDomain, toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toExternalFleetIdentityDocument, toExternalFleetIdentityDomain, toExternalVehicleIdentityDocument, toExternalVehicleIdentityDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CapabilityPolicyDocument, type CatalogImportItemDocument, type CatalogReviewDocument, type CompanyCandidateDocument, type CompanyDocument, type ExternalFleetIdentityDocument, type ExternalVehicleIdentityDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
 
-export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository; fleetIdentities: ExternalFleetIdentityRepository; vehicleIdentities: ExternalVehicleIdentityRepository; reviews: CatalogReviewRepository; capabilityPolicies: CapabilityPolicyRepository };
+export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository; fleetIdentities: ExternalFleetIdentityRepository; vehicleIdentities: ExternalVehicleIdentityRepository; reviews: CatalogReviewRepository; capabilityPolicies: CapabilityPolicyRepository; importItems: CatalogImportItemRepository };
 
 export function createMongoCatalogRepositories(db: Db, session?: ClientSession): MongoCatalogRepositories {
   const companies = db.collection<CompanyDocument>("companies");
@@ -17,6 +17,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
   const vehicleIdentities = db.collection<ExternalVehicleIdentityDocument>("external_vehicle_identities");
   const reviews = db.collection<CatalogReviewDocument>("catalog_reviews");
   const capabilityPolicies = db.collection<CapabilityPolicyDocument>("capability_policies");
+  const importItems = db.collection<CatalogImportItemDocument>("catalog_import_items");
   return {
     companies: {
       async findById(id) { const document = await companies.findOne({ id }, options(session)); return document ? toCompanyDomain(document) : undefined; },
@@ -63,6 +64,11 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     capabilityPolicies: {
       async findByScope(organizationId, scope, scopeId, capability) { const document = await capabilityPolicies.findOne({ organizationId, scope, scopeId, capability }, options(session)); return document ? toCapabilityPolicyDomain(document) : undefined; },
       async save(policy) { const existing = await capabilityPolicies.findOne({ id: policy.id }, options(session)); await capabilityPolicies.replaceOne({ id: policy.id }, toCapabilityPolicyDocument(policy, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+    },
+    importItems: {
+      async findByRunAndExternalId(organizationId, connectionId, runId, externalId) { const document = await importItems.findOne({ organizationId, connectionId, runId, externalId }, options(session)); return document ? toCatalogImportItemDomain(document) : undefined; },
+      async listPendingByRun(organizationId, connectionId, runId) { return (await importItems.find({ organizationId, connectionId, runId, status: "pending" }, options(session)).sort({ externalId: 1 }).toArray()).map(toCatalogImportItemDomain); },
+      async save(item) { const existing = await importItems.findOne({ id: item.id }, options(session)); await importItems.replaceOne({ id: item.id }, toCatalogImportItemDocument(item, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
   };
 }

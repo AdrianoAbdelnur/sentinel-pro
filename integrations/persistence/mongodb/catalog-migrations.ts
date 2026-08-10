@@ -11,6 +11,7 @@ export const catalogIndexes = {
   external_vehicle_identities: [{ key: { id: 1 }, options: { unique: true, name: "external_vehicle_identities_id_unique" } }, { key: { organizationId: 1, connectionId: 1, entityKind: 1, externalId: 1 }, options: { unique: true, name: "external_vehicle_identities_tenant_connection_kind_external_unique" } }, { key: { organizationId: 1, connectionId: 1, lastSeenRunId: 1, presence: 1 }, options: { name: "external_vehicle_identities_presence_reconciliation" } }],
   catalog_reviews: [{ key: { id: 1 }, options: { unique: true, name: "catalog_reviews_id_unique" } }, { key: { organizationId: 1, status: 1 }, options: { name: "catalog_reviews_tenant_status_lookup" } }],
   capability_policies: [{ key: { id: 1 }, options: { unique: true, name: "capability_policies_id_unique" } }, { key: { organizationId: 1, scope: 1, scopeId: 1, capability: 1 }, options: { unique: true, name: "capability_policies_tenant_scope_capability_unique" } }],
+  catalog_import_items: [{ key: { id: 1 }, options: { unique: true, name: "catalog_import_items_id_unique" } }, { key: { organizationId: 1, connectionId: 1, runId: 1, externalId: 1 }, options: { unique: true, name: "catalog_import_items_tenant_connection_run_external_unique" } }, { key: { organizationId: 1, connectionId: 1, runId: 1, status: 1, externalId: 1 }, options: { name: "catalog_import_items_run_pending_lookup" } }],
 } as const;
 
 export async function migrateCatalogDatabase(db: Db) {
