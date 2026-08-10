@@ -2,8 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { CatalogImportItem, CatalogReview, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
+import { CATALOG_IMPORT_BATCH_SIZE } from "./import-catalog";
 import type { CatalogImportCandidate, CatalogImportSource, CatalogSyncLeaseClaimResult, SynchronizeCatalogConnectionPorts } from "./ports";
-import { createSynchronizeCatalogConnectionApplication } from "./synchronize-catalog-connection";
+import type { CatalogSyncOutcome } from "./sync-contracts";
+import { CATALOG_SYNC_LEASE_DURATION_MS, CATALOG_SYNC_LEASE_RENEWAL_INTERVAL_MS, createSynchronizeCatalogConnectionApplication } from "./synchronize-catalog-connection";
 
 type Lease = { organizationId: string; connectionId: string; runId: string; leaseUntil: Date };
 
@@ -295,5 +297,106 @@ describe("connection scoping closes forged organizationId access (Risk #2)", () 
     expect(fixture.syncRuns.size).toBe(0);
     expect(fixture.leases.size).toBe(0);
     expect(fixture.candidates.size).toBe(0);
+  });
+});
+
+describe("the lease duration constant is pinned (regression guard)", () => {
+  it("keeps the lease duration at five minutes, so a change here is a deliberate decision rather than a silent regression", () => {
+    expect(CATALOG_SYNC_LEASE_DURATION_MS).toBe(5 * 60 * 1000);
+  });
+});
+
+describe("the renewal interval stays safely inside the lease duration (regression guard)", () => {
+  it("keeps the renewal interval at no more than a third of the lease duration, so a future change to either constant cannot silently make renewal arrive too late", () => {
+    expect(CATALOG_SYNC_LEASE_RENEWAL_INTERVAL_MS).toBeGreaterThan(0);
+    expect(CATALOG_SYNC_LEASE_RENEWAL_INTERVAL_MS).toBeLessThanOrEqual(CATALOG_SYNC_LEASE_DURATION_MS / 3);
+  });
+});
+
+describe("active-run uniqueness independently blocks a takeover with no lease held (Finding 1)", () => {
+  it("returns already-running via claimActive's own uniqueness check when an ACTIVE run already exists for the connection but no lease is held for it", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    fixture.syncRuns.set("run-active", {
+      id: "run-active",
+      organizationId: "org-a",
+      connectionId: "conn-cyber",
+      trigger: "manual",
+      status: "active",
+      fullSnapshot: true,
+      startedAt: new Date("2026-08-09T00:00:00Z"),
+      counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 },
+    });
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+
+    expect(outcome).toEqual({ kind: "already-running" });
+    expect(fixture.leases.size).toBe(0);
+    expect([...fixture.syncRuns.values()]).toHaveLength(1);
+  });
+});
+
+describe("lease renewal keeps a single long batch alive on a time debounce, not a batch boundary (Finding 2)", () => {
+  it("renews the held lease mid-batch purely on elapsed time, so a rival trigger arriving after the original lease window — while the one and only batch is still in progress — still finds it held", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const total = CATALOG_IMPORT_BATCH_SIZE;
+    const candidates: CatalogImportCandidate[] = Array.from({ length: total }, (_, index) => ({ externalId: `ext-${String(index).padStart(5, "0")}`, companyLabel: "Acme Transport" }));
+    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates }));
+    const sharedSource: CatalogImportSource = { loadCompleteSnapshot };
+
+    let rivalOutcome: CatalogSyncOutcome | undefined;
+    let itemCount = 0;
+    const originalFindItem = fixture.ports.importItems.findByRunAndExternalId;
+    fixture.ports.importItems.findByRunAndExternalId = async (organizationId, connectionId, runId, externalId) => {
+      itemCount += 1;
+      fixture.setNow(new Date(fixture.ports.clock.now().getTime() + 3000).toISOString());
+      if (itemCount === 150) {
+        rivalOutcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", source: sharedSource });
+      }
+      return originalFindItem(organizationId, connectionId, runId, externalId);
+    };
+
+    const ownerOutcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: sharedSource });
+
+    expect(rivalOutcome).toEqual({ kind: "already-running" });
+    expect(ownerOutcome.kind).toBe("succeeded");
+    expect(ownerOutcome.kind === "succeeded" ? ownerOutcome.run.counts.created : -1).toBe(total);
+    expect(fixture.vehicleIdentities.size).toBe(total);
+    expect(fixture.leases.size).toBe(0);
+    expect([...fixture.syncRuns.values()].filter((run) => run.status === "active")).toHaveLength(0);
+  });
+});
+
+describe("a renewal that discovers the lease was already stolen stops the run instead of continuing to write (Finding 1 follow-up)", () => {
+  it("fails the run as soon as a debounced renewal finds the lease held by someone else, leaving items after that point unprocessed", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const total = 10;
+    const candidates: CatalogImportCandidate[] = Array.from({ length: total }, (_, index) => ({ externalId: `ext-${String(index).padStart(5, "0")}`, companyLabel: "Acme Transport" }));
+
+    const originalFindItem = fixture.ports.importItems.findByRunAndExternalId;
+    fixture.ports.importItems.findByRunAndExternalId = async (organizationId, connectionId, runId, externalId) => {
+      fixture.setNow(new Date(fixture.ports.clock.now().getTime() + 40_000).toISOString());
+      return originalFindItem(organizationId, connectionId, runId, externalId);
+    };
+
+    let claimCalls = 0;
+    const originalClaim = fixture.ports.syncLeases.claim.bind(fixture.ports.syncLeases);
+    fixture.ports.syncLeases.claim = async (organizationId, connectionId, runId, now, leaseDurationMs) => {
+      claimCalls += 1;
+      if (claimCalls === 2) return { outcome: "held" };
+      return originalClaim(organizationId, connectionId, runId, now, leaseDurationMs);
+    };
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(candidates) });
+
+    expect(outcome.kind).toBe("retryable-failure");
+    expect(outcome.kind === "retryable-failure" ? outcome.run.status : undefined).toBe("failed");
+    expect(claimCalls).toBeGreaterThanOrEqual(2);
+    expect(fixture.vehicleIdentities.size).toBe(3);
   });
 });

@@ -12,6 +12,7 @@ import type { SynchronizeCatalogConnectionPorts } from "./ports";
 import type { CatalogSyncOutcome, SynchronizeCatalogConnectionInput } from "./sync-contracts";
 
 export const CATALOG_SYNC_LEASE_DURATION_MS = 5 * 60 * 1000;
+export const CATALOG_SYNC_LEASE_RENEWAL_INTERVAL_MS = CATALOG_SYNC_LEASE_DURATION_MS / 3;
 
 export function createSynchronizeCatalogConnectionApplication(ports: SynchronizeCatalogConnectionPorts) {
   const importer = createImportCatalogApplication(ports);
@@ -29,12 +30,24 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
     return stale.length;
   }
 
+  function createLeaseRenewal(organizationId: string, connectionId: string, runId: string, claimedAt: Date): () => Promise<void> {
+    let lastRenewedAt = claimedAt;
+    return async function renewLeaseIfDue(): Promise<void> {
+      const now = ports.clock.now();
+      if (now.getTime() - lastRenewedAt.getTime() < CATALOG_SYNC_LEASE_RENEWAL_INTERVAL_MS) return;
+      const claim = await ports.syncLeases.claim(organizationId, connectionId, runId, now, CATALOG_SYNC_LEASE_DURATION_MS);
+      if (claim.outcome === "held") throw new Error("catalog sync lease was lost before the import finished");
+      lastRenewedAt = now;
+    };
+  }
+
   async function synchronizeCatalogConnection({ organizationId, connectionId, trigger, source }: SynchronizeCatalogConnectionInput): Promise<CatalogSyncOutcome> {
     const connection = await ports.connections.findById(organizationId, connectionId);
     if (!connection) return { kind: "not-found" };
 
     const runId = ports.ids.create();
-    const claim = await ports.syncLeases.claim(organizationId, connectionId, runId, ports.clock.now(), CATALOG_SYNC_LEASE_DURATION_MS);
+    const claimedAt = ports.clock.now();
+    const claim = await ports.syncLeases.claim(organizationId, connectionId, runId, claimedAt, CATALOG_SYNC_LEASE_DURATION_MS);
     if (claim.outcome === "held") return { kind: "already-running" };
     if (claim.previousRunId) await abandonExpiredPreviousRun(claim.previousRunId, ports.clock.now());
 
@@ -52,7 +65,7 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
       return { kind: "already-running" };
     }
 
-    const result = await importer.importCatalog({ connection, run, source });
+    const result = await importer.importCatalog({ connection, run, source, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
     const completedAt = ports.clock.now();
 
     if (result.kind === "failed") {

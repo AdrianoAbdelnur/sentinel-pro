@@ -164,7 +164,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return outcome.kind;
   }
 
-  async function importCatalog({ connection, run, source }: { connection: ProviderConnection; run: CatalogSyncRun; source: CatalogImportSource }): Promise<ImportCatalogResult> {
+  async function importCatalog({ connection, run, source, onProgress }: { connection: ProviderConnection; run: CatalogSyncRun; source: CatalogImportSource; onProgress?: () => Promise<void> }): Promise<ImportCatalogResult> {
     const snapshot = await source.loadCompleteSnapshot();
     if (snapshot.kind === "failed") return { kind: "failed", failure: snapshot.failure };
 
@@ -185,21 +185,22 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
           if (existingItem?.status === "processed") {
             const priorOutcome = existingItem.outcome;
             counts = { ...counts, processed: counts.processed + 1, ...(priorOutcome ? { [priorOutcome]: counts[priorOutcome] + 1 } : {}) };
-            continue;
-          }
-          const item = existingItem ?? stageCatalogImportItem(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, runId: run.id, externalId: candidate.externalId });
-          if (!existingItem) await ports.importItems.save(item);
-
-          const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
-          let outcome: CatalogImportItemOutcome;
-          if (staged.candidate.companyId) {
-            outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);
           } else {
-            outcome = "rejected";
-            await ports.importItems.save(markCatalogImportItemProcessed(item, outcome));
-          }
+            const item = existingItem ?? stageCatalogImportItem(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, runId: run.id, externalId: candidate.externalId });
+            if (!existingItem) await ports.importItems.save(item);
 
-          counts = { ...counts, processed: counts.processed + 1, [outcome]: counts[outcome] + 1 };
+            const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
+            let outcome: CatalogImportItemOutcome;
+            if (staged.candidate.companyId) {
+              outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);
+            } else {
+              outcome = "rejected";
+              await ports.importItems.save(markCatalogImportItemProcessed(item, outcome));
+            }
+
+            counts = { ...counts, processed: counts.processed + 1, [outcome]: counts[outcome] + 1 };
+          }
+          if (onProgress) await onProgress();
         }
         checkpoint = batch[batch.length - 1]?.externalId ?? checkpoint;
         await ports.syncRuns.save({ ...run, checkpoint, counts });
