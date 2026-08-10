@@ -55,6 +55,7 @@ export type CompanyBindingPorts = {
 
 export type ProviderConnectionRepository = {
   findById(organizationId: string, id: string): Promise<ProviderConnection | undefined>;
+  listAll(): Promise<ProviderConnection[]>;
   save(connection: ProviderConnection): Promise<void>;
 };
 

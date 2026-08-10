@@ -7,6 +7,7 @@ import {
   succeedCatalogSyncRun,
 } from "@/domain/catalog";
 
+import type { ImportCatalogResult } from "./contracts";
 import { createImportCatalogApplication } from "./import-catalog";
 import type { SynchronizeCatalogConnectionPorts } from "./ports";
 import type { CatalogSyncOutcome, SynchronizeCatalogConnectionInput } from "./sync-contracts";
@@ -65,7 +66,12 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
       return { kind: "already-running" };
     }
 
-    const result = await importer.importCatalog({ connection, run, source, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
+    let result: ImportCatalogResult;
+    try {
+      result = await importer.importCatalog({ connection, run, source, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
+    } catch {
+      result = { kind: "failed", failure: { category: "internal" } };
+    }
     const completedAt = ports.clock.now();
 
     if (result.kind === "failed") {

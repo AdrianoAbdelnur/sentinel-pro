@@ -43,6 +43,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     },
     connections: {
       async findById(organizationId, id) { const document = await connections.findOne({ id, organizationId }, options(session)); return document ? toProviderConnectionDomain(document) : undefined; },
+      async listAll() { return (await connections.find({}, options(session)).toArray()).map(toProviderConnectionDomain); },
       async save(connection) { const existing = await connections.findOne({ id: connection.id, organizationId: connection.organizationId }, options(session)); await connections.replaceOne({ id: connection.id, organizationId: connection.organizationId }, toProviderConnectionDocument(connection, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
     fleetIdentities: {

@@ -101,7 +101,7 @@ function createFixture() {
       save: async (run) => { syncRuns.set(run.id, run); },
     },
     syncLeases: createLeasePort(leases),
-    connections: { findById: async (organizationId, id) => [...connections.values()].find((c) => c.organizationId === organizationId && c.id === id), save: async (c) => { connections.set(c.id, c); } },
+    connections: { findById: async (organizationId, id) => [...connections.values()].find((c) => c.organizationId === organizationId && c.id === id), listAll: async () => [...connections.values()], save: async (c) => { connections.set(c.id, c); } },
     clock,
     ids,
     transactions: {
@@ -210,6 +210,22 @@ describe("mutual exclusion", () => {
     expect(outcomes).toEqual(["already-running", "succeeded"]);
     expect(loadCompleteSnapshot).toHaveBeenCalledTimes(1);
     expect([...fixture.syncRuns.values()].filter((r) => r.status === "active")).toHaveLength(0);
+  });
+});
+
+describe("a thrown error during import still releases the lease (Risk #15)", () => {
+  it("releases the lease and records a retryable failure when loadCompleteSnapshot throws instead of returning a failed result", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const throwingSource: CatalogImportSource = { loadCompleteSnapshot: async () => { throw new Error("provider crashed before returning a result"); } };
+
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: throwingSource });
+
+    expect(outcome.kind).toBe("retryable-failure");
+    expect(outcome.kind === "retryable-failure" ? outcome.run.status : undefined).toBe("failed");
+    expect(fixture.leases.size).toBe(0);
+    expect([...fixture.syncRuns.values()].filter((run) => run.status === "active")).toHaveLength(0);
   });
 });
 

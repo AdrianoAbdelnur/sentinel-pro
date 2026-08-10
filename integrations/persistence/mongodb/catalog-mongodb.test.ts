@@ -75,6 +75,7 @@ describe("Mongo catalog persistence", () => {
     await expect(repos.connections.findById("org-a", "conn-a")).resolves.toEqual({ id: "conn-a", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" });
     expect(Object.keys((await db.collection("provider_connections").findOne({ id: "conn-a" }))!)).toEqual(expect.arrayContaining(["credentialRef"]));
     expect(Object.keys((await db.collection("provider_connections").findOne({ id: "conn-a" }))!)).not.toContain("credentialValue");
+    expect((await repos.connections.listAll()).map((connection) => connection.id).sort()).toEqual(["conn-a", "conn-b"]);
   });
 
   it("scopes candidate lookup by connection and label to its own tenant", async () => {

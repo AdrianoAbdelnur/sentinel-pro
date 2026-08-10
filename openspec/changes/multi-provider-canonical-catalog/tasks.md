@@ -50,13 +50,14 @@ PR1 targets tracker; successors target predecessors; <=400 lines each.
 
 - [x] 4.1 **RED:** Inject clock; test initial sync, six-hour boundary, freshness skip, shared outcomes, exclusion, isolation/retry, successful-full-snapshot-only reconciliation, failed/partial-preservation [`catalog-synchronization`].
 - [x] 4.2 **GREEN/REFACTOR:** Add shared sync/due/status use cases; reuse `ImportCatalog`.
-- [ ] 4.3 **RED:** Test invalid cron secret, non-disclosure, connection isolation, retryable failure.
-- [ ] 4.4 **GREEN/REFACTOR:** Add internal sync Route Handler and constant-time authorization.
+- [x] 4.3 **RED:** Test invalid cron secret, non-disclosure, connection isolation, retryable failure.
+- [x] 4.4 **GREEN/REFACTOR:** Add internal sync Route Handler and constant-time authorization. `ProviderConnectionRepository.listAll()` added (enabled-as-existence decision, intentionally tenant-unscoped and pinned by test — see apply-progress). Composition root at `app/api/internal/catalog/synchronize/composition.ts` resolves the provider adapter server-side from `credentialRef`; only Cybermapa is wired to a real adapter today, Howen connections surface as an explicit `unsupported-provider`/`permanent:true` outcome, distinguishable in the response from a merely nonexistent connection — see task 5.2b for closing that gap. Risk #15 closed in `synchronize-catalog-connection.ts`. Carried-forward risks #16, #17, #18 recorded in apply-progress.
 
 ## Phase 5: Delivery and Live
 
 - [ ] 5.1 **RED:** Test same-origin/fresh-admin, bindings, reviews, manual sync, exclusion, status/counts.
 - [ ] 5.2 **GREEN/REFACTOR:** Add thin `app/api/admin/catalog/**` routes.
+- [ ] 5.2b **GREEN/REFACTOR:** Wire Howen to automatic cron synchronization — add the per-connection company-assignment domain field (or equivalent), its Mongo document/validator/migration, and cron composition wiring in `app/api/internal/catalog/synchronize/composition.ts` so Howen connections resolve to a real `CatalogImportSource` instead of `unsupported-provider` [`catalog-synchronization`, `howen-catalog-import`]. Closes carried-forward risk #16.
 - [ ] 5.3 **RED:** Test Spanish states, `Sync now`, freshness, counts, failures, accessibility.
 - [ ] 5.4 **GREEN/REFACTOR:** Build focused `app/admin/catalog/**` UI.
 - [ ] 5.5 **RED:** Test union projection, canonical identity, source-local capability loss, and fallback [`live-core-contracts`].
