@@ -69,7 +69,7 @@ describe("provider fleet binding", () => {
     expect(outcome).toEqual({ kind: "review" });
   });
 
-  it("does not reuse a binding across different connections even when the tenant and external id match", () => {
+  it("does not reuse a binding across different connections even when the tenant and external id match, but surfaces the same-named bound Fleet as a review candidate", () => {
     const identities: ExternalFleetIdentity[] = [
       bindExternalFleetIdentity(stageExternalFleetIdentity("identity-1", connectionCybermapa, "F100", "North Route"), "fleet-1"),
     ];
@@ -79,7 +79,7 @@ describe("provider fleet binding", () => {
       identities,
     );
 
-    expect(outcome).toEqual({ kind: "review" });
+    expect(outcome).toEqual({ kind: "review", candidateFleetIds: ["fleet-1"] });
   });
 
   it("does not reuse a binding across tenants even when the connection and external id match", () => {
@@ -104,7 +104,7 @@ describe("provider fleet binding", () => {
     expect(outcome).toEqual({ kind: "review" });
   });
 
-  it("never auto-binds or merges two unbound external Fleets that only share a normalized name", () => {
+  it("never auto-binds or merges two unbound external Fleets that only share a normalized name, offering the shared-name Fleet only as a review candidate", () => {
     const boundCybermapa = bindExternalFleetIdentity(
       stageExternalFleetIdentity("identity-1", connectionCybermapa, "F100", "North Route"),
       "fleet-1",
@@ -113,6 +113,19 @@ describe("provider fleet binding", () => {
     const outcome = resolveExternalFleetBinding(
       { organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H900", label: "north route" },
       [boundCybermapa],
+    );
+
+    expect(outcome).toEqual({ kind: "review", candidateFleetIds: ["fleet-1"] });
+  });
+
+  it("does not leak another tenant's identically named bound Fleet into the review candidate list", () => {
+    const identities: ExternalFleetIdentity[] = [
+      bindExternalFleetIdentity(stageExternalFleetIdentity("identity-1", { id: "conn-cyber", organizationId: "org-b", credentialRef: "cred-b" }, "F100", "North Route"), "fleet-b"),
+    ];
+
+    const outcome = resolveExternalFleetBinding(
+      { organizationId: "org-a", connectionId: "conn-howen", entityKind: "fleet", externalId: "H900", label: "north route" },
+      identities,
     );
 
     expect(outcome).toEqual({ kind: "review" });

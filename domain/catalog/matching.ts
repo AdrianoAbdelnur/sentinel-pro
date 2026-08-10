@@ -79,7 +79,7 @@ export type PlateMatchQuery = {
 export type PlateMatchOutcome =
   | { kind: "auto-linked"; vehicleId: string }
   | { kind: "unmatched" }
-  | { kind: "review" };
+  | { kind: "review"; candidateVehicleIds: string[] };
 
 export function resolvePlateMatch(
   query: PlateMatchQuery,
@@ -95,7 +95,7 @@ export function resolvePlateMatch(
       vehicle.normalizedPlate === query.normalizedPlate,
   );
   if (activeMatches.length === 0) return { kind: "unmatched" };
-  if (activeMatches.length > 1) return { kind: "review" };
+  if (activeMatches.length > 1) return { kind: "review", candidateVehicleIds: activeMatches.map((vehicle) => vehicle.vehicleId) };
   const [match] = activeMatches;
   const conflictingIdentity = existingIdentities.find(
     (identity) =>
@@ -105,7 +105,7 @@ export function resolvePlateMatch(
       identity.entityKind === "vehicle" &&
       identity.externalId !== query.externalId,
   );
-  if (conflictingIdentity) return { kind: "review" };
+  if (conflictingIdentity) return { kind: "review", candidateVehicleIds: [match.vehicleId] };
   return { kind: "auto-linked", vehicleId: match.vehicleId };
 }
 
@@ -113,7 +113,7 @@ export type VehicleMatchOutcome =
   | { kind: "reused"; vehicleId: string }
   | { kind: "auto-linked"; vehicleId: string }
   | { kind: "unmatched" }
-  | { kind: "review" };
+  | { kind: "review"; candidateVehicleIds: string[] };
 
 export function resolveVehicleMatch(
   query: PlateMatchQuery,

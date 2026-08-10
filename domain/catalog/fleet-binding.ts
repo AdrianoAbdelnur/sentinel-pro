@@ -42,7 +42,9 @@ export type FleetBindingCandidate = {
   label: string;
 };
 
-export type FleetBindingOutcome = { kind: "reused"; fleetId: string } | { kind: "review" };
+export type FleetBindingOutcome =
+  | { kind: "reused"; fleetId: string }
+  | { kind: "review"; candidateFleetIds?: string[] };
 
 export function resolveExternalFleetBinding(
   candidate: FleetBindingCandidate,
@@ -56,5 +58,18 @@ export function resolveExternalFleetBinding(
       identity.entityKind === candidate.entityKind &&
       identity.externalId === candidate.externalId,
   );
-  return exactMatch ? { kind: "reused", fleetId: exactMatch.fleetId as string } : { kind: "review" };
+  if (exactMatch) return { kind: "reused", fleetId: exactMatch.fleetId as string };
+  const candidateFleetIds = [
+    ...new Set(
+      existingIdentities
+        .filter(
+          (identity) =>
+            identity.fleetId !== undefined &&
+            identity.organizationId === candidate.organizationId &&
+            identity.label === candidate.label,
+        )
+        .map((identity) => identity.fleetId as string),
+    ),
+  ];
+  return candidateFleetIds.length > 0 ? { kind: "review", candidateFleetIds } : { kind: "review" };
 }

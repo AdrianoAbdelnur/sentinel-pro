@@ -3,6 +3,7 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { catalogIndexes, createMongoCatalogRepositories, migrateCatalogDatabase, MongoCatalogTransactionRunner } from "./index";
 import { createCatalogApplication } from "@/application/catalog";
+import { resolveCatalogReviewToFleet, resolveCatalogReviewToVehicle, stageFleetBindingReview, stageVehicleMatchReview } from "@/domain/catalog";
 
 let replSet: MongoMemoryReplSet; let client: MongoClient;
 beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); client = new MongoClient(replSet.getUri()); await client.connect(); }, 60_000);
@@ -23,6 +24,10 @@ describe("Mongo catalog persistence", () => {
     await expect(db.collection("provider_connections").insertOne({ schemaVersion: 1, id: "conn", organizationId: "org", credentialRef: "vault:cybermapa/org-a", credentialValue: "leaked-secret", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("external_fleet_identities").insertOne({ schemaVersion: 1, id: "identity-x", organizationId: "org", connectionId: "conn", entityKind: "vehicle", externalId: "F1", label: "north", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
     await expect(db.collection("external_vehicle_identities").insertOne({ schemaVersion: 1, id: "identity-y", organizationId: "org", connectionId: "conn", entityKind: "vehicle", externalId: "gps-1", vehicleId: "v", unexpected: true, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-x", organizationId: "org", connectionId: "conn", companyId: "company", subject: "bogus", externalId: "gps-1", status: "pending", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-leak", organizationId: "org", connectionId: "conn", companyId: "company", subject: "vehicle-match", externalId: "gps-1", status: "pending", normalizedPlate: "ABC123", candidateVehicleIds: [], credentialRef: "leaked-secret", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-unbounded", organizationId: "org", connectionId: "conn", companyId: "company", subject: "vehicle-match", externalId: "gps-1", status: "pending", normalizedPlate: "ABC123", candidateVehicleIds: ["v1", "v2", "v3", "v4", "v5", "v6"], createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+    await expect(db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "policy-x", organizationId: "org", scope: "bogus", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-1"], createdAt: now, updatedAt: now } as never)).rejects.toThrow();
   });
 
   it("upgrades an already-existing collection's validator on repeated migration instead of failing", async () => {
@@ -170,5 +175,91 @@ describe("Mongo catalog persistence", () => {
     await repos.vehicleIdentities.save({ id: "identity-1", organizationId: "org-a", connectionId: "conn-cyber", entityKind: "vehicle", externalId: "gps-9001", vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
 
     await expect(repos.vehicleIdentities.findByConnectionAndExternalId("org-a", "conn-cyber", "gps-9001")).resolves.toMatchObject({ vehicleId: "vehicle-1", lastSeenRunId: "run-2", presence: "absent" });
+  });
+
+  it("retains a pending catalog review and resolves it to exactly one Company-scoped Vehicle link", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    const pending = stageVehicleMatchReview("review-1", { organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-1", "vehicle-2"] });
+    await repos.reviews.save(pending);
+
+    await expect(repos.reviews.findById("review-1")).resolves.toEqual(pending);
+
+    const outcome = resolveCatalogReviewToVehicle(pending, "vehicle-1");
+    if (outcome.kind !== "resolved") throw new Error("expected a pending review to resolve");
+    await repos.reviews.resolve(outcome.review);
+
+    await expect(repos.reviews.findById("review-1")).resolves.toEqual({ ...pending, status: "resolved", resolvedVehicleId: "vehicle-1" });
+    expect(await db.collection("catalog_reviews").countDocuments({ id: "review-1" })).toBe(1);
+  });
+
+  it("lists pending catalog reviews scoped to their own tenant, excluding resolved reviews", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.reviews.save(stageFleetBindingReview("review-a", { organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", externalId: "F100", label: "north route", candidateFleetIds: [] }));
+    const resolvedOwnTenant = stageFleetBindingReview("review-a-resolved", { organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", externalId: "F200", label: "south route", candidateFleetIds: [] });
+    const resolvedOutcome = resolveCatalogReviewToFleet(resolvedOwnTenant, "fleet-9");
+    if (resolvedOutcome.kind !== "resolved") throw new Error("expected a pending review to resolve");
+    await repos.reviews.save(resolvedOutcome.review);
+    await repos.reviews.save(stageFleetBindingReview("review-b", { organizationId: "org-b", connectionId: "conn-cyber", companyId: "company-b", externalId: "F100", label: "north route", candidateFleetIds: [] }));
+
+    const pending = await repos.reviews.listPendingByOrganization("org-a");
+
+    expect(pending.map((review) => review.id)).toEqual(["review-a"]);
+  });
+
+  it("rejects a duplicate id on catalog review at the database level even when tenant and subject differ", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-shared", organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", subject: "fleet-binding", externalId: "F100", status: "pending", label: "north route", candidateFleetIds: [], createdAt: now, updatedAt: now });
+
+    await expect(db.collection("catalog_reviews").insertOne({ schemaVersion: 1, id: "review-shared", organizationId: "org-b", connectionId: "conn-howen", companyId: "company-b", subject: "vehicle-match", externalId: "gps-1", status: "pending", normalizedPlate: "ABC123", candidateVehicleIds: [], createdAt: now, updatedAt: now })).rejects.toThrow();
+  });
+
+  it("rejects resolving a review that another decision already resolved, leaving the first decision intact", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    const pending = stageVehicleMatchReview("review-1", { organizationId: "org-a", connectionId: "conn-cyber", companyId: "company-a", externalId: "gps-9001", normalizedPlate: "ABC123", candidateVehicleIds: ["vehicle-1", "vehicle-2"] });
+    await repos.reviews.save(pending);
+
+    const firstOutcome = resolveCatalogReviewToVehicle(pending, "vehicle-1");
+    if (firstOutcome.kind !== "resolved") throw new Error("expected a pending review to resolve");
+    await expect(repos.reviews.resolve(firstOutcome.review)).resolves.toBe("resolved");
+
+    const staleOutcome = resolveCatalogReviewToVehicle(pending, "vehicle-2");
+    if (staleOutcome.kind !== "resolved") throw new Error("expected a pending review to resolve");
+    await expect(repos.reviews.resolve(staleOutcome.review)).resolves.toBe("already-resolved");
+
+    await expect(repos.reviews.findById("review-1")).resolves.toMatchObject({ status: "resolved", resolvedVehicleId: "vehicle-1" });
+  });
+
+  it("keeps exactly one capability policy document when the same policy id is saved twice through the repository", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.capabilityPolicies.save({ id: "policy-1", organizationId: "org-a", scope: "fleet", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-1"] });
+
+    await repos.capabilityPolicies.save({ id: "policy-1", organizationId: "org-a", scope: "fleet", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-2"] });
+
+    await expect(repos.capabilityPolicies.findByScope("org-a", "fleet", "fleet-a", "gps")).resolves.toMatchObject({ sourceOrder: ["conn-2"] });
+    expect(await db.collection("capability_policies").countDocuments({ id: "policy-1" })).toBe(1);
+  });
+
+  it("scopes capability policy reads to their own tenant even when scope and scopeId collide", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.capabilityPolicies.save({ id: "policy-a", organizationId: "org-a", scope: "fleet", scopeId: "fleet-shared", capability: "gps", sourceOrder: ["conn-a"] });
+    await repos.capabilityPolicies.save({ id: "policy-b", organizationId: "org-b", scope: "fleet", scopeId: "fleet-shared", capability: "gps", sourceOrder: ["conn-b"] });
+
+    await expect(repos.capabilityPolicies.findByScope("org-a", "fleet", "fleet-shared", "gps")).resolves.toMatchObject({ id: "policy-a", sourceOrder: ["conn-a"] });
+    await expect(repos.capabilityPolicies.findByScope("org-b", "fleet", "fleet-shared", "gps")).resolves.toMatchObject({ id: "policy-b", sourceOrder: ["conn-b"] });
+  });
+
+  it("rejects a second capability policy for the same tenant, scope, scopeId, and capability at the database level, while a different capability may coexist", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "policy-1", organizationId: "org-a", scope: "fleet", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-1"], createdAt: now, updatedAt: now });
+
+    await expect(db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "policy-2", organizationId: "org-a", scope: "fleet", scopeId: "fleet-a", capability: "gps", sourceOrder: ["conn-2"], createdAt: now, updatedAt: now })).rejects.toThrow();
+    await expect(db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "policy-3", organizationId: "org-a", scope: "fleet", scopeId: "fleet-a", capability: "video", sourceOrder: ["conn-1"], createdAt: now, updatedAt: now })).resolves.toBeDefined();
   });
 });

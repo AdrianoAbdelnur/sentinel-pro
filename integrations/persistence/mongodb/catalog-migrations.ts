@@ -9,6 +9,8 @@ export const catalogIndexes = {
   provider_connections: [{ key: { organizationId: 1, id: 1 }, options: { unique: true, name: "provider_connections_tenant_id_unique" } }],
   external_fleet_identities: [{ key: { id: 1 }, options: { unique: true, name: "external_fleet_identities_id_unique" } }, { key: { organizationId: 1, connectionId: 1, entityKind: 1, externalId: 1 }, options: { unique: true, name: "external_fleet_identities_tenant_connection_kind_external_unique" } }, { key: { organizationId: 1, fleetId: 1 }, options: { name: "external_fleet_identities_fleet_lookup" } }],
   external_vehicle_identities: [{ key: { id: 1 }, options: { unique: true, name: "external_vehicle_identities_id_unique" } }, { key: { organizationId: 1, connectionId: 1, entityKind: 1, externalId: 1 }, options: { unique: true, name: "external_vehicle_identities_tenant_connection_kind_external_unique" } }, { key: { organizationId: 1, connectionId: 1, lastSeenRunId: 1, presence: 1 }, options: { name: "external_vehicle_identities_presence_reconciliation" } }],
+  catalog_reviews: [{ key: { id: 1 }, options: { unique: true, name: "catalog_reviews_id_unique" } }, { key: { organizationId: 1, status: 1 }, options: { name: "catalog_reviews_tenant_status_lookup" } }],
+  capability_policies: [{ key: { id: 1 }, options: { unique: true, name: "capability_policies_id_unique" } }, { key: { organizationId: 1, scope: 1, scopeId: 1, capability: 1 }, options: { unique: true, name: "capability_policies_tenant_scope_capability_unique" } }],
 } as const;
 
 export async function migrateCatalogDatabase(db: Db) {

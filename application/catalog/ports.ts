@@ -1,4 +1,4 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogReview, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
@@ -80,4 +80,11 @@ export type ExternalFleetIdentityRepository = {
 export type ExternalVehicleIdentityRepository = {
   findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalVehicleIdentity | undefined>;
   save(identity: ExternalVehicleIdentity): Promise<void>;
+};
+
+export type CatalogReviewRepository = {
+  findById(id: string): Promise<CatalogReview | undefined>;
+  listPendingByOrganization(organizationId: string): Promise<CatalogReview[]>;
+  save(review: CatalogReview): Promise<void>;
+  resolve(review: CatalogReview): Promise<"resolved" | "already-resolved">;
 };

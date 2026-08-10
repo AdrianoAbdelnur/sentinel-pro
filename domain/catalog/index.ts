@@ -3,6 +3,7 @@ export * from "./policies";
 export * from "./company-candidate";
 export * from "./fleet-binding";
 export * from "./union-projection";
+export * from "./review";
 export {
   bindExternalVehicleIdentity,
   normalizePlate,

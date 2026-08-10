@@ -1,5 +1,5 @@
 import type { ObjectId } from "mongodb";
-import type { Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle, VehicleIdentityPresence } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogReview, CatalogReviewStatus, CatalogReviewSubject, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle, VehicleIdentityPresence } from "@/domain/catalog";
 
 export type CompanyDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; name: string; createdAt: Date; updatedAt: Date };
 export type FleetDocument = { _id?: ObjectId; schemaVersion: number; id: string; companyId: string; name: string; kind: "standard" | "unassigned"; createdAt: Date; updatedAt: Date };
@@ -25,3 +25,23 @@ export function toExternalFleetIdentityDomain({ id, organizationId, connectionId
 export function toExternalFleetIdentityDocument({ fleetId, ...identity }: ExternalFleetIdentity, now: Date, existing?: ExternalFleetIdentityDocument): ExternalFleetIdentityDocument { return { schemaVersion: 1, ...identity, ...(fleetId !== undefined ? { fleetId } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
 export function toExternalVehicleIdentityDomain({ id, organizationId, connectionId, entityKind, externalId, vehicleId, lastSeenRunId, presence }: ExternalVehicleIdentityDocument): ExternalVehicleIdentity { return { id, organizationId, connectionId, entityKind, externalId, ...(vehicleId !== undefined ? { vehicleId } : {}), ...(lastSeenRunId !== undefined ? { lastSeenRunId } : {}), ...(presence !== undefined ? { presence } : {}) }; }
 export function toExternalVehicleIdentityDocument({ vehicleId, lastSeenRunId, presence, ...identity }: ExternalVehicleIdentity, now: Date, existing?: ExternalVehicleIdentityDocument): ExternalVehicleIdentityDocument { return { schemaVersion: 1, ...identity, ...(vehicleId !== undefined ? { vehicleId } : {}), ...(lastSeenRunId !== undefined ? { lastSeenRunId } : {}), ...(presence !== undefined ? { presence } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+
+export type CatalogReviewDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; connectionId: string; companyId: string; subject: CatalogReviewSubject; externalId: string; status: CatalogReviewStatus; label?: string; candidateFleetIds?: string[]; resolvedFleetId?: string; normalizedPlate?: string; candidateVehicleIds?: string[]; resolvedVehicleId?: string; createdAt: Date; updatedAt: Date };
+export type CapabilityPolicyDocument = { _id?: ObjectId; schemaVersion: number; id: string; organizationId: string; scope: CapabilityPolicyScope; scopeId: string; capability: Capability; sourceOrder: string[]; createdAt: Date; updatedAt: Date };
+
+export function toCatalogReviewDomain(document: CatalogReviewDocument): CatalogReview {
+  const { id, organizationId, connectionId, companyId, externalId, status } = document;
+  if (document.subject === "fleet-binding") {
+    return { id, organizationId, connectionId, companyId, externalId, status, subject: "fleet-binding", label: document.label as string, candidateFleetIds: document.candidateFleetIds ?? [], ...(document.resolvedFleetId !== undefined ? { resolvedFleetId: document.resolvedFleetId } : {}) };
+  }
+  return { id, organizationId, connectionId, companyId, externalId, status, subject: "vehicle-match", normalizedPlate: document.normalizedPlate as string, candidateVehicleIds: document.candidateVehicleIds ?? [], ...(document.resolvedVehicleId !== undefined ? { resolvedVehicleId: document.resolvedVehicleId } : {}) };
+}
+export function toCatalogReviewDocument(review: CatalogReview, now: Date, existing?: CatalogReviewDocument): CatalogReviewDocument {
+  const base = { schemaVersion: 1 as const, id: review.id, organizationId: review.organizationId, connectionId: review.connectionId, companyId: review.companyId, externalId: review.externalId, subject: review.subject, status: review.status, createdAt: existing?.createdAt ?? now, updatedAt: now };
+  if (review.subject === "fleet-binding") {
+    return { ...base, label: review.label, candidateFleetIds: review.candidateFleetIds, ...(review.resolvedFleetId !== undefined ? { resolvedFleetId: review.resolvedFleetId } : {}) };
+  }
+  return { ...base, normalizedPlate: review.normalizedPlate, candidateVehicleIds: review.candidateVehicleIds, ...(review.resolvedVehicleId !== undefined ? { resolvedVehicleId: review.resolvedVehicleId } : {}) };
+}
+export function toCapabilityPolicyDomain({ id, organizationId, scope, scopeId, capability, sourceOrder }: CapabilityPolicyDocument): CapabilityPolicy { return { id, organizationId, scope, scopeId, capability, sourceOrder }; }
+export function toCapabilityPolicyDocument(policy: CapabilityPolicy, now: Date, existing?: CapabilityPolicyDocument): CapabilityPolicyDocument { return { schemaVersion: 1, ...policy, sourceOrder: [...policy.sourceOrder], createdAt: existing?.createdAt ?? now, updatedAt: now }; }

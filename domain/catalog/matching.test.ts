@@ -132,7 +132,7 @@ describe("Company-scoped plate matching", () => {
     expect(outcome).toEqual({ kind: "unmatched" });
   });
 
-  it("sends a Vehicle to review instead of auto-linking when two distinct active Vehicles in the same Company share the same plate", () => {
+  it("sends a Vehicle to review instead of auto-linking when two distinct active Vehicles in the same Company share the same plate, naming both as review candidates", () => {
     const companyVehicles: ActiveCompanyVehicle[] = [
       { vehicleId: "vehicle-1", organizationId: "org-a", companyId: companyA, normalizedPlate: "ABC123", active: true },
       { vehicleId: "vehicle-2", organizationId: "org-a", companyId: companyA, normalizedPlate: "ABC123", active: true },
@@ -144,10 +144,10 @@ describe("Company-scoped plate matching", () => {
       [],
     );
 
-    expect(outcome).toEqual({ kind: "review" });
+    expect(outcome).toEqual({ kind: "review", candidateVehicleIds: ["vehicle-1", "vehicle-2"] });
   });
 
-  it("sends a Vehicle to review instead of auto-linking when the single plate match already carries a conflicting deterministic identity from the same connection", () => {
+  it("sends a Vehicle to review instead of auto-linking when the single plate match already carries a conflicting deterministic identity from the same connection, naming that Vehicle as the review candidate", () => {
     const companyVehicles: ActiveCompanyVehicle[] = [
       { vehicleId: "vehicle-1", organizationId: "org-a", companyId: companyA, normalizedPlate: "ABC123", active: true },
     ];
@@ -161,7 +161,7 @@ describe("Company-scoped plate matching", () => {
       existingIdentities,
     );
 
-    expect(outcome).toEqual({ kind: "review" });
+    expect(outcome).toEqual({ kind: "review", candidateVehicleIds: ["vehicle-1"] });
   });
 
   it("does not auto-link when the only active identity on the matched Vehicle is this very candidate's own identity", () => {
