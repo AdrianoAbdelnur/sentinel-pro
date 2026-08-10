@@ -149,3 +149,9 @@ export type ImportCatalogPorts = {
   ids: IdGenerator;
   transactions: CatalogTransactionRunner;
 };
+
+export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
+  connections: ProviderConnectionRepository;
+  syncLeases: CatalogSyncLeaseRepository;
+  clock: Clock;
+};

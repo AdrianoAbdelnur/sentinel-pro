@@ -10,6 +10,8 @@ export * from "./sync-run";
 export * from "./sync-lease";
 export {
   bindExternalVehicleIdentity,
+  markExternalVehicleIdentityAbsent,
+  markExternalVehicleIdentitySeen,
   normalizePlate,
   resolveExternalVehicleIdentity,
   resolveVehicleMatch,

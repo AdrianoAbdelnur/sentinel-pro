@@ -233,6 +233,22 @@ describe("idempotent re-import", () => {
   });
 });
 
+describe("identity presence tracking for absence reconciliation", () => {
+  it("bumps an already-linked identity's lastSeenRunId and presence to the current run on every successful match, replacing rather than duplicating the stale entry", async () => {
+    const fixture = createFixture();
+    await bindCompany(fixture, "Acme Transport");
+    await fixture.importer.importCatalog({ connection, run: newRun("run-1"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+    const [afterFirstRun] = [...fixture.vehicleIdentities.values()];
+    expect(afterFirstRun).toMatchObject({ lastSeenRunId: "run-1", presence: "present" });
+
+    await fixture.importer.importCatalog({ connection, run: newRun("run-2"), source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+
+    expect(fixture.vehicleIdentities.size).toBe(1);
+    const [afterSecondRun] = [...fixture.vehicleIdentities.values()];
+    expect(afterSecondRun).toEqual({ ...afterFirstRun, lastSeenRunId: "run-2", presence: "present" });
+  });
+});
+
 describe("full observed scale", () => {
   it("imports 5,542 candidates so every unique externalId reaches exactly one outcome, crossing several batch boundaries", async () => {
     const fixture = createFixture();

@@ -41,6 +41,14 @@ export function bindExternalVehicleIdentity(identity: ExternalVehicleIdentity, v
   return { ...identity, vehicleId };
 }
 
+export function markExternalVehicleIdentitySeen(identity: ExternalVehicleIdentity, runId: string): ExternalVehicleIdentity {
+  return { ...identity, lastSeenRunId: runId, presence: "present" };
+}
+
+export function markExternalVehicleIdentityAbsent(identity: ExternalVehicleIdentity): ExternalVehicleIdentity {
+  return { ...identity, presence: "absent" };
+}
+
 export type VehicleIdentityCandidate = {
   organizationId: string;
   connectionId: string;

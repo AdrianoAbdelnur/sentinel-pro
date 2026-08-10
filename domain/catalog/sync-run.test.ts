@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { failCatalogSyncRun, startCatalogSyncRun, succeedCatalogSyncRun, type CatalogSyncFailure } from "./sync-run";
+import { failCatalogSyncRun, isCatalogSyncDue, shouldReconcileCatalogSyncAbsence, startCatalogSyncRun, succeedCatalogSyncRun, type CatalogSyncFailure } from "./sync-run";
 
 describe("catalog sync run lifecycle", () => {
   it("starts an active run scoped to its connection with zero counts and no completion", () => {
@@ -46,5 +46,37 @@ describe("catalog sync run lifecycle", () => {
       const failed = failCatalogSyncRun(started, new Date("2026-01-01T00:01:00Z"), failure);
       expect(failed.failureSummary).toBe("Internal synchronization error");
     }
+  });
+});
+
+describe("catalog sync due computation", () => {
+  it("is due immediately when the connection has never synchronized successfully", () => {
+    expect(isCatalogSyncDue(undefined, new Date("2026-08-09T06:00:00Z"))).toBe(true);
+  });
+
+  it("is not yet due one second before the six-hour freshness window elapses, and is due exactly at six hours and one second after, proving the boundary is inclusive on the due side", () => {
+    const lastSuccessAt = new Date("2026-08-09T00:00:00Z");
+
+    expect(isCatalogSyncDue(lastSuccessAt, new Date("2026-08-09T05:59:59Z"))).toBe(false);
+    expect(isCatalogSyncDue(lastSuccessAt, new Date("2026-08-09T06:00:00Z"))).toBe(true);
+    expect(isCatalogSyncDue(lastSuccessAt, new Date("2026-08-09T06:00:01Z"))).toBe(true);
+  });
+});
+
+describe("catalog sync absence reconciliation gate", () => {
+  const zeroCounts = { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 };
+
+  it("reconciles absence only when a run is both succeeded and a full snapshot, proven by varying each field independently", () => {
+    const succeededFull = succeedCatalogSyncRun(startCatalogSyncRun("run-1", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: true }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:05:00Z"), zeroCounts);
+    expect(shouldReconcileCatalogSyncAbsence(succeededFull)).toBe(true);
+
+    const failedFull = failCatalogSyncRun(startCatalogSyncRun("run-2", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: true }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:01:00Z"), { category: "internal" });
+    expect(shouldReconcileCatalogSyncAbsence(failedFull)).toBe(false);
+
+    const activeFull = startCatalogSyncRun("run-3", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: true }, new Date("2026-01-01T00:00:00Z"));
+    expect(shouldReconcileCatalogSyncAbsence(activeFull)).toBe(false);
+
+    const succeededPartial = succeedCatalogSyncRun(startCatalogSyncRun("run-4", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: false }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:05:00Z"), zeroCounts);
+    expect(shouldReconcileCatalogSyncAbsence(succeededPartial)).toBe(false);
   });
 });

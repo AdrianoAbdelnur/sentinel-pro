@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import type { ProviderConnection } from "./company-candidate";
 import {
   bindExternalVehicleIdentity,
+  markExternalVehicleIdentityAbsent,
+  markExternalVehicleIdentitySeen,
   normalizePlate,
   resolveExternalVehicleIdentity,
   resolvePlateMatch,
@@ -311,5 +313,23 @@ describe("resolveVehicleMatch", () => {
     );
 
     expect(outcome).toEqual({ kind: "auto-linked", vehicleId: "vehicle-1" });
+  });
+});
+
+describe("external vehicle identity presence tracking", () => {
+  it("marks an identity seen in the given run as present, bumping only lastSeenRunId and presence", () => {
+    const identity = bindExternalVehicleIdentity(stageExternalVehicleIdentity("identity-1", connectionCybermapa, "gps-9001"), "vehicle-1");
+
+    const seen = markExternalVehicleIdentitySeen(identity, "run-2");
+
+    expect(seen).toEqual({ ...identity, lastSeenRunId: "run-2", presence: "present" });
+  });
+
+  it("marks an identity absent without touching its vehicle link, external id, or last-seen run", () => {
+    const identity = markExternalVehicleIdentitySeen(bindExternalVehicleIdentity(stageExternalVehicleIdentity("identity-1", connectionCybermapa, "gps-9001"), "vehicle-1"), "run-1");
+
+    const absent = markExternalVehicleIdentityAbsent(identity);
+
+    expect(absent).toEqual({ ...identity, presence: "absent" });
   });
 });

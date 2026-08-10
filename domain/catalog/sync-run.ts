@@ -54,3 +54,14 @@ export function succeedCatalogSyncRun(run: CatalogSyncRun, completedAt: Date, co
 export function failCatalogSyncRun(run: CatalogSyncRun, completedAt: Date, failure: CatalogSyncFailure): CatalogSyncRun {
   return { ...run, status: "failed", completedAt, failureSummary: composeFailureSummary(failure) };
 }
+
+export const CATALOG_SYNC_FRESHNESS_WINDOW_MS = 6 * 60 * 60 * 1000;
+
+export function isCatalogSyncDue(lastSuccessAt: Date | undefined, now: Date, freshnessWindowMs: number = CATALOG_SYNC_FRESHNESS_WINDOW_MS): boolean {
+  if (lastSuccessAt === undefined) return true;
+  return now.getTime() - lastSuccessAt.getTime() >= freshnessWindowMs;
+}
+
+export function shouldReconcileCatalogSyncAbsence(run: CatalogSyncRun): boolean {
+  return run.status === "succeeded" && run.fullSnapshot === true;
+}

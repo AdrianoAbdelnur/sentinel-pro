@@ -1,6 +1,7 @@
 import {
   bindExternalVehicleIdentity,
   markCatalogImportItemProcessed,
+  markExternalVehicleIdentitySeen,
   normalizeFleetName,
   normalizePlate,
   resolveExternalFleetBinding,
@@ -108,6 +109,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     companyVehiclesCache: Map<string, ActiveCompanyVehicle[]>,
     companyFleetsCache: Map<string, Fleet[]>,
     item: CatalogImportItem,
+    runId: string,
   ): Promise<CatalogImportItemOutcome> {
     const normalizedPlate = candidate.normalizedPlate ?? normalizePlate("");
     const companyVehicles = await loadCompanyVehicles(companyId, connection.organizationId, companyVehiclesCache);
@@ -129,9 +131,10 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     }
 
     const vehicleId = match.kind === "unmatched" ? ports.ids.create() : match.vehicleId;
-    const identity = match.kind === "unmatched" || match.kind === "auto-linked"
+    const baseIdentity = match.kind === "unmatched" || match.kind === "auto-linked"
       ? bindExternalVehicleIdentity(stageExternalVehicleIdentity(ports.ids.create(), connection, candidate.externalId), vehicleId)
-      : undefined;
+      : identities.find((existing) => existing.connectionId === connection.id && existing.externalId === candidate.externalId);
+    const identity = baseIdentity ? markExternalVehicleIdentitySeen(baseIdentity, runId) : undefined;
     const fleets = await loadCompanyFleets(companyId, companyFleetsCache);
     const unassignedFleetId = fleets.find((fleet) => fleet.kind === "unassigned")?.id;
     const matchedFleetId = await resolveCandidateFleetPlacement(connection, companyId, candidate, fleetIdentities);
@@ -151,7 +154,10 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     });
 
     if (outcome.vehicle) {
-      if (identity) identities.push(identity);
+      if (identity) {
+        const identityIndex = identities.findIndex((existing) => existing.id === identity.id);
+        if (identityIndex === -1) identities.push(identity); else identities[identityIndex] = identity;
+      }
       const active = toActiveCompanyVehicle(outcome.vehicle, connection.organizationId);
       if (active) companyVehiclesCache.set(companyId, [...companyVehicles.filter((vehicle) => vehicle.vehicleId !== active.vehicleId), active]);
     }
@@ -187,7 +193,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
           const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
           let outcome: CatalogImportItemOutcome;
           if (staged.candidate.companyId) {
-            outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item);
+            outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);
           } else {
             outcome = "rejected";
             await ports.importItems.save(markCatalogImportItemProcessed(item, outcome));
