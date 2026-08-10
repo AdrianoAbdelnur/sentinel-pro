@@ -1,6 +1,7 @@
 export * from "./entities";
 export * from "./policies";
 export * from "./company-candidate";
+export * from "./credential-ref";
 export * from "./fleet-binding";
 export * from "./union-projection";
 export * from "./review";
