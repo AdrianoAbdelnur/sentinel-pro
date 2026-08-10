@@ -1,4 +1,6 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+
+export type Clock = { now(): Date };
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
@@ -79,7 +81,23 @@ export type ExternalFleetIdentityRepository = {
 
 export type ExternalVehicleIdentityRepository = {
   findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalVehicleIdentity | undefined>;
+  listStaleByRun(organizationId: string, connectionId: string, currentRunId: string): Promise<ExternalVehicleIdentity[]>;
   save(identity: ExternalVehicleIdentity): Promise<void>;
+};
+
+export type CatalogSyncLeaseClaimResult = { outcome: "claimed"; previousRunId?: string } | { outcome: "held" };
+
+export type CatalogSyncLeaseRepository = {
+  claim(organizationId: string, connectionId: string, runId: string, now: Date, leaseDurationMs: number): Promise<CatalogSyncLeaseClaimResult>;
+  release(organizationId: string, connectionId: string, runId: string): Promise<void>;
+};
+
+export type CatalogSyncRunRepository = {
+  findById(id: string): Promise<CatalogSyncRun | undefined>;
+  findLatest(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
+  findLastSuccess(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
+  claimActive(run: CatalogSyncRun): Promise<"claimed" | "already-active">;
+  save(run: CatalogSyncRun): Promise<void>;
 };
 
 export type CatalogReviewRepository = {

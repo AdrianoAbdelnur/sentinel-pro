@@ -1,11 +1,12 @@
 import type { ClientSession, Db } from "mongodb";
-import type { CapabilityPolicyRepository, CatalogImportItemRepository, CatalogReviewRepository, CompanyCandidateRepository, CompanyRepository, ExternalFleetIdentityRepository, ExternalVehicleIdentityRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
-import { toCapabilityPolicyDocument, toCapabilityPolicyDomain, toCatalogImportItemDocument, toCatalogImportItemDomain, toCatalogReviewDocument, toCatalogReviewDomain, toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toExternalFleetIdentityDocument, toExternalFleetIdentityDomain, toExternalVehicleIdentityDocument, toExternalVehicleIdentityDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CapabilityPolicyDocument, type CatalogImportItemDocument, type CatalogReviewDocument, type CompanyCandidateDocument, type CompanyDocument, type ExternalFleetIdentityDocument, type ExternalVehicleIdentityDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
+import type { CapabilityPolicyRepository, CatalogImportItemRepository, CatalogReviewRepository, CatalogSyncLeaseRepository, CatalogSyncRunRepository, CompanyCandidateRepository, CompanyRepository, ExternalFleetIdentityRepository, ExternalVehicleIdentityRepository, FleetRepository, ProviderConnectionRepository, VehicleRepository } from "@/application/catalog";
+import { toCapabilityPolicyDocument, toCapabilityPolicyDomain, toCatalogImportItemDocument, toCatalogImportItemDomain, toCatalogReviewDocument, toCatalogReviewDomain, toCatalogSyncRunDocument, toCatalogSyncRunDomain, toCompanyCandidateDocument, toCompanyCandidateDomain, toCompanyDocument, toCompanyDomain, toExternalFleetIdentityDocument, toExternalFleetIdentityDomain, toExternalVehicleIdentityDocument, toExternalVehicleIdentityDomain, toFleetDocument, toFleetDomain, toProviderConnectionDocument, toProviderConnectionDomain, toVehicleDocument, toVehicleDomain, type CapabilityPolicyDocument, type CatalogImportItemDocument, type CatalogReviewDocument, type CatalogSyncLeaseDocument, type CatalogSyncRunDocument, type CompanyCandidateDocument, type CompanyDocument, type ExternalFleetIdentityDocument, type ExternalVehicleIdentityDocument, type FleetDocument, type ProviderConnectionDocument, type VehicleDocument } from "./catalog-documents";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
+const isDuplicateKeyError = (error: unknown): boolean => typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000;
 
-export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository; fleetIdentities: ExternalFleetIdentityRepository; vehicleIdentities: ExternalVehicleIdentityRepository; reviews: CatalogReviewRepository; capabilityPolicies: CapabilityPolicyRepository; importItems: CatalogImportItemRepository };
+export type MongoCatalogRepositories = { companies: CompanyRepository; fleets: FleetRepository; vehicles: VehicleRepository; candidates: CompanyCandidateRepository; connections: ProviderConnectionRepository; fleetIdentities: ExternalFleetIdentityRepository; vehicleIdentities: ExternalVehicleIdentityRepository; reviews: CatalogReviewRepository; capabilityPolicies: CapabilityPolicyRepository; importItems: CatalogImportItemRepository; syncRuns: CatalogSyncRunRepository; syncLeases: CatalogSyncLeaseRepository };
 
 export function createMongoCatalogRepositories(db: Db, session?: ClientSession): MongoCatalogRepositories {
   const companies = db.collection<CompanyDocument>("companies");
@@ -18,6 +19,8 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
   const reviews = db.collection<CatalogReviewDocument>("catalog_reviews");
   const capabilityPolicies = db.collection<CapabilityPolicyDocument>("capability_policies");
   const importItems = db.collection<CatalogImportItemDocument>("catalog_import_items");
+  const syncRunsCollection = db.collection<CatalogSyncRunDocument>("catalog_import_runs");
+  const syncLeasesCollection = db.collection<CatalogSyncLeaseDocument>("catalog_sync_leases");
   return {
     companies: {
       async findById(id) { const document = await companies.findOne({ id }, options(session)); return document ? toCompanyDomain(document) : undefined; },
@@ -49,6 +52,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
     },
     vehicleIdentities: {
       async findByConnectionAndExternalId(organizationId, connectionId, externalId) { const document = await vehicleIdentities.findOne({ organizationId, connectionId, externalId }, options(session)); return document ? toExternalVehicleIdentityDomain(document) : undefined; },
+      async listStaleByRun(organizationId, connectionId, currentRunId) { return (await vehicleIdentities.find({ organizationId, connectionId, presence: { $ne: "absent" }, lastSeenRunId: { $ne: currentRunId } }, options(session)).toArray()).map(toExternalVehicleIdentityDomain); },
       async save(identity) { const existing = await vehicleIdentities.findOne({ id: identity.id }, options(session)); await vehicleIdentities.replaceOne({ id: identity.id }, toExternalVehicleIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
     reviews: {
@@ -69,6 +73,26 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
       async findByRunAndExternalId(organizationId, connectionId, runId, externalId) { const document = await importItems.findOne({ organizationId, connectionId, runId, externalId }, options(session)); return document ? toCatalogImportItemDomain(document) : undefined; },
       async listPendingByRun(organizationId, connectionId, runId) { return (await importItems.find({ organizationId, connectionId, runId, status: "pending" }, options(session)).sort({ externalId: 1 }).toArray()).map(toCatalogImportItemDomain); },
       async save(item) { const existing = await importItems.findOne({ id: item.id }, options(session)); await importItems.replaceOne({ id: item.id }, toCatalogImportItemDocument(item, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+    },
+    syncRuns: {
+      async findById(id) { const document = await syncRunsCollection.findOne({ id }, options(session)); return document ? toCatalogSyncRunDomain(document) : undefined; },
+      async findLatest(organizationId, connectionId) { const document = await syncRunsCollection.find({ organizationId, connectionId }, options(session)).sort({ startedAt: -1 }).limit(1).next(); return document ? toCatalogSyncRunDomain(document) : undefined; },
+      async findLastSuccess(organizationId, connectionId) { const document = await syncRunsCollection.find({ organizationId, connectionId, status: "succeeded" }, options(session)).sort({ completedAt: -1 }).limit(1).next(); return document ? toCatalogSyncRunDomain(document) : undefined; },
+      async claimActive(run) { try { await syncRunsCollection.insertOne(toCatalogSyncRunDocument(run, now()), options(session)); return "claimed"; } catch (error) { if (isDuplicateKeyError(error)) return "already-active"; throw error; } },
+      async save(run) { const existing = await syncRunsCollection.findOne({ id: run.id }, options(session)); await syncRunsCollection.replaceOne({ id: run.id }, toCatalogSyncRunDocument(run, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+    },
+    syncLeases: {
+      async claim(organizationId, connectionId, runId, claimNow, leaseDurationMs) {
+        const leaseUntil = new Date(claimNow.getTime() + leaseDurationMs);
+        try {
+          const before = await syncLeasesCollection.findOneAndUpdate({ organizationId, connectionId, $or: [{ leaseUntil: { $lte: claimNow } }, { runId }] }, { $set: { runId, leaseUntil, updatedAt: claimNow }, $setOnInsert: { schemaVersion: 1, createdAt: claimNow } }, { upsert: true, returnDocument: "before", ...options(session) });
+          return before && before.runId !== runId ? { outcome: "claimed", previousRunId: before.runId } : { outcome: "claimed" };
+        } catch (error) {
+          if (isDuplicateKeyError(error)) return { outcome: "held" };
+          throw error;
+        }
+      },
+      async release(organizationId, connectionId, runId) { await syncLeasesCollection.deleteOne({ organizationId, connectionId, runId }, options(session)); },
     },
   };
 }

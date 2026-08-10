@@ -5,6 +5,8 @@ export * from "./fleet-binding";
 export * from "./union-projection";
 export * from "./review";
 export * from "./import-item";
+export * from "./sync-run";
+export * from "./sync-lease";
 export {
   bindExternalVehicleIdentity,
   normalizePlate,
