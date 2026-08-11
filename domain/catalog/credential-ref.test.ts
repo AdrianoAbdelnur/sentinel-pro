@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isCredentialRef, toCredentialRef } from "./credential-ref";
+import { isCredentialRef, resolveCredentialRefProvider, toCredentialRef } from "./credential-ref";
 
 describe("credential reference guard", () => {
   it("accepts a legitimate vault-scoped reference", () => {
@@ -31,5 +31,14 @@ describe("credential reference guard", () => {
     expect(() => toCredentialRef("cybermapa", "sk-live-topsecret1234567890@evil")).toThrow(
       "Invalid credential reference",
     );
+  });
+
+  it("extracts the provider prefix from a well-formed vault reference", () => {
+    expect(resolveCredentialRefProvider("vault:cybermapa/org-a")).toBe("cybermapa");
+    expect(resolveCredentialRefProvider("vault:howen/org-b")).toBe("howen");
+  });
+
+  it("returns undefined for a reference with no recognizable provider prefix", () => {
+    expect(resolveCredentialRefProvider("not-a-vault-ref")).toBeUndefined();
   });
 });
