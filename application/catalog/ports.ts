@@ -159,8 +159,8 @@ export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
 
 export type CatalogReviewApplicationPorts = {
   reviews: CatalogReviewRepository;
-  fleets: Pick<FleetRepository, "findById">;
-  vehicles: Pick<VehicleRepository, "findById">;
+  fleets: Pick<FleetRepository, "findById" | "listByCompany">;
+  vehicles: Pick<VehicleRepository, "findById" | "save">;
   vehicleIdentities: Pick<ExternalVehicleIdentityRepository, "save">;
   fleetIdentities: Pick<ExternalFleetIdentityRepository, "findByConnectionAndExternalId" | "save">;
   ids: Pick<IdGenerator, "create">;

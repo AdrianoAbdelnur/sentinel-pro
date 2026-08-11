@@ -33,6 +33,10 @@ export async function buildDueCandidates(
   return { candidates, unsupported };
 }
 
+export function createDefaultConnectionSourceFactories(): ConnectionSourceFactories {
+  return { cybermapa: () => createCybermapaImportSource({ client: createCybermapaClient({ config: readCybermapaConfig() }) }) };
+}
+
 async function createCatalogSyncRuntime() {
   const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);
   const repositories = createMongoCatalogRepositories(database);
@@ -40,7 +44,7 @@ async function createCatalogSyncRuntime() {
   const ports = { ...repositories, ids: { create: randomUUID }, clock, transactions: new MongoCatalogTransactionRunner(client, database) };
   const { synchronizeCatalogConnection } = createSynchronizeCatalogConnectionApplication(ports);
   const { synchronizeDueCatalogConnections } = createSynchronizeDueCatalogConnectionsApplication({ syncRuns: ports.syncRuns, clock }, synchronizeCatalogConnection);
-  const factories: ConnectionSourceFactories = { cybermapa: () => createCybermapaImportSource({ client: createCybermapaClient({ config: readCybermapaConfig() }) }) };
+  const factories = createDefaultConnectionSourceFactories();
 
   return { connections: repositories.connections, synchronizeDueCatalogConnections, factories };
 }

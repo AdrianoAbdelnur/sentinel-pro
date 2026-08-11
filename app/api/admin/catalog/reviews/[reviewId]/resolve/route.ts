@@ -20,6 +20,7 @@ export async function POST(request: Request, { params }: Context) {
     case "resolved": return NextResponse.json({ review: toReviewSummary(result.review) });
     case "already-resolved": return alreadyResolved();
     case "not-found": case "forbidden": return catalogForbidden();
+    case "unsupported": return badRequest();
     default: { const neverResult: never = result; return neverResult; }
   }
 }

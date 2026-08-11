@@ -28,12 +28,13 @@ export type ImportCatalogResult =
   | { kind: "completed"; counts: CatalogSyncCounts; checkpoint?: string }
   | { kind: "failed"; failure: CatalogSyncFailure };
 
-export type ReviewResolutionTarget = { targetId: string };
+export type ReviewResolutionTarget = { kind: "existing"; targetId: string } | { kind: "new" };
 
 export type ResolveCatalogReviewResult =
   | { kind: "resolved"; review: CatalogReview }
   | { kind: "already-resolved" }
   | { kind: "not-found" }
-  | { kind: "forbidden" };
+  | { kind: "forbidden" }
+  | { kind: "unsupported" };
 
 export type ListPendingCatalogReviewsResult = { kind: "listed"; reviews: CatalogReview[] } | { kind: "forbidden" };

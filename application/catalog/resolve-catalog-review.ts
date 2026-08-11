@@ -3,6 +3,8 @@ import {
   bindExternalVehicleIdentity,
   resolveCatalogReviewToFleet,
   resolveCatalogReviewToVehicle,
+  type Vehicle,
+  type VehicleMatchReview,
 } from "@/domain/catalog";
 import type { AuthorizationContext } from "@/application/identity";
 
@@ -10,6 +12,16 @@ import type { ListPendingCatalogReviewsResult, ResolveCatalogReviewResult, Revie
 import type { CatalogReviewApplicationPorts } from "./ports";
 
 export function createCatalogReviewApplication(ports: CatalogReviewApplicationPorts) {
+  async function resolveVehicleMatchTarget(review: VehicleMatchReview, target: ReviewResolutionTarget): Promise<Vehicle | undefined> {
+    if (target.kind === "existing") {
+      const vehicle = await ports.vehicles.findById(target.targetId);
+      return vehicle && vehicle.companyId === review.companyId ? vehicle : undefined;
+    }
+    const unassigned = (await ports.fleets.listByCompany(review.companyId)).find((fleet) => fleet.kind === "unassigned");
+    if (!unassigned) return undefined;
+    return { id: ports.ids.create(), companyId: review.companyId, origin: "provider", placement: { fleetId: unassigned.id, source: "system" } };
+  }
+
   async function resolveCatalogReview({ actor, reviewId, target }: { actor: AuthorizationContext; reviewId: string; target: ReviewResolutionTarget }): Promise<ResolveCatalogReviewResult> {
     if (actor.role !== "admin") return { kind: "forbidden" };
     const review = await ports.reviews.findById(reviewId);
@@ -17,6 +29,7 @@ export function createCatalogReviewApplication(ports: CatalogReviewApplicationPo
     if (review.status !== "pending") return { kind: "already-resolved" };
 
     if (review.subject === "fleet-binding") {
+      if (target.kind === "new") return { kind: "unsupported" };
       const fleet = await ports.fleets.findById(target.targetId);
       if (!fleet || fleet.companyId !== review.companyId) return { kind: "not-found" };
       const resolution = resolveCatalogReviewToFleet(review, fleet.id);
@@ -26,10 +39,11 @@ export function createCatalogReviewApplication(ports: CatalogReviewApplicationPo
       return { kind: "resolved", review: resolution.review };
     }
 
-    const vehicle = await ports.vehicles.findById(target.targetId);
-    if (!vehicle || vehicle.companyId !== review.companyId) return { kind: "not-found" };
+    const vehicle = await resolveVehicleMatchTarget(review, target);
+    if (!vehicle) return { kind: "not-found" };
     const resolution = resolveCatalogReviewToVehicle(review, vehicle.id);
     if ((await ports.reviews.resolve(resolution.review)) === "already-resolved") return { kind: "already-resolved" };
+    if (target.kind === "new") await ports.vehicles.save(vehicle);
     await ports.vehicleIdentities.save(bindExternalVehicleIdentity({ id: ports.ids.create(), organizationId: review.organizationId, connectionId: review.connectionId, entityKind: "vehicle", externalId: review.externalId }, vehicle.id));
     return { kind: "resolved", review: resolution.review };
   }
