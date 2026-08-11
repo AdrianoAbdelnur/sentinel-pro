@@ -52,6 +52,10 @@ function toMissingCompanyAssignmentSummary(connection: ProviderConnection) {
   return { organizationId: connection.organizationId, connectionId: connection.id, kind: "missing-company-assignment" as const, retryable: false, permanent: true };
 }
 
-export function toSynchronizeResponse(results: CatalogSyncBatchResult[], unsupported: ProviderConnection[], missingCompanyAssignment: ProviderConnection[]) {
-  return NextResponse.json({ results: [...results.map(toOutcomeSummary), ...unsupported.map(toUnsupportedSummary), ...missingCompanyAssignment.map(toMissingCompanyAssignmentSummary)] });
+function toMisconfiguredSummary(connection: ProviderConnection) {
+  return { organizationId: connection.organizationId, connectionId: connection.id, kind: "provider-misconfigured" as const, retryable: false, permanent: true };
+}
+
+export function toSynchronizeResponse(results: CatalogSyncBatchResult[], unsupported: ProviderConnection[], missingCompanyAssignment: ProviderConnection[], misconfigured: ProviderConnection[]) {
+  return NextResponse.json({ results: [...results.map(toOutcomeSummary), ...unsupported.map(toUnsupportedSummary), ...missingCompanyAssignment.map(toMissingCompanyAssignmentSummary), ...misconfigured.map(toMisconfiguredSummary)] });
 }

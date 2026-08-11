@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { createCatalogReviewApplication, createCompanyBindingApplication, createGetCatalogSyncStatusApplication, createSynchronizeCatalogConnectionApplication } from "@/application/catalog";
+import { createAssignConnectionCompanyApplication, createCatalogReviewApplication, createCompanyBindingApplication, createGetCatalogSyncStatusApplication, createSynchronizeCatalogConnectionApplication } from "@/application/catalog";
 import { createDefaultConnectionSourceFactories } from "@/app/api/internal/catalog/synchronize/composition";
 import { createMongoCatalogRepositories, getMongoClient, getMongoDatabase, MongoCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
 
@@ -18,10 +18,11 @@ async function createCatalogAdminRuntime() {
     ids,
   });
   const { bindProviderCompany } = createCompanyBindingApplication({ companies: repositories.companies, candidates: repositories.candidates, ids });
+  const { assignConnectionCompany } = createAssignConnectionCompanyApplication({ companies: repositories.companies, connections: repositories.connections });
   const { synchronizeCatalogConnection } = createSynchronizeCatalogConnectionApplication({ ...repositories, ids, clock, transactions: new MongoCatalogTransactionRunner(client, database) });
   const { getCatalogSyncStatus } = createGetCatalogSyncStatusApplication({ connections: repositories.connections, syncRuns: repositories.syncRuns, clock });
   const factories = createDefaultConnectionSourceFactories();
-  return { resolveCatalogReview, listPendingCatalogReviews, bindProviderCompany, connections: repositories.connections, synchronizeCatalogConnection, factories, getCatalogSyncStatus };
+  return { resolveCatalogReview, listPendingCatalogReviews, bindProviderCompany, assignConnectionCompany, connections: repositories.connections, synchronizeCatalogConnection, factories, getCatalogSyncStatus };
 }
 
 let runtime: Awaited<ReturnType<typeof createCatalogAdminRuntime>> | undefined;

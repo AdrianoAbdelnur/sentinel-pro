@@ -1,4 +1,5 @@
 import {
+  belongsToOrganization,
   bindExternalVehicleIdentity,
   markCatalogImportItemProcessed,
   markExternalVehicleIdentitySeen,
@@ -15,6 +16,7 @@ import {
   type CatalogImportItem,
   type CatalogImportItemOutcome,
   type CatalogSyncRun,
+  type Company,
   type ExternalFleetIdentity,
   type ExternalVehicleIdentity,
   type Fleet,
@@ -69,6 +71,13 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return loaded;
   }
 
+  async function loadCompany(companyId: string, cache: Map<string, Company | undefined>): Promise<Company | undefined> {
+    if (cache.has(companyId)) return cache.get(companyId);
+    const company = await ports.companies.findById(companyId);
+    cache.set(companyId, company);
+    return company;
+  }
+
   async function resolveCandidateFleetPlacement(
     connection: ProviderConnection,
     companyId: string,
@@ -100,8 +109,11 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return undefined;
   }
 
-  async function resolveCandidateCompanyId(connection: ProviderConnection, candidate: CatalogImportCandidate): Promise<string | undefined> {
-    if (candidate.companyId) return candidate.companyId;
+  async function resolveCandidateCompanyId(connection: ProviderConnection, candidate: CatalogImportCandidate, companiesCache: Map<string, Company | undefined>): Promise<string | undefined> {
+    if (candidate.companyId) {
+      const company = await loadCompany(candidate.companyId, companiesCache);
+      return company && belongsToOrganization(company, connection.organizationId) ? candidate.companyId : undefined;
+    }
     if (!candidate.companyLabel) return undefined;
     const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
     return staged.candidate.companyId;
@@ -182,6 +194,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     const fleetIdentities = await ports.fleetIdentities.listByConnection(connection.organizationId, connection.id);
     const companyVehiclesCache = new Map<string, ActiveCompanyVehicle[]>();
     const companyFleetsCache = new Map<string, Fleet[]>();
+    const companiesCache = new Map<string, Company | undefined>();
     let counts = { ...run.counts };
     let checkpoint = run.checkpoint;
 
@@ -196,7 +209,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
             const item = existingItem ?? stageCatalogImportItem(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, runId: run.id, externalId: candidate.externalId });
             if (!existingItem) await ports.importItems.save(item);
 
-            const companyId = await resolveCandidateCompanyId(connection, candidate);
+            const companyId = await resolveCandidateCompanyId(connection, candidate, companiesCache);
             let outcome: CatalogImportItemOutcome;
             if (companyId) {
               outcome = await processBoundCandidate(connection, companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);

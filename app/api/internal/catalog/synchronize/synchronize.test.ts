@@ -76,6 +76,17 @@ describe("buildDueCandidates enumerates every connection, tenant-scoped from its
     expect(missingCompanyAssignment).toEqual([connectionHowen]);
     expect(unsupported).toEqual([connectionUnsupported]);
   });
+
+  it("separates a Howen connection that already carries a company assignment but whose factory still declines into a distinct misconfigured bucket", async () => {
+    const connections = { listAll: async () => [connectionHowenAssigned] };
+    const factories = { cybermapa: () => ({ loadCompleteSnapshot: vi.fn() }), howen: () => undefined };
+
+    const { candidates, missingCompanyAssignment, misconfigured } = await buildDueCandidates(connections, factories);
+
+    expect(candidates).toEqual([]);
+    expect(missingCompanyAssignment).toEqual([]);
+    expect(misconfigured).toEqual([connectionHowenAssigned]);
+  });
 });
 
 describe("createDefaultConnectionSourceFactories wires the real Howen adapter behind the company-assignment gate", () => {
@@ -182,6 +193,16 @@ describe("POST /api/internal/catalog/synchronize", () => {
     expect(body.results).toContainEqual({ organizationId: "org-a", connectionId: "conn-other", kind: "not-found", retryable: false, permanent: false });
     const kinds = body.results.map((entry: { kind: string }) => entry.kind);
     expect(new Set(kinds).size).toBe(3);
+  });
+
+  it("marks a Howen connection with a company assignment but a declining factory as provider-misconfigured, distinct from missing-company-assignment", async () => {
+    connectionsPort.listAll.mockResolvedValue([connectionHowenAssigned]);
+    howenFactory.mockReturnValueOnce(undefined);
+
+    const response = await POST(bearer(SECRET));
+    const body = await response.json();
+
+    expect(body.results).toContainEqual({ organizationId: "org-b", connectionId: "conn-howen-2", kind: "provider-misconfigured", retryable: false, permanent: true });
   });
 
   it("marks a retryable failure as retryable and keeps it distinguishable from a non-retryable not-found outcome", async () => {

@@ -29,3 +29,7 @@ export function stageCandidate(id: string, connection: ProviderConnection, exter
 export function bindCandidateToCompany(candidate: CompanyCandidate, companyId: string): CompanyCandidate {
   return { ...candidate, companyId };
 }
+
+export function assignCompanyToConnection(connection: ProviderConnection, companyId: string): ProviderConnection {
+  return { ...connection, companyId };
+}

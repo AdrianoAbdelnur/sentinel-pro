@@ -10,8 +10,8 @@ export async function POST(request: Request) {
   if (!secret || !isValidInternalSecret(readBearerToken(request), secret)) return unauthorized();
 
   const { connections, synchronizeDueCatalogConnections, factories } = await getCatalogSyncRuntime();
-  const { candidates, unsupported, missingCompanyAssignment } = await buildDueCandidates(connections, factories);
+  const { candidates, unsupported, missingCompanyAssignment, misconfigured } = await buildDueCandidates(connections, factories);
   const { results } = await synchronizeDueCatalogConnections({ candidates });
 
-  return toSynchronizeResponse(results, unsupported, missingCompanyAssignment);
+  return toSynchronizeResponse(results, unsupported, missingCompanyAssignment, misconfigured);
 }

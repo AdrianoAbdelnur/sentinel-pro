@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAdminRequest } from "@/app/api/admin/users/delivery";
-import { resolveConnectionSource } from "@/app/api/internal/catalog/synchronize/composition";
+import { classifyConnectionSourceProblem, resolveConnectionSource } from "@/app/api/internal/catalog/synchronize/composition";
 
 import { getCatalogAdminRuntime } from "../../../composition";
-import { badRequest, catalogForbidden, toSyncOutcomeResponse, unsupportedProvider } from "../../../delivery";
+import { badRequest, catalogForbidden, missingCompanyAssignment, providerMisconfigured, toSyncOutcomeResponse, unsupportedProvider } from "../../../delivery";
 
 type Context = { params: Promise<{ connectionId: string }> };
 
@@ -17,7 +17,12 @@ export async function POST(request: Request, { params }: Context) {
   const connection = await connections.findById(actor.organizationId, connectionId);
   if (!connection) return catalogForbidden();
   const source = resolveConnectionSource(connection, factories);
-  if (!source) return unsupportedProvider();
+  if (!source) {
+    const problem = classifyConnectionSourceProblem(connection, factories);
+    if (problem === "missing-company-assignment") return missingCompanyAssignment();
+    if (problem === "misconfigured") return providerMisconfigured();
+    return unsupportedProvider();
+  }
   const outcome = await synchronizeCatalogConnection({ organizationId: actor.organizationId, connectionId, trigger: "manual", source });
   return toSyncOutcomeResponse(outcome);
 }

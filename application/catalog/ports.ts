@@ -59,6 +59,11 @@ export type ProviderConnectionRepository = {
   save(connection: ProviderConnection): Promise<void>;
 };
 
+export type AssignConnectionCompanyPorts = {
+  connections: ProviderConnectionRepository;
+  companies: CompanyRepository;
+};
+
 export type CapabilityPolicyRepository = {
   findByScope(
     organizationId: string,

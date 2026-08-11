@@ -94,6 +94,7 @@ function createFixture() {
 }
 
 const admin = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
+const otherTenantAdmin = { userId: "admin-2", organizationId: "org-b", role: "admin" as const };
 const connection: ProviderConnection = { id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/conn-a" };
 const connectionHowen: ProviderConnection = { id: "conn-howen", organizationId: "org-a", credentialRef: "vault:howen/conn-a" };
 
@@ -449,5 +450,33 @@ describe("candidates carrying a pre-resolved companyId bypass label staging enti
     expect(result.kind === "completed" ? result.counts.rejected : -1).toBe(1);
     expect(vehicleSaveSpy).not.toHaveBeenCalled();
     expect(fixture.vehicles.size).toBe(0);
+  });
+
+  it("rejects a cross-tenant companyId even though it resolves to a real Company, creating no canonical Vehicle", async () => {
+    const fixture = createFixture();
+    const otherCompany = await fixture.catalog.createCompany({ actor: otherTenantAdmin, name: "Globex" });
+    if (otherCompany.kind !== "created") throw new Error("expected company creation");
+    const vehicleSaveSpy = vi.fn(fixture.ports.vehicles.save);
+    fixture.ports.vehicles.save = vehicleSaveSpy;
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-cross-tenant"), source: fakeSource([{ externalId: "howen-x1", companyId: otherCompany.company.id, externalFleetId: "H900", fleetLabel: "North Route" }]) });
+
+    expect(result.kind === "completed" ? result.counts.rejected : -1).toBe(1);
+    expect(vehicleSaveSpy).not.toHaveBeenCalled();
+    expect(fixture.vehicles.size).toBe(0);
+  });
+
+  it("caches the Company lookup across candidates sharing one companyId, issuing exactly one companies.findById call", async () => {
+    const fixture = createFixture();
+    const created = await fixture.catalog.createCompany({ actor: admin, name: "Fleet Co" });
+    if (created.kind !== "created") throw new Error("expected company creation");
+    const findByIdSpy = vi.fn(fixture.ports.companies.findById);
+    fixture.ports.companies.findById = findByIdSpy;
+    const candidates = Array.from({ length: 5 }, (_, index) => ({ externalId: `howen-cache-${index}`, companyId: created.company.id }));
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-cache"), source: fakeSource(candidates) });
+
+    expect(result.kind === "completed" ? result.counts.processed : -1).toBe(5);
+    expect(findByIdSpy).toHaveBeenCalledTimes(1);
   });
 });

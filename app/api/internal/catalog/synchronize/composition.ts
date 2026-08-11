@@ -25,14 +25,23 @@ export function resolveConnectionSource(connection: ProviderConnection, factorie
   return provider ? factories[provider]?.(connection) : undefined;
 }
 
+export type ConnectionSourceProblem = "unsupported" | "missing-company-assignment" | "misconfigured";
+
+export function classifyConnectionSourceProblem(connection: ProviderConnection, factories: ConnectionSourceFactories): ConnectionSourceProblem {
+  const provider = resolveProvider(connection);
+  if (!provider || !factories[provider]) return "unsupported";
+  return connection.companyId ? "misconfigured" : "missing-company-assignment";
+}
+
 export async function buildDueCandidates(
   connections: Pick<ProviderConnectionRepository, "listAll">,
   factories: ConnectionSourceFactories,
-): Promise<{ candidates: CatalogSyncBatchCandidate[]; unsupported: ProviderConnection[]; missingCompanyAssignment: ProviderConnection[] }> {
+): Promise<{ candidates: CatalogSyncBatchCandidate[]; unsupported: ProviderConnection[]; missingCompanyAssignment: ProviderConnection[]; misconfigured: ProviderConnection[] }> {
   const all = await connections.listAll();
   const candidates: CatalogSyncBatchCandidate[] = [];
   const unsupported: ProviderConnection[] = [];
   const missingCompanyAssignment: ProviderConnection[] = [];
+  const misconfigured: ProviderConnection[] = [];
 
   for (const connection of all) {
     const source = resolveConnectionSource(connection, factories);
@@ -40,12 +49,13 @@ export async function buildDueCandidates(
       candidates.push({ organizationId: connection.organizationId, connectionId: connection.id, source });
       continue;
     }
-    const provider = resolveProvider(connection);
-    if (provider && factories[provider]) missingCompanyAssignment.push(connection);
+    const problem = classifyConnectionSourceProblem(connection, factories);
+    if (problem === "missing-company-assignment") missingCompanyAssignment.push(connection);
+    else if (problem === "misconfigured") misconfigured.push(connection);
     else unsupported.push(connection);
   }
 
-  return { candidates, unsupported, missingCompanyAssignment };
+  return { candidates, unsupported, missingCompanyAssignment, misconfigured };
 }
 
 function createHowenConnectionFactory(): ConnectionSourceFactory {

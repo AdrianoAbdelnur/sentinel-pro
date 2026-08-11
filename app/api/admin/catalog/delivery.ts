@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import type { CatalogSyncOutcome, ReviewResolutionTarget } from "@/application/catalog";
-import type { CatalogReview, CompanyCandidate } from "@/domain/catalog";
+import type { CatalogReview, CompanyCandidate, ProviderConnection } from "@/domain/catalog";
 
 export function catalogForbidden() {
   return NextResponse.json({ error: "No tenés permisos para realizar esta acción." }, { status: 403 });
@@ -9,6 +9,14 @@ export function catalogForbidden() {
 
 export function unsupportedProvider() {
   return NextResponse.json({ error: "Este proveedor todavía no admite sincronización." }, { status: 409 });
+}
+
+export function missingCompanyAssignment() {
+  return NextResponse.json({ error: "Esta conexión no tiene una Company asignada. Asigná una Company para poder sincronizar." }, { status: 409 });
+}
+
+export function providerMisconfigured() {
+  return NextResponse.json({ error: "La conexión con el proveedor está mal configurada. Contactá al equipo técnico." }, { status: 502 });
 }
 
 export function toSyncOutcomeResponse(outcome: CatalogSyncOutcome) {
@@ -37,6 +45,10 @@ export function parseReviewTarget(body: Record<string, unknown>): ReviewResoluti
 
 export function toCandidateSummary(candidate: CompanyCandidate) {
   return { id: candidate.id, connectionId: candidate.connectionId, normalizedLabel: candidate.normalizedLabel, companyId: candidate.companyId };
+}
+
+export function toConnectionSummary(connection: ProviderConnection) {
+  return { id: connection.id, companyId: connection.companyId };
 }
 
 export function toReviewSummary(review: CatalogReview) {
