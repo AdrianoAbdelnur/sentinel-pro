@@ -55,6 +55,18 @@ describe("ConnectionSyncPanel", () => {
     expect(await screen.findByRole("status")).toHaveTextContent("La conexión ya estaba sincronizada.");
   });
 
+  it("sincroniza correctamente aunque la actualización de estado posterior falle, sin dejar un estado desactualizado", async () => {
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: FULL_STATUS });
+    render(<ConnectionSyncPanel />);
+    await fillConnectionId();
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
+    await screen.findByText("Conexión: conn-1");
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: "succeeded", counts: COUNTS }).mockResolvedValueOnce({ error: "No pudimos completar la solicitud." });
+    fireEvent.click(screen.getByRole("button", { name: "Sincronizar ahora" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Sincronización completada.");
+    await waitFor(() => expect(screen.queryByText("Conexión: conn-1")).not.toBeInTheDocument());
+  });
+
   it("muestra los tres resultados distinguibles de un intento de sincronización fallido", async () => {
     render(<ConnectionSyncPanel />);
     await fillConnectionId();
@@ -80,6 +92,36 @@ describe("ConnectionSyncPanel", () => {
     vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "No tenés permisos para realizar esta acción." });
     fireEvent.click(screen.getByRole("button", { name: "Asignar Company a la conexión" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("No tenés permisos para realizar esta acción.");
+  });
+
+  it("muestra que la conexión nunca sincronizó cuando no hay corridas registradas", async () => {
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: { connectionId: "conn-1", isDue: true } });
+    render(<ConnectionSyncPanel />);
+    await fillConnectionId();
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
+    expect(await screen.findByText("Todavía no hay sincronizaciones registradas.")).toBeInTheDocument();
+  });
+
+  it("limpia el estado anterior cuando la conexión cambia y la nueva solicitud falla, mostrando a qué conexión pertenece", async () => {
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: FULL_STATUS });
+    render(<ConnectionSyncPanel />);
+    await fillConnectionId("conn-1");
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
+    expect(await screen.findByText("Conexión: conn-1")).toBeInTheDocument();
+    await fillConnectionId("conn-2");
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "No tenés permisos para realizar esta acción." });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
+    await screen.findByRole("alert");
+    expect(screen.queryByText("Conexión: conn-1")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Estado de la conexión" })).not.toBeInTheDocument();
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: FULL_STATUS });
+    fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
+    await screen.findByText("Conexión: conn-1");
+    await fillConnectionId("conn-3");
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "Este proveedor todavía no admite sincronización." });
+    fireEvent.click(screen.getByRole("button", { name: "Sincronizar ahora" }));
+    await screen.findByRole("alert");
+    expect(screen.queryByText("Conexión: conn-1")).not.toBeInTheDocument();
   });
 
   it("deshabilita los controles mientras una solicitud está en curso y los rehabilita al terminar", async () => {

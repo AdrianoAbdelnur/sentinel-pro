@@ -15,7 +15,7 @@ export function CompanyCandidateBindingPanel() {
     setLoading(true);
     setError(undefined);
     setNotice(undefined);
-    const result = await requestCatalogApi<{ candidate: { id: string; companyId?: string } }>(`/api/admin/catalog/companies/candidates/${encodeURIComponent(candidateId)}/bind`, { method: "POST", body: JSON.stringify({ companyId }) });
+    const result = await requestCatalogApi<{ candidate: { id: string; companyId?: string } }>(`/api/admin/catalog/companies/candidates/${encodeURIComponent(candidateId.trim())}/bind`, { method: "POST", body: JSON.stringify({ companyId: companyId.trim() }) });
     setLoading(false);
     if (result.error) setError(result.error); else setNotice("Candidato vinculado a la Company.");
   }

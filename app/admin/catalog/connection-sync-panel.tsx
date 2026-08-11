@@ -28,15 +28,15 @@ export function ConnectionSyncPanel() {
 
   const consultarEstado = () => run(async () => {
     const result = await requestCatalogApi<{ status: SyncStatus }>(`/api/admin/catalog/connections/${encodeURIComponent(connectionId)}/status`, { method: "GET" });
-    if (result.error) setError(result.error); else if (result.status) setStatus(result.status);
+    if (result.error) { setStatus(undefined); setError(result.error); } else if (result.status) setStatus(result.status);
   });
 
   const sincronizarAhora = () => run(async () => {
     const result = await requestCatalogApi<{ status: "succeeded" | "skipped-fresh" }>(`/api/admin/catalog/connections/${encodeURIComponent(connectionId)}/sync`, { method: "POST" });
-    if (result.error) return setError(result.error);
+    if (result.error) { setStatus(undefined); return setError(result.error); }
     setNotice(result.status === "skipped-fresh" ? "La conexión ya estaba sincronizada." : "Sincronización completada.");
     const refreshed = await requestCatalogApi<{ status: SyncStatus }>(`/api/admin/catalog/connections/${encodeURIComponent(connectionId)}/status`, { method: "GET" });
-    if (!refreshed.error && refreshed.status) setStatus(refreshed.status);
+    if (!refreshed.error && refreshed.status) setStatus(refreshed.status); else if (refreshed.error) setStatus(undefined);
   });
 
   const asignarCompany = () => run(async () => {
@@ -57,6 +57,7 @@ export function ConnectionSyncPanel() {
       <button className="rounded bg-zinc-700 px-3 py-2 disabled:opacity-60" disabled={loading || !connectionId.trim() || !companyId.trim()} onClick={asignarCompany} type="button">Asignar Company a la conexión</button>
       {status ? (
         <section aria-label="Estado de la conexión" className="flex flex-col gap-2 rounded border border-zinc-800 p-3 text-sm">
+          <p>Conexión: {status.connectionId}</p>
           <p>{status.isDue ? "Sincronización pendiente." : "Sincronización al día."}</p>
           <p>Último éxito: {formatSyncDateTime(status.lastSuccessAt)}</p>
           {latestRun ? (
