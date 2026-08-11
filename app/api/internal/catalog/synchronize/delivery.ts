@@ -48,6 +48,10 @@ function toUnsupportedSummary(connection: ProviderConnection) {
   return { organizationId: connection.organizationId, connectionId: connection.id, kind: "unsupported-provider" as const, retryable: false, permanent: true };
 }
 
-export function toSynchronizeResponse(results: CatalogSyncBatchResult[], unsupported: ProviderConnection[]) {
-  return NextResponse.json({ results: [...results.map(toOutcomeSummary), ...unsupported.map(toUnsupportedSummary)] });
+function toMissingCompanyAssignmentSummary(connection: ProviderConnection) {
+  return { organizationId: connection.organizationId, connectionId: connection.id, kind: "missing-company-assignment" as const, retryable: false, permanent: true };
+}
+
+export function toSynchronizeResponse(results: CatalogSyncBatchResult[], unsupported: ProviderConnection[], missingCompanyAssignment: ProviderConnection[]) {
+  return NextResponse.json({ results: [...results.map(toOutcomeSummary), ...unsupported.map(toUnsupportedSummary), ...missingCompanyAssignment.map(toMissingCompanyAssignmentSummary)] });
 }

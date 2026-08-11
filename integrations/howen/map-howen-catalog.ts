@@ -7,7 +7,7 @@ function text(value: string | undefined): string | undefined {
   return normalized ? normalized : undefined;
 }
 
-export function mapHowenCatalog(records: HowenRosterRecord[], companyLabel: string): CatalogImportCandidate[] {
+export function mapHowenCatalog(records: HowenRosterRecord[], companyId: string): CatalogImportCandidate[] {
   const seenDeviceNumbers = new Set<string>();
   const candidates: CatalogImportCandidate[] = [];
 
@@ -23,7 +23,7 @@ export function mapHowenCatalog(records: HowenRosterRecord[], companyLabel: stri
 
     seenDeviceNumbers.add(externalId);
 
-    candidates.push({ externalId, companyLabel, externalFleetId, fleetLabel, label });
+    candidates.push({ externalId, companyId, externalFleetId, fleetLabel, label });
   }
 
   return candidates;

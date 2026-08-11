@@ -360,10 +360,9 @@ describe("canonical Fleet union across bound provider identities (Howen fleet bi
   it("does not auto-link a Howen device whose devicename exactly equals an existing Cybermapa Vehicle's plate, creating a separate Vehicle instead of a false merge", async () => {
     const fixture = createFixture();
     const company = await bindCompany(fixture, "Acme Transport");
-    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
     await fixture.importer.importCatalog({ connection, run: newRun("run-cyber"), source: fakeSource([{ externalId: "cyber-v2", companyLabel: "Acme Transport", normalizedPlate: "AA264KK" }]) });
     const [v2] = [...fixture.vehicles.values()];
-    const howenCandidates = mapHowenCatalog([{ deviceno: "howen-d1", devicename: "AA264KK", fleetid: "F1", fleetname: "North" }], "Acme Transport");
+    const howenCandidates = mapHowenCatalog([{ deviceno: "howen-d1", devicename: "AA264KK", fleetid: "F1", fleetname: "North" }], company.company.id);
 
     const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen"), source: fakeSource(howenCandidates) });
 
@@ -422,5 +421,33 @@ describe("Company unavailable gates Howen Fleet composition too", () => {
     expect(fixture.vehicles.size).toBe(0);
     expect(fixture.fleetIdentities.size).toBe(0);
     expect(fixture.reviews.size).toBe(0);
+  });
+});
+
+describe("candidates carrying a pre-resolved companyId bypass label staging entirely", () => {
+  it("binds a Howen-shaped candidate directly by companyId, without staging or saving any company candidate", async () => {
+    const fixture = createFixture();
+    const created = await fixture.catalog.createCompany({ actor: admin, name: "Fleet Co" });
+    if (created.kind !== "created") throw new Error("expected company creation");
+    const candidateSaveSpy = vi.fn(fixture.ports.candidates.save);
+    fixture.ports.candidates.save = candidateSaveSpy;
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-direct"), source: fakeSource([{ externalId: "howen-d1", companyId: created.company.id, externalFleetId: "H900", fleetLabel: "North Route" }]) });
+
+    expect(result.kind === "completed" ? result.counts.created : -1).toBe(1);
+    expect(candidateSaveSpy).not.toHaveBeenCalled();
+    expect(fixture.candidates.size).toBe(0);
+  });
+
+  it("rejects a candidate missing both companyId and companyLabel, creating no canonical Fleet or Vehicle", async () => {
+    const fixture = createFixture();
+    const vehicleSaveSpy = vi.fn(fixture.ports.vehicles.save);
+    fixture.ports.vehicles.save = vehicleSaveSpy;
+
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-orphan"), source: fakeSource([{ externalId: "howen-orphan" }]) });
+
+    expect(result.kind === "completed" ? result.counts.rejected : -1).toBe(1);
+    expect(vehicleSaveSpy).not.toHaveBeenCalled();
+    expect(fixture.vehicles.size).toBe(0);
   });
 });

@@ -5,15 +5,15 @@ import { mapHowenCatalog } from "./map-howen-catalog";
 
 type CreateHowenImportSourceInput = {
   client: HowenClient;
-  companyLabel: string;
+  companyId: string;
 };
 
-export function createHowenImportSource({ client, companyLabel }: CreateHowenImportSourceInput): CatalogImportSource {
+export function createHowenImportSource({ client, companyId }: CreateHowenImportSourceInput): CatalogImportSource {
   return {
     async loadCompleteSnapshot(): Promise<CatalogSnapshotResult> {
       try {
         const records = await client.fetchRoster();
-        const candidates = mapHowenCatalog(records, companyLabel);
+        const candidates = mapHowenCatalog(records, companyId);
 
         if (records.length > 0 && candidates.length === 0) {
           return { kind: "failed", failure: { category: "invalid-response" } };

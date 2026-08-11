@@ -122,7 +122,8 @@ export type CatalogImportItemRepository = {
 
 export type CatalogImportCandidate = {
   externalId: string;
-  companyLabel: string;
+  companyLabel?: string;
+  companyId?: string;
   normalizedPlate?: string;
   label?: string;
   externalFleetId?: string;

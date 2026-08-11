@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { toCompanyCandidateDocument, toVehicleDocument } from "./catalog-documents";
+import { toCompanyCandidateDocument, toProviderConnectionDomain, toVehicleDocument } from "./catalog-documents";
 
 describe("catalog document mapping", () => {
   it("omits undefined optional vehicle fields so strict MongoDB validation accepts native vehicles without them", () => {
@@ -17,5 +17,15 @@ describe("catalog document mapping", () => {
     const document = toCompanyCandidateDocument({ id: "cand", organizationId: "org", connectionId: "conn", normalizedLabel: "acme", companyId: undefined }, now);
 
     expect(document).not.toHaveProperty("companyId");
+  });
+
+  it("carries an assigned companyId from a provider connection document into the domain shape", () => {
+    const document = { id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/org", companyId: "company-a" } as never;
+    expect(toProviderConnectionDomain(document)).toEqual({ id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/org", companyId: "company-a" });
+  });
+
+  it("omits companyId from the domain shape when the underlying connection document lacks it", () => {
+    const document = { id: "conn-cyber", organizationId: "org", credentialRef: "vault:cybermapa/org" } as never;
+    expect(toProviderConnectionDomain(document)).not.toHaveProperty("companyId");
   });
 });

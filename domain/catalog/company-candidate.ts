@@ -2,6 +2,7 @@ export type ProviderConnection = {
   id: string;
   organizationId: string;
   credentialRef: string;
+  companyId?: string;
 };
 
 export type CompanyCandidate = {

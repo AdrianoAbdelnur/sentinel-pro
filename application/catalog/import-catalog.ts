@@ -100,6 +100,13 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return undefined;
   }
 
+  async function resolveCandidateCompanyId(connection: ProviderConnection, candidate: CatalogImportCandidate): Promise<string | undefined> {
+    if (candidate.companyId) return candidate.companyId;
+    if (!candidate.companyLabel) return undefined;
+    const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
+    return staged.candidate.companyId;
+  }
+
   async function processBoundCandidate(
     connection: ProviderConnection,
     companyId: string,
@@ -189,10 +196,10 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
             const item = existingItem ?? stageCatalogImportItem(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, runId: run.id, externalId: candidate.externalId });
             if (!existingItem) await ports.importItems.save(item);
 
-            const staged = await binding.stageCompanyCandidate({ connection, externalLabel: candidate.companyLabel });
+            const companyId = await resolveCandidateCompanyId(connection, candidate);
             let outcome: CatalogImportItemOutcome;
-            if (staged.candidate.companyId) {
-              outcome = await processBoundCandidate(connection, staged.candidate.companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);
+            if (companyId) {
+              outcome = await processBoundCandidate(connection, companyId, candidate, identities, fleetIdentities, companyVehiclesCache, companyFleetsCache, item, run.id);
             } else {
               outcome = "rejected";
               await ports.importItems.save(markCatalogImportItemProcessed(item, outcome));

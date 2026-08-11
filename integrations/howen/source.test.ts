@@ -12,7 +12,7 @@ describe("createHowenImportSource", () => {
     const fetchRoster = vi.fn().mockResolvedValueOnce([
       { deviceno: "device-1", devicename: "AA264KK", fleetid: "fleet-1", fleetname: "Travil SAS" },
     ]);
-    const source = createHowenImportSource({ client: client(fetchRoster), companyLabel: "Acme Transport" });
+    const source = createHowenImportSource({ client: client(fetchRoster), companyId: "company-acme" });
 
     const result = await source.loadCompleteSnapshot();
 
@@ -21,7 +21,7 @@ describe("createHowenImportSource", () => {
       candidates: [
         {
           externalId: "device-1",
-          companyLabel: "Acme Transport",
+          companyId: "company-acme",
           externalFleetId: "fleet-1",
           fleetLabel: "Travil SAS",
           label: "AA264KK",
@@ -32,14 +32,14 @@ describe("createHowenImportSource", () => {
 
   it("returns a complete but empty snapshot when Howen genuinely reports zero vehicles", async () => {
     const fetchRoster = vi.fn().mockResolvedValueOnce([]);
-    const source = createHowenImportSource({ client: client(fetchRoster), companyLabel: "Acme Transport" });
+    const source = createHowenImportSource({ client: client(fetchRoster), companyId: "company-acme" });
 
     await expect(source.loadCompleteSnapshot()).resolves.toEqual({ kind: "complete", candidates: [] });
   });
 
   it("returns a failed invalid-response snapshot when every record in a non-empty response is unparseable, instead of impersonating an empty catalog", async () => {
     const fetchRoster = vi.fn().mockResolvedValueOnce([{}, {}]);
-    const source = createHowenImportSource({ client: client(fetchRoster), companyLabel: "Acme Transport" });
+    const source = createHowenImportSource({ client: client(fetchRoster), companyId: "company-acme" });
 
     const result = await source.loadCompleteSnapshot();
 
@@ -49,7 +49,7 @@ describe("createHowenImportSource", () => {
 
   it("returns a failed internal-category snapshot without leaking the raw provider error when the client rejects", async () => {
     const fetchRoster = vi.fn().mockRejectedValueOnce(new Error("raw-secret JSESSIONID=session status=10003"));
-    const source = createHowenImportSource({ client: client(fetchRoster), companyLabel: "Acme Transport" });
+    const source = createHowenImportSource({ client: client(fetchRoster), companyId: "company-acme" });
 
     const result = await source.loadCompleteSnapshot();
 

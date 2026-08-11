@@ -78,6 +78,39 @@ describe("Mongo catalog persistence", () => {
     expect((await repos.connections.listAll()).map((connection) => connection.id).sort()).toEqual(["conn-a", "conn-b"]);
   });
 
+  it("persists an optional Howen company assignment on a connection while a Cybermapa connection stays unassigned", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    await repos.connections.save({ id: "conn-howen", organizationId: "org-a", credentialRef: "vault:howen/org-a", companyId: "company-a" });
+    await repos.connections.save({ id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" });
+
+    await expect(repos.connections.findById("org-a", "conn-howen")).resolves.toEqual({ id: "conn-howen", organizationId: "org-a", credentialRef: "vault:howen/org-a", companyId: "company-a" });
+    const cyber = await repos.connections.findById("org-a", "conn-cyber");
+    expect(cyber).toEqual({ id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" });
+    expect(cyber).not.toHaveProperty("companyId");
+  });
+
+  it("rejects a non-string companyId on a provider connection at the database level", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await expect(db.collection("provider_connections").insertOne({ schemaVersion: 1, id: "conn-bad", organizationId: "org-a", credentialRef: "vault:howen/org-a", companyId: 12345, createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+  });
+
+  it("keeps a pre-migration connection document without companyId loadable and re-saveable after the migration runs twice", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const now = new Date();
+    await db.collection("provider_connections").insertOne({ schemaVersion: 1, id: "conn-legacy", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a", createdAt: now, updatedAt: now });
+
+    await migrateCatalogDatabase(db);
+    await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+
+    const legacy = await repos.connections.findById("org-a", "conn-legacy");
+    expect(legacy).toEqual({ id: "conn-legacy", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" });
+    await expect(repos.connections.save(legacy!)).resolves.toBeUndefined();
+    await expect(repos.connections.findById("org-a", "conn-legacy")).resolves.toEqual({ id: "conn-legacy", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" });
+  });
+
   it("scopes candidate lookup by connection and label to its own tenant", async () => {
     const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
     const repos = createMongoCatalogRepositories(db);
