@@ -12,6 +12,7 @@ function createFixture() {
   const fleetIdentities = new Map<string, ExternalFleetIdentity>();
   const vehicleIdentities = new Map<string, ExternalVehicleIdentity>();
   const vehicleSaves: Vehicle[] = [];
+  const fleetIdentitySaves: ExternalFleetIdentity[] = [];
   let sequence = 0;
   const ports: CatalogReviewApplicationPorts = {
     reviews: {
@@ -30,12 +31,12 @@ function createFixture() {
     vehicles: { findById: async (id) => vehicles.get(id), save: async (vehicle) => { vehicles.set(vehicle.id, vehicle); vehicleSaves.push(vehicle); } },
     fleetIdentities: {
       findByConnectionAndExternalId: async (organizationId, connectionId, externalId) => [...fleetIdentities.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
-      save: async (identity) => { fleetIdentities.set(identity.id, identity); },
+      save: async (identity) => { fleetIdentities.set(identity.id, identity); fleetIdentitySaves.push(identity); },
     },
     vehicleIdentities: { save: async (identity) => { vehicleIdentities.set(identity.id, identity); } },
     ids: { create: () => `id-${++sequence}` },
   };
-  return { app: createCatalogReviewApplication(ports), reviews, fleets, vehicles, vehicleSaves, fleetIdentities, vehicleIdentities };
+  return { app: createCatalogReviewApplication(ports), reviews, fleets, vehicles, vehicleSaves, fleetIdentities, fleetIdentitySaves, vehicleIdentities };
 }
 
 const admin = { userId: "admin-1", organizationId: "org-a", role: "admin" as const };
@@ -84,6 +85,15 @@ describe("resolving a pending review requires an authorized, fresh tenant admini
     expect(result).toEqual({ kind: "not-found" });
   });
 
+  it("rejects a vehicle-match target that does not exist at all, for an otherwise pending, correctly-scoped review", async () => {
+    const fixture = createFixture();
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+
+    const result = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "existing", targetId: "vehicle-does-not-exist" } });
+
+    expect(result).toEqual({ kind: "not-found" });
+  });
+
   it("lets a fresh tenant administrator resolve a fleet-binding review to an existing Fleet in the bound Company, and binds the underlying external Fleet identity", async () => {
     const fixture = createFixture();
     fixture.reviews.set("review-fleet", fleetBindingReview());
@@ -94,6 +104,7 @@ describe("resolving a pending review requires an authorized, fresh tenant admini
     expect(result.kind).toBe("resolved");
     expect(result.kind === "resolved" ? (result.review as FleetBindingReview).resolvedFleetId : undefined).toBe(targetFleet.id);
     expect(fixture.fleetIdentities.get("identity-1")?.fleetId).toBe(targetFleet.id);
+    expect(fixture.fleetIdentitySaves).toHaveLength(1);
   });
 
   it("lets a fresh tenant administrator resolve a vehicle-match review to an existing Vehicle in the bound Company, creating the external Vehicle identity that never existed for a reviewed record", async () => {
@@ -146,6 +157,7 @@ describe("resolving a pending review requires an authorized, fresh tenant admini
     const created = resolvedVehicleId ? fixture.vehicles.get(resolvedVehicleId) : undefined;
     expect(created?.companyId).toBe("company-a");
     expect(created?.placement.fleetId).toBe(unassignedFleetA.id);
+    expect(created?.plate).toBe("ABC123");
     const links = [...fixture.vehicleIdentities.values()].filter((identity) => identity.externalId === "V1");
     expect(links).toHaveLength(1);
     expect(links[0]?.vehicleId).toBe(resolvedVehicleId);

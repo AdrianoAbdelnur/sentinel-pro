@@ -9,14 +9,16 @@ const resolveCatalogReview = vi.fn();
 const listPendingCatalogReviews = vi.fn();
 const bindProviderCompany = vi.fn();
 const synchronizeCatalogConnection = vi.fn();
+const getCatalogSyncStatus = vi.fn();
 const connectionsPort = { findById: vi.fn() };
 const factories = { cybermapa: () => ({ loadCompleteSnapshot: vi.fn() }) };
-vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => ({ resolveCatalogReview, listPendingCatalogReviews, bindProviderCompany, synchronizeCatalogConnection, connections: connectionsPort, factories }) }));
+vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => ({ resolveCatalogReview, listPendingCatalogReviews, bindProviderCompany, synchronizeCatalogConnection, connections: connectionsPort, factories, getCatalogSyncStatus }) }));
 
 import { GET as listReviews } from "./reviews/route";
 import { POST as resolveReview } from "./reviews/[reviewId]/resolve/route";
 import { POST as bindCandidate } from "./companies/candidates/[candidateId]/bind/route";
 import { POST as syncConnection } from "./connections/[connectionId]/sync/route";
+import { GET as getStatus } from "./connections/[connectionId]/status/route";
 
 const cybermapaConnection = { id: "conn-1", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" };
 const howenConnection = { id: "conn-howen", organizationId: "org-a", credentialRef: "vault:howen/org-a" };
@@ -136,6 +138,12 @@ describe("POST /api/admin/catalog/companies/candidates/[candidateId]/bind", () =
     expect(bindProviderCompany).not.toHaveBeenCalled();
   });
 
+  it("rejects a blank candidateId before any application call", async () => {
+    const response = await bind("https://sentinel.test/api/admin/catalog/companies/candidates/%20/bind", { companyId: "company-1" }, " ");
+    expect(response.status).toBe(400);
+    expect(bindProviderCompany).not.toHaveBeenCalled();
+  });
+
   it("maps an application-level forbidden result (invalid candidate or cross-tenant Company) to 403", async () => {
     bindProviderCompany.mockResolvedValue({ kind: "forbidden" });
     const response = await bind("https://sentinel.test/api/admin/catalog/companies/candidates/candidate-1/bind", { companyId: "company-1" });
@@ -214,8 +222,47 @@ describe("POST /api/admin/catalog/connections/[connectionId]/sync", () => {
   });
 });
 
+describe("GET /api/admin/catalog/connections/[connectionId]/status", () => {
+  beforeEach(() => { vi.clearAllMocks(); application.authorize.mockResolvedValue({ kind: "authorized", context }); });
+
+  const status = (connectionId = "conn-1") => getStatus(get(`https://sentinel.test/api/admin/catalog/connections/${connectionId}/status`), { params: Promise.resolve({ connectionId }) });
+
+  it("rejects a request without a valid session before touching the application", async () => {
+    const response = await getStatus(new Request("https://sentinel.test/api/admin/catalog/connections/conn-1/status", { method: "GET", headers: { origin: "https://sentinel.test" } }), { params: Promise.resolve({ connectionId: "conn-1" }) });
+    expect(response.status).toBe(403);
+    expect(getCatalogSyncStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects an operator before touching the application", async () => {
+    application.authorize.mockResolvedValue({ kind: "forbidden" });
+    expect((await status()).status).toBe(403);
+    expect(getCatalogSyncStatus).not.toHaveBeenCalled();
+  });
+
+  it("rejects a blank connectionId before any application call", async () => {
+    const response = await getStatus(get("https://sentinel.test/api/admin/catalog/connections/%20/status"), { params: Promise.resolve({ connectionId: " " }) });
+    expect(response.status).toBe(400);
+    expect(getCatalogSyncStatus).not.toHaveBeenCalled();
+  });
+
+  it("maps a nonexistent or cross-tenant connection to the same 403 as any other forbidden result", async () => {
+    getCatalogSyncStatus.mockResolvedValue({ kind: "not-found" });
+    expect((await status()).status).toBe(403);
+  });
+
+  it("derives organizationId strictly from the authenticated actor and projects the already-allowlisted status without widening it", async () => {
+    const syncStatus = { connectionId: "conn-1", latestRun: { status: "succeeded", trigger: "manual", startedAt: new Date(), counts: { processed: 3 } }, lastSuccessAt: new Date(), isDue: false };
+    getCatalogSyncStatus.mockResolvedValue({ kind: "found", status: syncStatus });
+    const response = await status();
+    const body = await response.json();
+    expect(getCatalogSyncStatus).toHaveBeenCalledWith({ organizationId: context.organizationId, connectionId: "conn-1" });
+    expect(body.status).toEqual(JSON.parse(JSON.stringify(syncStatus)));
+    expect(JSON.stringify(body)).not.toContain("org-a");
+  });
+});
+
 describe("freshness: every catalog admin route re-authorizes against the database instead of trusting a cached session", () => {
-  it("uses a fresh admin authorization request on list, resolve, bind, and sync", async () => {
+  it("uses a fresh admin authorization request on list, resolve, bind, sync, and status", async () => {
     vi.clearAllMocks();
     application.authorize.mockResolvedValue({ kind: "authorized", context });
     connectionsPort.findById.mockResolvedValue(cybermapaConnection);
@@ -223,13 +270,15 @@ describe("freshness: every catalog admin route re-authorizes against the databas
     resolveCatalogReview.mockResolvedValue({ kind: "already-resolved" });
     bindProviderCompany.mockResolvedValue({ kind: "forbidden" });
     synchronizeCatalogConnection.mockResolvedValue({ kind: "already-running" });
+    getCatalogSyncStatus.mockResolvedValue({ kind: "not-found" });
 
     await listReviews(get("https://sentinel.test/api/admin/catalog/reviews"));
     await resolveReview(post("https://sentinel.test/api/admin/catalog/reviews/review-1/resolve", { targetId: "fleet-1" }), { params: Promise.resolve({ reviewId: "review-1" }) });
     await bindCandidate(post("https://sentinel.test/api/admin/catalog/companies/candidates/candidate-1/bind", { companyId: "company-1" }), { params: Promise.resolve({ candidateId: "candidate-1" }) });
     await syncConnection(post("https://sentinel.test/api/admin/catalog/connections/conn-1/sync"), { params: Promise.resolve({ connectionId: "conn-1" }) });
+    await getStatus(get("https://sentinel.test/api/admin/catalog/connections/conn-1/status"), { params: Promise.resolve({ connectionId: "conn-1" }) });
 
-    expect(application.authorize).toHaveBeenCalledTimes(4);
-    expect(application.authorize.mock.calls).toEqual(Array.from({ length: 4 }, () => [{ token: "opaque-token", requiredRole: "admin" }]));
+    expect(application.authorize).toHaveBeenCalledTimes(5);
+    expect(application.authorize.mock.calls).toEqual(Array.from({ length: 5 }, () => [{ token: "opaque-token", requiredRole: "admin" }]));
   });
 });
