@@ -10,7 +10,11 @@ import type {
 } from "@/domain/catalog";
 import type { Device, DeviceTelemetry } from "@/domain/live";
 
-import { projectCanonicalLive } from "./project-canonical-live";
+import {
+  createCanonicalCatalogOperationalSource,
+  projectCanonicalLive,
+  type ProjectCanonicalLiveInput,
+} from "./project-canonical-live";
 
 const organizationId = "org-a";
 
@@ -226,3 +230,30 @@ describe("projectCanonicalLive — capability fallback", () => {
   });
 });
 
+
+describe("createCanonicalCatalogOperationalSource", () => {
+  it("wraps a successful canonical catalog load as a projected LiveState", async () => {
+    const input: ProjectCanonicalLiveInput = {
+      organizationId,
+      connections: [],
+      fleets: [],
+      vehicles: [],
+      fleetIdentities: [],
+      vehicleIdentities: [],
+      capabilityPolicies: [],
+      sourceSnapshots: {},
+    };
+    const source = createCanonicalCatalogOperationalSource(async () => input);
+
+    await expect(source.loadSnapshot()).resolves.toEqual({ kind: "success", state: { fleets: [], liveVehicles: [] } });
+    expect(source.identity).toEqual({ id: "canonical-catalog", label: "Catálogo canónico" });
+  });
+
+  it("reports the source unavailable instead of throwing when the canonical catalog cannot be loaded", async () => {
+    const source = createCanonicalCatalogOperationalSource(async () => {
+      throw new Error("boom");
+    });
+
+    await expect(source.loadSnapshot()).resolves.toEqual({ kind: "failure", code: "unavailable" });
+  });
+});

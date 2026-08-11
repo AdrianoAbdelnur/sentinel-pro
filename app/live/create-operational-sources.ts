@@ -11,6 +11,7 @@ type OperationalSourceRuntimeConfig = {
 
 type OperationalSourceDependencies = {
   howenSource?: OperationalSource;
+  canonicalCatalogSource?: OperationalSource;
 };
 
 type HowenEnvironment = Record<string, string | undefined>;
@@ -58,6 +59,10 @@ export function createOperationalSources(
   dependencies: OperationalSourceDependencies = {},
 ): OperationalSource[] {
   const sources = [dependencies.howenSource ?? getSharedHowenSource()];
+
+  if (dependencies.canonicalCatalogSource) {
+    sources.push(dependencies.canonicalCatalogSource);
+  }
 
   if (config.includeDevelopmentFixtures) {
     sources.push(inMemoryOperationalSource);

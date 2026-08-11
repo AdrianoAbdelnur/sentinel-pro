@@ -17,7 +17,14 @@ import {
 } from "@/domain/catalog";
 import type { Device, DeviceTelemetry, Vehicle as LiveVehicleEntity } from "@/domain/live";
 
-import type { LiveFleetState, LiveState, LiveVehicleState } from "./contracts";
+import type {
+  LiveFleetState,
+  LiveState,
+  LiveVehicleState,
+  OperationalSource,
+  OperationalSourceIdentity,
+  OperationalSourceResult,
+} from "./contracts";
 
 const PROJECTED_CAPABILITIES = Object.keys(SYSTEM_DEFAULT_CAPABILITY_SOURCE_ORDER) as Capability[];
 
@@ -164,3 +171,24 @@ export function projectCanonicalLive(input: ProjectCanonicalLiveInput): LiveStat
   return { fleets, liveVehicles };
 }
 
+
+export type LoadCanonicalLiveState = () => Promise<ProjectCanonicalLiveInput>;
+
+const CANONICAL_CATALOG_IDENTITY: OperationalSourceIdentity = {
+  id: "canonical-catalog",
+  label: "Catálogo canónico",
+};
+
+export function createCanonicalCatalogOperationalSource(load: LoadCanonicalLiveState): OperationalSource {
+  return {
+    identity: CANONICAL_CATALOG_IDENTITY,
+    async loadSnapshot(): Promise<OperationalSourceResult> {
+      try {
+        const input = await load();
+        return { kind: "success", state: projectCanonicalLive(input) };
+      } catch {
+        return { kind: "failure", code: "unavailable" };
+      }
+    },
+  };
+}
