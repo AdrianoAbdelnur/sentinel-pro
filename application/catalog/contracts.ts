@@ -1,4 +1,4 @@
-import type { CapabilityPolicy, CatalogSyncCounts, CatalogSyncFailure, Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
+import type { CapabilityPolicy, CatalogReview, CatalogSyncCounts, CatalogSyncFailure, Company, CompanyCandidate, Fleet, Vehicle } from "@/domain/catalog";
 
 export type CreateCompanyResult =
   | { kind: "created"; company: Company; unassignedFleet: Fleet }
@@ -27,3 +27,13 @@ export type SetCapabilityPolicyResult = { kind: "set"; policy: CapabilityPolicy 
 export type ImportCatalogResult =
   | { kind: "completed"; counts: CatalogSyncCounts; checkpoint?: string }
   | { kind: "failed"; failure: CatalogSyncFailure };
+
+export type ReviewResolutionTarget = { targetId: string };
+
+export type ResolveCatalogReviewResult =
+  | { kind: "resolved"; review: CatalogReview }
+  | { kind: "already-resolved" }
+  | { kind: "not-found" }
+  | { kind: "forbidden" };
+
+export type ListPendingCatalogReviewsResult = { kind: "listed"; reviews: CatalogReview[] } | { kind: "forbidden" };

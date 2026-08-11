@@ -157,6 +157,15 @@ export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
   clock: Clock;
 };
 
+export type CatalogReviewApplicationPorts = {
+  reviews: CatalogReviewRepository;
+  fleets: Pick<FleetRepository, "findById">;
+  vehicles: Pick<VehicleRepository, "findById">;
+  vehicleIdentities: Pick<ExternalVehicleIdentityRepository, "save">;
+  fleetIdentities: Pick<ExternalFleetIdentityRepository, "findByConnectionAndExternalId" | "save">;
+  ids: Pick<IdGenerator, "create">;
+};
+
 export type SynchronizeDueCatalogConnectionsPorts = {
   syncRuns: Pick<CatalogSyncRunRepository, "findLastSuccess">;
   clock: Clock;

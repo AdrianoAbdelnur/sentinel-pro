@@ -2,6 +2,7 @@ export * from "./contracts";
 export * from "./ports";
 export * from "./use-cases";
 export * from "./bind-provider-company";
+export * from "./resolve-catalog-review";
 export * from "./set-capability-policy";
 export * from "./import-catalog";
 export * from "./sync-contracts";
