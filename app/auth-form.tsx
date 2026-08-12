@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type AuthFormProps = { endpoint: string; fields: "login" | "password" | "organization"; submitLabel: string };
+const authDebugEnabled = process.env.NEXT_PUBLIC_AUTH_DEBUG === "true";
 
 export default function AuthForm({ endpoint, fields, submitLabel }: AuthFormProps) {
   const router = useRouter();
@@ -11,9 +12,11 @@ export default function AuthForm({ endpoint, fields, submitLabel }: AuthFormProp
   async function submit(formData: FormData) {
     setError("");
     const payload = Object.fromEntries(formData);
+    if (authDebugEnabled) console.log("[auth:client] request", { endpoint, email: typeof payload.email === "string" ? payload.email : undefined, passwordLength: typeof payload.password === "string" ? payload.password.length : undefined, fields });
     try {
       const response = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const result: unknown = await response.json().catch(() => undefined);
+      if (authDebugEnabled) console.log("[auth:client] response", { status: response.status, ok: response.ok, result: typeof result === "object" && result !== null ? result : undefined });
       const error = typeof result === "object" && result !== null && "error" in result && typeof result.error === "string" ? result.error : "No pudimos continuar. Intentá nuevamente.";
       if (!response.ok) return setError(error);
       const next = typeof result === "object" && result !== null && "next" in result && typeof result.next === "string" ? result.next : undefined;
