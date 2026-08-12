@@ -4,6 +4,8 @@ import { NextResponse } from "next/server";
 import { getIdentityApplication } from "../composition";
 import { expireSession, getSessionCookieName, getSessionCookieOptions } from "../delivery";
 
+const authDebugEnabled = process.env.SENTINEL_AUTH_DEBUG === "true";
+
 const invalidCredentials = { error: "El correo electrónico o la contraseña no son válidos." };
 const noActiveMembership = { error: "No tenés una membresía activa en una organización." };
 
@@ -36,9 +38,13 @@ async function toLoginResponse(request: Request, result: LoginResult, logout: (i
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
+  const email = typeof body.email === "string" ? body.email : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  if (authDebugEnabled) console.log("[auth:server] request", { email, passwordLength: password.length });
   try {
     const application = await getIdentityApplication();
-    const result = await application.login({ email: typeof body.email === "string" ? body.email : "", password: typeof body.password === "string" ? body.password : "" });
+    const result = await application.login({ email, password });
+    if (authDebugEnabled) console.log("[auth:server] result", { email, kind: result.kind });
     return toLoginResponse(request, result, application.logout);
   } catch {
     return NextResponse.json({ error: "No pudimos continuar. Intentá nuevamente." }, { status: 500 });
