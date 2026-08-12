@@ -6,5 +6,5 @@ export async function POST(request: Request) {
   if (!isSameOrigin(request)) return forbidden();
   const token = readSessionToken(request);
   if (token) await (await getIdentityApplication()).logout({ token });
-  return expireSession(new NextResponse(null, { status: 204 }));
+  return expireSession(request, new NextResponse(null, { status: 204 }));
 }
