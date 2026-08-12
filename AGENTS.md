@@ -337,3 +337,11 @@ Until replaced by more specific project docs, assume the bootstrap order is:
 
 
 
+
+## Branch Discipline
+
+- Never commit or push directly to `main`.
+- Start every new feature, bugfix, chore, or documentation topic on a dedicated branch whose name describes that topic.
+- Before switching branches, check that the current branch has no uncommitted or unpushed work. If it does, stop and ask the user how to proceed.
+- Only stage, commit, or push work from its corresponding topic branch.
+- Integrate into `main` only through the repository's approved review and merge workflow.
