@@ -43,6 +43,7 @@ feature out or back.
 
 ## Security
 
+- Provider master credentials are shared only behind explicit connection authorization. A `ProviderConnection` binds one canonical Company and records its authorized external scope IDs. Before an external snapshot reaches catalog staging, matching, identity creation, review, or canonical association, synchronization denies every record without a listed scope. Howen uses its stable `fleetid`; Cybermapa uses its confirmed stable, unique `nombre_empresa` through an exact normalized allowlist. A missing Company or empty authorization lists deny the entire snapshot and fail the run without reconciling absence.
 - `app/api/internal/catalog/synchronize/route.ts` declares
   `export const runtime = "nodejs"`. The Edge runtime cannot run the
   constant-time secret comparison this route needs, and the MongoDB driver

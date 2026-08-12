@@ -19,9 +19,9 @@ describe("catalog document mapping", () => {
     expect(document).not.toHaveProperty("companyId");
   });
 
-  it("carries an assigned companyId from a provider connection document into the domain shape", () => {
-    const document = { id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/org", companyId: "company-a" } as never;
-    expect(toProviderConnectionDomain(document)).toEqual({ id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/org", companyId: "company-a" });
+  it("carries assigned Company authorization scopes from a provider connection document into the domain shape", () => {
+    const document = { id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/master", companyId: "company-a", authorizedExternalCompanyLabels: ["empresa a"], authorizedExternalFleetIds: ["fleet-20"], authorizedExternalVehicleIds: ["device-10"] } as never;
+    expect(toProviderConnectionDomain(document)).toEqual({ id: "conn-howen", organizationId: "org", credentialRef: "vault:howen/master", companyId: "company-a", authorizedExternalCompanyLabels: ["empresa a"], authorizedExternalFleetIds: ["fleet-20"], authorizedExternalVehicleIds: ["device-10"] });
   });
 
   it("omits companyId from the domain shape when the underlying connection document lacks it", () => {

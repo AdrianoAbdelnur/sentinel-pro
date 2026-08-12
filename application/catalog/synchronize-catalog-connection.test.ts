@@ -120,7 +120,13 @@ function createFixture() {
   return { ports, setNow, vehicleSaveCrash, sync: createSynchronizeCatalogConnectionApplication(ports), companies, fleets, vehicles, candidates, vehicleIdentities, fleetIdentities, reviews, importItems, syncRuns, leases, connections };
 }
 
-const connectionA: ProviderConnection = { id: "conn-cyber", organizationId: "org-a", credentialRef: "vault:cybermapa/org-a" };
+const connectionA: ProviderConnection = {
+  id: "conn-cyber",
+  organizationId: "org-a",
+  credentialRef: "vault:cybermapa/master",
+  companyId: "id-1",
+  authorizedExternalCompanyLabels: ["acme transport"],
+};
 const connectionOtherTenant: ProviderConnection = { id: "conn-stolen", organizationId: "org-b", credentialRef: "vault:cybermapa/org-b" };
 
 const fakeSource = (candidates: CatalogImportCandidate[]): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates }) });
@@ -313,6 +319,38 @@ describe("connection scoping closes forged organizationId access (Risk #2)", () 
     expect(fixture.syncRuns.size).toBe(0);
     expect(fixture.leases.size).toBe(0);
     expect(fixture.candidates.size).toBe(0);
+  });
+});
+
+describe("external scope authorization", () => {
+  it("imports only each Company's authorized fleet from a shared master response and remains idempotent", async () => {
+    const mixedSource = fakeSource([
+      { externalId: "device-x", companyId: "forged-company-b", externalFleetId: "fleet-x" },
+      { externalId: "device-y", companyId: "forged-company-a", externalFleetId: "fleet-y" },
+      { externalId: "device-z", companyId: "forged-company-a", externalFleetId: "fleet-z" },
+    ]);
+    const prepare = async (fixture: ReturnType<typeof createFixture>, connection: ProviderConnection) => {
+      fixture.connections.set(connection.id, connection);
+      await fixture.ports.companies.save({ id: connection.companyId as string, organizationId: "org-a", name: connection.companyId as string });
+      await fixture.ports.fleets.save({ id: `${connection.companyId}-unassigned`, companyId: connection.companyId as string, name: "Unassigned", kind: "unassigned" });
+    };
+    const companyA = { id: "connection-a", organizationId: "org-a", credentialRef: "vault:howen/master", companyId: "company-a", authorizedExternalFleetIds: ["fleet-x"] };
+    const companyB = { id: "connection-b", organizationId: "org-a", credentialRef: "vault:howen/master", companyId: "company-b", authorizedExternalFleetIds: ["fleet-y"] };
+    const fixtureA = createFixture();
+    const fixtureB = createFixture();
+    await prepare(fixtureA, companyA);
+    await prepare(fixtureB, companyB);
+
+    await fixtureA.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: companyA.id, trigger: "manual", source: mixedSource });
+    await fixtureB.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: companyB.id, trigger: "manual", source: mixedSource });
+    await fixtureA.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: companyA.id, trigger: "manual", source: mixedSource });
+
+    expect([...fixtureA.vehicles.values()]).toHaveLength(1);
+    expect([...fixtureA.vehicles.values()][0]).toMatchObject({ companyId: "company-a" });
+    expect([...fixtureA.vehicleIdentities.values()].map((identity) => identity.externalId)).toEqual(["device-x"]);
+    expect([...fixtureB.vehicles.values()]).toHaveLength(1);
+    expect([...fixtureB.vehicles.values()][0]).toMatchObject({ companyId: "company-b" });
+    expect([...fixtureB.vehicleIdentities.values()].map((identity) => identity.externalId)).toEqual(["device-y"]);
   });
 });
 

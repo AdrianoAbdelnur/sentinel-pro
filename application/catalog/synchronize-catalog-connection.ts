@@ -8,8 +8,9 @@ import {
 } from "@/domain/catalog";
 
 import type { ImportCatalogResult } from "./contracts";
+import { authorizeCatalogSnapshot, hasCatalogImportAuthorization } from "./authorize-catalog-snapshot";
 import { createImportCatalogApplication } from "./import-catalog";
-import type { SynchronizeCatalogConnectionPorts } from "./ports";
+import type { CatalogImportSource, SynchronizeCatalogConnectionPorts } from "./ports";
 import type { CatalogSyncOutcome, SynchronizeCatalogConnectionInput } from "./sync-contracts";
 
 export const CATALOG_SYNC_LEASE_DURATION_MS = 5 * 60 * 1000;
@@ -66,9 +67,17 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
       return { kind: "already-running" };
     }
 
+    const authorizedSource: CatalogImportSource = {
+      async loadCompleteSnapshot() {
+        if (!hasCatalogImportAuthorization(connection)) return { kind: "failed", failure: { category: "invalid-response", providerErrorCode: "missing-authorization" } };
+        const snapshot = await source.loadCompleteSnapshot();
+        return snapshot.kind === "complete" ? { ...snapshot, candidates: authorizeCatalogSnapshot(connection, snapshot.candidates) } : snapshot;
+      },
+    };
+
     let result: ImportCatalogResult;
     try {
-      result = await importer.importCatalog({ connection, run, source, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
+      result = await importer.importCatalog({ connection, run, source: authorizedSource, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
     } catch {
       result = { kind: "failed", failure: { category: "internal" } };
     }

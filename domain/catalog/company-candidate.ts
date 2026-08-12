@@ -3,6 +3,9 @@ export type ProviderConnection = {
   organizationId: string;
   credentialRef: string;
   companyId?: string;
+  authorizedExternalCompanyLabels?: string[];
+  authorizedExternalFleetIds?: string[];
+  authorizedExternalVehicleIds?: string[];
 };
 
 export type CompanyCandidate = {
