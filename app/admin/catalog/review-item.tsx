@@ -12,6 +12,7 @@ export type ReviewSummary = {
   status: "pending" | "resolved";
   candidateFleetIds?: string[];
   candidateVehicleIds?: string[];
+  evidence?: { kind: "registered-plate" | "display-name-equals-registered-plate"; normalizedValue: string };
 };
 
 export function ReviewItem({ review, onResolved }: { review: ReviewSummary; onResolved: (reviewId: string) => void }) {
@@ -33,6 +34,7 @@ export function ReviewItem({ review, onResolved }: { review: ReviewSummary; onRe
     <div className="flex flex-col gap-2 rounded border border-zinc-800 p-3 text-sm">
       <p>{REVIEW_SUBJECT_LABELS[review.subject]} — Pendiente</p>
       <p>Externo: {review.externalId}</p>
+      {review.evidence ? <p>Evidencia: {review.evidence.kind} ({review.evidence.normalizedValue})</p> : null}
       <p>Candidatos (IDs): {candidateIds?.length ? candidateIds.join(", ") : "Sin candidatos."}</p>
       <label className="flex flex-col gap-1">{targetLabel}<input className="rounded border border-zinc-700 bg-zinc-950 p-2" onChange={(event) => setTargetId(event.target.value)} value={targetId} /></label>
       <div className="grid grid-cols-2 gap-3">

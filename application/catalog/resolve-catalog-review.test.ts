@@ -328,3 +328,16 @@ describe("listing pending reviews stays tenant-scoped to an authorized administr
     expect(listed.kind === "listed" ? listed.reviews.map((review) => review.id) : []).toEqual(["review-fleet"]);
   });
 });
+
+describe("weak vehicle-match review resolution", () => {
+  it("does not promote display-name evidence to a registered plate when resolving to a new Vehicle", async () => {
+    const fixture = createFixture();
+    fixture.reviews.set("review-weak", { ...vehicleMatchReview(), id: "review-weak", evidence: { kind: "display-name-equals-registered-plate", normalizedValue: "ABC123" } });
+
+    const result = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-weak", target: { kind: "new" } });
+
+    expect(result.kind).toBe("resolved");
+    const created = [...fixture.vehicles.values()].find((vehicle) => vehicle.origin === "provider");
+    expect(created?.plate).toBeUndefined();
+  });
+});

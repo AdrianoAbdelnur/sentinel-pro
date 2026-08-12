@@ -86,3 +86,8 @@ feature switch is re-enabled.
 ## Snapshot integrity
 
 Absence reconciliation is deny-by-default. A provider snapshot is confirmed only when retrieval and pagination are proven, at least 98% of received records are parseable, and its authorized population is at least 90% of the previous confirmed run. An empty result after a populated confirmed run is partial. Partial runs may import valid records but preserve unseen identities and do not refresh the six-hour cadence. The first confirmed run establishes a baseline; only a subsequent confirmed run may reconcile absence. A later confirmed snapshot resumes normal reconciliation.
+
+
+## Cross-provider vehicle identity matching
+
+Exact connection identity reuse is deterministic. Only an explicit provider registered plate can auto-link a unique active Vehicle in the bound Company. An exact display label equal to a canonical registered plate creates an idempotent vehicle-match review; labels, fleets, partial values, and fuzzy matches never link automatically. No backfill or Vehicle merge is performed.

@@ -31,7 +31,7 @@ describe("mapHowenCatalog", () => {
   it("never derives a plate from devicename, even when it looks like one, because the spec authorizes it only as a headline", () => {
     const candidates = mapHowenCatalog([record({ devicename: "AB123CD" })], "company-acme");
 
-    expect(candidates[0]).not.toHaveProperty("normalizedPlate");
+    expect(candidates[0]).not.toHaveProperty("registeredPlate");
   });
 
   it.each([

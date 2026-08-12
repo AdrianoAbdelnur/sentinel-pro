@@ -92,6 +92,8 @@ export type PlateMatchQuery = {
   companyId: string;
   externalId: string;
   normalizedPlate: string;
+  registeredPlate?: string;
+  label?: string;
 };
 
 export type PlateMatchOutcome =
@@ -104,13 +106,14 @@ export function resolvePlateMatch(
   companyVehicles: ActiveCompanyVehicle[],
   existingIdentities: ExternalVehicleIdentity[],
 ): PlateMatchOutcome {
-  if (query.normalizedPlate === "") return { kind: "unmatched" };
+  const registeredPlate = query.registeredPlate ?? query.normalizedPlate;
+  if (registeredPlate === "") return { kind: "unmatched" };
   const activeMatches = companyVehicles.filter(
     (vehicle) =>
       vehicle.active &&
       vehicle.organizationId === query.organizationId &&
       vehicle.companyId === query.companyId &&
-      vehicle.normalizedPlate === query.normalizedPlate,
+      vehicle.normalizedPlate === registeredPlate,
   );
   if (activeMatches.length === 0) return { kind: "unmatched" };
   if (activeMatches.length > 1) return { kind: "review", candidateVehicleIds: activeMatches.map((vehicle) => vehicle.vehicleId) };
@@ -144,5 +147,10 @@ export function resolveVehicleMatch(
     existingIdentities,
   );
   if (identityOutcome.kind === "reused") return identityOutcome;
-  return resolvePlateMatch(query, companyVehicles, existingIdentities);
+  const plateOutcome = resolvePlateMatch(query, companyVehicles, existingIdentities);
+  if (plateOutcome.kind !== "unmatched") return plateOutcome;
+  const normalizedLabel = query.label === undefined ? "" : normalizePlate(query.label);
+  if (normalizedLabel === "") return { kind: "unmatched" };
+  const candidates = companyVehicles.filter((vehicle) => vehicle.active && vehicle.organizationId === query.organizationId && vehicle.companyId === query.companyId && vehicle.normalizedPlate === normalizedLabel);
+  return candidates.length === 0 ? { kind: "unmatched" } : { kind: "review", candidateVehicleIds: candidates.map((vehicle) => vehicle.vehicleId) };
 }

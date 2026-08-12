@@ -130,10 +130,10 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     item: CatalogImportItem,
     runId: string,
   ): Promise<CatalogImportItemOutcome> {
-    const normalizedPlate = candidate.normalizedPlate ?? normalizePlate("");
+    const registeredPlate = candidate.registeredPlate ?? candidate.normalizedPlate ?? normalizePlate("");
     const companyVehicles = await loadCompanyVehicles(companyId, connection.organizationId, companyVehiclesCache);
     const match = resolveVehicleMatch(
-      { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalId, normalizedPlate },
+      { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalId, normalizedPlate: registeredPlate, registeredPlate, label: candidate.label },
       identities,
       companyVehicles,
     );
@@ -142,7 +142,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
       const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalId, "vehicle-match");
       if (!existingReview) {
         await ports.reviews.save(
-          stageVehicleMatchReview(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalId, normalizedPlate, candidateVehicleIds: match.candidateVehicleIds }),
+          stageVehicleMatchReview(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalId, normalizedPlate: candidate.label ? normalizePlate(candidate.label) : registeredPlate, evidence: candidate.label ? { kind: "display-name-equals-registered-plate", normalizedValue: normalizePlate(candidate.label) } : { kind: "registered-plate", normalizedValue: registeredPlate }, candidateVehicleIds: match.candidateVehicleIds }),
         );
       }
       await ports.importItems.save(markCatalogImportItemProcessed(item, "reviewed"));
@@ -164,7 +164,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
         await txRepos.importItems.save(markCatalogImportItemProcessed(item, "rejected"));
         return { kind: "rejected" as const, vehicle: undefined };
       }
-      const vehicle = computeVehiclePlacement(existingVehicle, companyId, unassignedFleetId, fleets, { externalRef: vehicleId, plate: candidate.normalizedPlate, label: candidate.label, matchedFleetId });
+      const vehicle = computeVehiclePlacement(existingVehicle, companyId, unassignedFleetId, fleets, { externalRef: vehicleId, plate: candidate.registeredPlate ?? candidate.normalizedPlate, label: candidate.label, matchedFleetId });
       await txRepos.vehicles.save(vehicle);
       if (identity) await txRepos.vehicleIdentities.save(identity);
       const finalOutcome: CatalogImportItemOutcome = match.kind === "unmatched" ? "created" : "linked";

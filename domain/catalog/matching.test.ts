@@ -333,3 +333,19 @@ describe("external vehicle identity presence tracking", () => {
     expect(absent).toEqual({ ...identity, presence: "absent" });
   });
 });
+
+describe("evidence-tiered matching", () => {
+  it("stages review candidates for an exact display label equal to a canonical plate without auto-linking", () => {
+    const vehicles: ActiveCompanyVehicle[] = [{ vehicleId: "vehicle-1", organizationId: "org-a", companyId: "company-a", normalizedPlate: "ABC123", active: true }];
+    const query = { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "device-999", normalizedPlate: "", label: "abc-123" };
+
+    expect(resolveVehicleMatch(query, [], vehicles)).toEqual({ kind: "review", candidateVehicleIds: ["vehicle-1"] });
+  });
+
+  it("never treats a similar display label as a matching plate", () => {
+    const vehicles: ActiveCompanyVehicle[] = [{ vehicleId: "vehicle-1", organizationId: "org-a", companyId: "company-a", normalizedPlate: "ABC123", active: true }];
+    const query = { organizationId: "org-a", connectionId: "conn-howen", companyId: "company-a", externalId: "device-999", normalizedPlate: "", label: "ABC123 north" };
+
+    expect(resolveVehicleMatch(query, [], vehicles)).toEqual({ kind: "unmatched" });
+  });
+});

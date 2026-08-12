@@ -1,4 +1,8 @@
 export type CatalogReviewSubject = "fleet-binding" | "vehicle-match";
+export type VehicleMatchEvidence =
+  | { kind: "registered-plate"; normalizedValue: string }
+  | { kind: "display-name-equals-registered-plate"; normalizedValue: string };
+
 export type CatalogReviewStatus = "pending" | "resolved";
 
 export const MAX_REVIEW_CANDIDATES = 5;
@@ -22,6 +26,7 @@ export type FleetBindingReview = CatalogReviewIdentity & {
 export type VehicleMatchReview = CatalogReviewIdentity & {
   subject: "vehicle-match";
   normalizedPlate: string;
+  evidence?: VehicleMatchEvidence;
   candidateVehicleIds: string[];
   resolvedVehicleId?: string;
 };
@@ -50,6 +55,7 @@ export function stageVehicleMatchReview(
     companyId: string;
     externalId: string;
     normalizedPlate: string;
+    evidence?: VehicleMatchEvidence;
     candidateVehicleIds: string[];
   },
 ): VehicleMatchReview {

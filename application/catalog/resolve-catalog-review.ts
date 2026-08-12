@@ -21,7 +21,7 @@ export function createCatalogReviewApplication(ports: CatalogReviewApplicationPo
     }
     const unassigned = (await ports.fleets.listByCompany(review.companyId)).find((fleet) => fleet.kind === "unassigned");
     if (!unassigned) return undefined;
-    return { id: ports.ids.create(), companyId: review.companyId, origin: "provider", placement: { fleetId: unassigned.id, source: "system" }, plate: review.normalizedPlate };
+    return { id: ports.ids.create(), companyId: review.companyId, origin: "provider", placement: { fleetId: unassigned.id, source: "system" }, ...(review.evidence?.kind === "display-name-equals-registered-plate" ? {} : { plate: review.evidence?.normalizedValue ?? review.normalizedPlate }) };
   }
 
   async function resolveCatalogReview({ actor, reviewId, target }: { actor: AuthorizationContext; reviewId: string; target: ReviewResolutionTarget }): Promise<ResolveCatalogReviewResult> {

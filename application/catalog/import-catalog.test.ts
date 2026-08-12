@@ -358,7 +358,7 @@ describe("canonical Fleet union across bound provider identities (Howen fleet bi
     expect(fixture.vehicles.get(v2.id)?.placement.fleetId).toBe(realFleet.fleet.id);
   });
 
-  it("does not auto-link a Howen device whose devicename exactly equals an existing Cybermapa Vehicle's plate, creating a separate Vehicle instead of a false merge", async () => {
+  it("stages review for a Howen device whose devicename exactly equals an existing Cybermapa Vehicle's plate", async () => {
     const fixture = createFixture();
     const company = await bindCompany(fixture, "Acme Transport");
     await fixture.importer.importCatalog({ connection, run: newRun("run-cyber"), source: fakeSource([{ externalId: "cyber-v2", companyLabel: "Acme Transport", normalizedPlate: "AA264KK" }]) });
@@ -367,8 +367,8 @@ describe("canonical Fleet union across bound provider identities (Howen fleet bi
 
     const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen"), source: fakeSource(howenCandidates) });
 
-    expect(result.kind === "completed" ? { created: result.counts.created, linked: result.counts.linked } : {}).toEqual({ created: 1, linked: 0 });
-    expect(fixture.vehicles.size).toBe(2);
+    expect(result.kind === "completed" ? { reviewed: result.counts.reviewed, created: result.counts.created } : {}).toEqual({ reviewed: 1, created: 0 });
+    expect(fixture.vehicles.size).toBe(1);
     expect(fixture.vehicles.has(v2.id)).toBe(true);
   });
 });
@@ -478,5 +478,23 @@ describe("candidates carrying a pre-resolved companyId bypass label staging enti
 
     expect(result.kind === "completed" ? result.counts.processed : -1).toBe(5);
     expect(findByIdSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("cross-provider identity matching", () => {
+  it("creates one pending review rather than a second Vehicle when a Howen display label exactly equals a Cybermapa registered plate, and reuses it on retry", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await fixture.importer.importCatalog({ connection, run: newRun("run-cyber"), source: fakeSource([{ externalId: "gps-123", companyLabel: "Acme Transport", registeredPlate: "ABC123" }]) });
+
+    const candidate = { externalId: "device-999", companyId: company.company.id, label: "abc-123" };
+    const first = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-1"), source: fakeSource([candidate]) });
+    const retry = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-howen-2"), source: fakeSource([candidate]) });
+
+    expect(first.kind === "completed" ? first.counts.reviewed : -1).toBe(1);
+    expect(retry.kind === "completed" ? retry.counts.reviewed : -1).toBe(1);
+    expect(fixture.vehicles.size).toBe(1);
+    expect([...fixture.reviews.values()]).toMatchObject([{ subject: "vehicle-match", externalId: "device-999", candidateVehicleIds: [expect.any(String)], evidence: { kind: "display-name-equals-registered-plate", normalizedValue: "ABC123" } }]);
+    expect(fixture.reviews.size).toBe(1);
   });
 });

@@ -63,5 +63,5 @@ export function toReviewSummary(review: CatalogReview) {
   const shared = { id: review.id, connectionId: review.connectionId, companyId: review.companyId, externalId: review.externalId, subject: review.subject, status: review.status };
   return review.subject === "fleet-binding"
     ? { ...shared, label: review.label, candidateFleetIds: review.candidateFleetIds, resolvedFleetId: review.resolvedFleetId }
-    : { ...shared, normalizedPlate: review.normalizedPlate, candidateVehicleIds: review.candidateVehicleIds, resolvedVehicleId: review.resolvedVehicleId };
+    : { ...shared, normalizedPlate: review.normalizedPlate, evidence: review.evidence, candidateVehicleIds: review.candidateVehicleIds, resolvedVehicleId: review.resolvedVehicleId };
 }

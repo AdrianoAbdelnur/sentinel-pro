@@ -47,7 +47,7 @@ export function mapCybermapaCatalog(records: CybermapaVehicleRecord[]): CatalogI
     candidates.push({
       externalId: id,
       companyLabel,
-      ...(normalizedPlate !== undefined ? { normalizedPlate } : {}),
+      ...(normalizedPlate !== undefined ? { registeredPlate: normalizedPlate } : {}),
       ...(label !== undefined ? { label } : {}),
     });
   }

@@ -133,6 +133,7 @@ export type CatalogImportCandidate = {
   companyLabel?: string;
   companyId?: string;
   normalizedPlate?: string;
+  registeredPlate?: string;
   label?: string;
   externalFleetId?: string;
   fleetLabel?: string;

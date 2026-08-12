@@ -23,7 +23,7 @@ describe("mapCybermapaCatalog", () => {
       {
         externalId: "90001",
         companyLabel: "Transporte Andino",
-        normalizedPlate: normalizePlate("AB123CD"),
+        registeredPlate: normalizePlate("AB123CD"),
         label: "Camion 1",
       },
     ]);
@@ -48,16 +48,16 @@ describe("mapCybermapaCatalog", () => {
     expect(candidates[0]?.label).toBeUndefined();
   });
 
-  it("omits normalizedPlate when patente is absent", () => {
+  it("omits registeredPlate when patente is absent", () => {
     const candidates = mapCybermapaCatalog([record({ patente: undefined })]);
 
-    expect(candidates[0]?.normalizedPlate).toBeUndefined();
+    expect(candidates[0]?.registeredPlate).toBeUndefined();
   });
 
-  it("omits normalizedPlate when patente normalizes to an empty string", () => {
+  it("omits registeredPlate when patente normalizes to an empty string", () => {
     const candidates = mapCybermapaCatalog([record({ patente: "   " })]);
 
-    expect(candidates[0]?.normalizedPlate).toBeUndefined();
+    expect(candidates[0]?.registeredPlate).toBeUndefined();
   });
 
   it("rejects a record whose gps_id is absent, without substituting the unrelated id field", () => {
@@ -100,7 +100,7 @@ describe("mapCybermapaCatalog", () => {
       {
         externalId: "90002",
         companyLabel: "Transporte Sur",
-        normalizedPlate: normalizePlate("AB123CD"),
+        registeredPlate: normalizePlate("AB123CD"),
         label: "Camion 1",
       },
     ]);
