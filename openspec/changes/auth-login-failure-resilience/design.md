@@ -7,3 +7,5 @@ The shared client form parses JSON defensively through a small local response he
 Node starts Next.js and the seed script with `--use-system-ca`, which is cross-platform when expressed as a Node invocation in package scripts and applies before Next.js loads `.env.local`.
 
 Authentication copy remains in the delivery layer. The shared form owns Spanish labels and its generic failure message, while Route Handlers return Spanish public errors without changing internal result unions.
+
+Protected Server Components read the host-prefixed production cookie first. Outside production, page authorization also accepts the local HTTP cookie emitted by the login Route Handler. This preserves the stricter production cookie boundary while keeping local network development functional.

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export const SESSION_COOKIE = "__Host-sentinel_session";
-const LOCAL_SESSION_COOKIE = "sentinel_session";
+export const LOCAL_SESSION_COOKIE = "sentinel_session";
 const sessionCookie = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/", maxAge: 12 * 60 * 60 };
 
 export function getSessionCookieName(request: Request) {

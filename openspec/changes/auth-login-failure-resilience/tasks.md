@@ -24,3 +24,18 @@
 
 | 1.4 | Spanish UI tests failed against English labels and errors. | Authentication, home, and administration controls now render Spanish copy; focused tests pass. | The application HTML language is Spanish. | pp/auth-form.tsx, pp/admin/users/admin-user-form.tsx, pp/layout.tsx |
 | 1.5 | The strict session mapper test failed because it serialized ctiveOrganizationId: undefined. | Omit undefined optional session properties before MongoDB persistence; a real local login now returns 200 with /live. | The mapper defensively omits optional undefined fields. | integrations/persistence/mongodb/documents.ts, documents.test.ts |
+| 1.6 | The focused authorization test returned `forbidden` for a valid `sentinel_session`. | Page authorization accepts the local cookie outside production; 16 focused authentication tests pass. | Production accepts only the host-prefixed cookie, and the host-prefixed cookie remains preferred. | `app/authorization.ts`, `app/authorization.test.ts`, `app/api/auth/delivery.ts` |
+
+## Phase 2: Local HTTP Session Continuity
+- [x] 2.1 **RED:** Reproduce protected-page authorization with the local HTTP session cookie and production rejection of that fallback.
+- [x] 2.2 **GREEN:** Share the local cookie name and read it only outside production when the host-prefixed cookie is absent.
+- [x] 2.3 **REFACTOR:** Align identity delivery documentation and run focused and project validation.
+
+## Validation
+
+- `npm test -- app/authorization.test.ts app/api/auth/delivery.test.ts app/api/auth/auth.test.ts proxy.test.ts`: 16 tests passed.
+- `npm run lint`: passed with one pre-existing warning in `coverage/block-navigation.js`.
+- `npm run typecheck`: passed.
+- `npm run build`: passed.
+- `npm test`: 887 tests passed and 6 unrelated catalog/Cybermapa tests failed outside the changed authentication surface.
+- Real LAN HTTP login: returned `200` with `/live`, stored `sentinel_session`, and the authenticated `/live` request remained on `/live` with `200`.

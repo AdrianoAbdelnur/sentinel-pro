@@ -26,3 +26,19 @@ The authentication UI and its user-facing delivery errors MUST be in Spanish.
 - GIVEN a visitor opens the login page or the endpoint fails unexpectedly
 - WHEN the login form is rendered or submitted
 - THEN labels, action, and generic error are displayed in Spanish
+
+## Requirement: Local HTTP session continuity
+
+Protected Server Components MUST recognize the local HTTP session cookie emitted after a successful development login and MUST preserve the host-prefixed cookie as the production authorization source.
+
+### Scenario: Successful login over local network HTTP
+- GIVEN the application is running outside production over local HTTP
+- AND login issued a valid `sentinel_session` cookie
+- WHEN the browser navigates to the protected `/live` page
+- THEN page authorization delegates the opaque token to the identity application
+
+### Scenario: Production authorization
+- GIVEN the application is running in production
+- AND only a local HTTP cookie is present
+- WHEN a protected page requests authorization
+- THEN page authorization rejects the request before calling the identity application
