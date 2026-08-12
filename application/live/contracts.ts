@@ -9,10 +9,16 @@ import type {
 
 export type { VehicleStatus };
 
+export type CapabilityAvailability =
+  | { kind: "resolved"; source: string }
+  | { kind: "unavailable" };
+
 export type LiveVehicleState = {
   vehicle: Vehicle;
   device?: Device;
   telemetry?: DeviceTelemetry;
+  operationalAlerts?: CapabilityAvailability;
+  videoAlerts?: CapabilityAvailability;
 };
 
 export type LiveStatusFilter = "all" | VehicleStatus;

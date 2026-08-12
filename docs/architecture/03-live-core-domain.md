@@ -109,9 +109,19 @@ from the catalog module's canonical `Fleet`/`Vehicle` roster
 each of the catalog's four capabilities — `gps`, `video`,
 `operationalAlerts`, `videoAlerts` — independently through
 `domain/catalog/precedence.ts`'s five-level policy precedence, then maps
-only `gps` into `DeviceTelemetry` and only `video` into `Device`.
-`operationalAlerts` and `videoAlerts` resolve but currently have no sink:
-neither `Device` nor `DeviceTelemetry` carries an alert field yet, so a
-resolved alert capability is computed and then discarded before it reaches
-this domain. Extending these contracts to carry alert data is a separate,
-not-yet-implemented unit of work.
+`gps` into `DeviceTelemetry`, `video` into `Device`, and `operationalAlerts`/
+`videoAlerts` into two new optional `LiveVehicleState` fields of type
+`CapabilityAvailability` (`application/live/contracts.ts`):
+`{ kind: "resolved"; source: string } | { kind: "unavailable" }`. Every
+projected Vehicle carries all four resolutions; an alert capability that
+cannot be served resolves to `{ kind: "unavailable" }` rather than being
+omitted, so "no eligible source" is distinguishable from "not yet
+projected". `CapabilityAvailability` is declared locally in
+`application/live/contracts.ts`, not imported from `domain/catalog`, so the
+live module's core contracts stay decoupled from catalog/provider types —
+`project-canonical-live.ts` is the only file that bridges the two. No
+"Alert" payload entity exists yet (there is still no alert content/message
+domain concept anywhere in the codebase); only the capability's resolution
+status — whether an eligible source exists, and which one, for
+traceability — is carried through today. Carrying actual alert content is a
+separate, not-yet-scoped unit of work.

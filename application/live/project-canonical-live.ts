@@ -154,7 +154,13 @@ function projectVehicle(
     isActive: true,
   };
 
-  return { vehicle: liveVehicle, device: videoSnapshot?.device, telemetry: gpsSnapshot?.telemetry };
+  return {
+    vehicle: liveVehicle,
+    device: videoSnapshot?.device,
+    telemetry: gpsSnapshot?.telemetry,
+    operationalAlerts: capabilities.operationalAlerts,
+    videoAlerts: capabilities.videoAlerts,
+  };
 }
 
 export function projectCanonicalLive(input: ProjectCanonicalLiveInput): LiveState {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type {
+  Capability,
   CapabilityPolicy,
   ExternalFleetIdentity,
   ExternalVehicleIdentity,
@@ -118,6 +119,8 @@ describe("projectCanonicalLive — canonical identity", () => {
       vehicle: { id: "vehicle-x", fleetId: "fleet-1", label: "Unidad X", plate: "AB123CD", isActive: true },
       device,
       telemetry,
+      operationalAlerts: { kind: "resolved", source: "cybermapa" },
+      videoAlerts: { kind: "resolved", source: "howen" },
     });
   });
 });
@@ -177,6 +180,82 @@ describe("projectCanonicalLive — source-local capability loss", () => {
     expect(entry).toBeDefined();
     expect(entry.device).toEqual(device);
   });
+});
+
+describe("projectCanonicalLive — alert capability observability", () => {
+  const vehicle: Vehicle = { id: "vehicle-z", companyId: "company-1", origin: "provider", placement: { fleetId: "fleet-1", source: "system" } };
+  const device: Device = { id: "device-z", vehicleId: "vehicle-z", provider: "HOWEN", origin: "howen", kind: "mdvr", isActive: true };
+  const telemetry: DeviceTelemetry = { deviceId: "device-z", online: true, latitude: -34.6, longitude: -58.4 };
+
+  const capabilityExpectations: Record<
+    Capability,
+    { field: "telemetry" | "device" | "operationalAlerts" | "videoAlerts"; resolved: unknown }
+  > = {
+    gps: { field: "telemetry", resolved: telemetry },
+    video: { field: "device", resolved: device },
+    operationalAlerts: { field: "operationalAlerts", resolved: { kind: "resolved", source: "cybermapa" } },
+    videoAlerts: { field: "videoAlerts", resolved: { kind: "resolved", source: "howen" } },
+  };
+
+  function buildIdentities(degraded: Capability): ExternalVehicleIdentity[] {
+    const howenStates = { video: "eligible", videoAlerts: "eligible" } as const;
+    const cybermapaStates = { gps: "eligible", operationalAlerts: "eligible" } as const;
+    return [
+      {
+        id: "vi-howen-z",
+        organizationId,
+        connectionId: connectionHowenA.id,
+        entityKind: "vehicle",
+        externalId: "HZ1",
+        vehicleId: "vehicle-z",
+        capabilityStates: degraded in howenStates ? { ...howenStates, [degraded]: "absent" } : howenStates,
+      },
+      {
+        id: "vi-cyber-z",
+        organizationId,
+        connectionId: connectionCybermapa.id,
+        entityKind: "vehicle",
+        externalId: "CZ1",
+        vehicleId: "vehicle-z",
+        capabilityStates: degraded in cybermapaStates ? { ...cybermapaStates, [degraded]: "absent" } : cybermapaStates,
+      },
+    ];
+  }
+
+  it.each(Object.keys(capabilityExpectations) as Capability[])(
+    "degrading only %s to unavailable leaves the other three capabilities resolved",
+    (degraded) => {
+      const state = projectCanonicalLive({
+        organizationId,
+        connections: [connectionHowenA, connectionCybermapa],
+        fleets: [fleetOne],
+        vehicles: [vehicle],
+        fleetIdentities: [],
+        vehicleIdentities: buildIdentities(degraded),
+        capabilityPolicies: [],
+        sourceSnapshots: { howen: { HZ1: { device } }, cybermapa: { CZ1: { telemetry } } },
+      });
+
+      const [entry] = state.liveVehicles;
+      expect(entry).toBeDefined();
+
+      for (const [capability, expectation] of Object.entries(capabilityExpectations) as [
+        Capability,
+        (typeof capabilityExpectations)[Capability],
+      ][]) {
+        const actual = entry[expectation.field];
+        if (capability === degraded) {
+          if (expectation.field === "device" || expectation.field === "telemetry") {
+            expect(actual).toBeUndefined();
+          } else {
+            expect(actual).toEqual({ kind: "unavailable" });
+          }
+        } else {
+          expect(actual).toEqual(expectation.resolved);
+        }
+      }
+    },
+  );
 });
 
 describe("projectCanonicalLive — capability fallback", () => {

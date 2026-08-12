@@ -18,6 +18,13 @@ feature out or back.
   currently due. It does not own a schedule itself — a hosting cron
   scheduler is expected to call it repeatedly (for example every few
   minutes) so no due connection waits meaningfully longer than six hours.
+  There is no `enabled`/`disabled` toggle on `ProviderConnection` today —
+  `domain/catalog/company-candidate.ts`'s `ProviderConnection` type carries
+  only `{id, organizationId, credentialRef, companyId}`. "Enabled" here means
+  "exists as a persisted connection"; any connection an admin has created is
+  evaluated on every cron invocation, and there is no way to persist a
+  connection while excluding it from the cron sweep (tracked as risk #17 in
+  `openspec/changes/multi-provider-canonical-catalog/tasks.md`).
 - A manual `Sync now`
   (`POST /api/admin/catalog/connections/[connectionId]/sync`) bypasses the
   due-connections freshness gate for that one connection at the requesting
