@@ -26,6 +26,7 @@ export type CatalogTransactionRepositories = {
   fleets: FleetRepository;
   vehicles: VehicleRepository;
   vehicleIdentities: ExternalVehicleIdentityRepository;
+  reviews: CatalogReviewRepository;
   importItems: CatalogImportItemRepository;
 };
 
@@ -94,6 +95,7 @@ export type ExternalVehicleIdentityRepository = {
   listByConnection(organizationId: string, connectionId: string): Promise<ExternalVehicleIdentity[]>;
   listStaleByRun(organizationId: string, connectionId: string, currentRunId: string): Promise<ExternalVehicleIdentity[]>;
   save(identity: ExternalVehicleIdentity): Promise<void>;
+  ensureBoundToVehicle?(identity: ExternalVehicleIdentity & { vehicleId: string }): Promise<"bound" | "conflict">;
 };
 
 export type CatalogSyncLeaseClaimResult = { outcome: "claimed"; previousRunId?: string } | { outcome: "held" };
@@ -164,11 +166,16 @@ export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
   clock: Clock;
 };
 
+export type VehicleIdentityBindingRepository = {
+  ensureBoundToVehicle(identity: ExternalVehicleIdentity & { vehicleId: string }): Promise<"bound" | "conflict">;
+};
+
 export type CatalogReviewApplicationPorts = {
   reviews: CatalogReviewRepository;
   fleets: Pick<FleetRepository, "findById" | "listByCompany">;
   vehicles: Pick<VehicleRepository, "findById" | "save">;
-  vehicleIdentities: Pick<ExternalVehicleIdentityRepository, "save">;
+  vehicleIdentities: VehicleIdentityBindingRepository;
+  transactions: CatalogTransactionRunner;
   fleetIdentities: Pick<ExternalFleetIdentityRepository, "findByConnectionAndExternalId" | "save">;
   ids: Pick<IdGenerator, "create">;
 };

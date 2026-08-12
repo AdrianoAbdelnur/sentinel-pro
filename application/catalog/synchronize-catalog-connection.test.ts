@@ -109,7 +109,7 @@ function createFixture() {
       run: async (work) => {
         const pendingVehicles: Vehicle[] = [], pendingIdentities: ExternalVehicleIdentity[] = [], pendingItems: CatalogImportItem[] = [];
         const txVehiclePort = { findById: async (id: string) => vehicles.get(id), listByCompany: async (c: string) => [...vehicles.values()].filter((v) => v.companyId === c), save: async (v: Vehicle) => { vehicleSaveCrash.calls += 1; if (vehicleSaveCrash.crashOnCallNumber === vehicleSaveCrash.calls) throw new Error("simulated mid-item crash"); pendingVehicles.push(v); } };
-        const result = await work({ companies: companyPort, fleets: fleetPort, vehicles: txVehiclePort, vehicleIdentities: { ...identityPort, save: async (i: ExternalVehicleIdentity) => { pendingIdentities.push(i); } }, importItems: { ...importItemPort, save: async (i: CatalogImportItem) => { pendingItems.push(i); } } });
+        const result = await work({ companies: companyPort, fleets: fleetPort, vehicles: txVehiclePort, vehicleIdentities: { ...identityPort, save: async (i: ExternalVehicleIdentity) => { pendingIdentities.push(i); } }, reviews: ports.reviews, importItems: { ...importItemPort, save: async (i: CatalogImportItem) => { pendingItems.push(i); } } });
         for (const v of pendingVehicles) vehicles.set(v.id, v);
         for (const i of pendingIdentities) vehicleIdentities.set(i.id, i);
         for (const i of pendingItems) importItems.set(i.id, i);

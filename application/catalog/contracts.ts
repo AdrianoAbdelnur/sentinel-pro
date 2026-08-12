@@ -35,6 +35,7 @@ export type ReviewResolutionTarget = { kind: "existing"; targetId: string } | { 
 export type ResolveCatalogReviewResult =
   | { kind: "resolved"; review: CatalogReview }
   | { kind: "already-resolved" }
+  | { kind: "conflict" }
   | { kind: "not-found" }
   | { kind: "forbidden" }
   | { kind: "unsupported" };

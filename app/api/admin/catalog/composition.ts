@@ -13,8 +13,15 @@ async function createCatalogAdminRuntime() {
     reviews: repositories.reviews,
     fleets: repositories.fleets,
     vehicles: repositories.vehicles,
-    vehicleIdentities: repositories.vehicleIdentities,
+    vehicleIdentities: {
+      ensureBoundToVehicle: async (identity) => {
+        const outcome = await repositories.vehicleIdentities.ensureBoundToVehicle?.(identity);
+        if (!outcome) throw new Error("Vehicle identity binding is unavailable");
+        return outcome;
+      },
+    },
     fleetIdentities: repositories.fleetIdentities,
+    transactions: new MongoCatalogTransactionRunner(client, database),
     ids,
   });
   const { bindProviderCompany } = createCompanyBindingApplication({ companies: repositories.companies, candidates: repositories.candidates, ids });

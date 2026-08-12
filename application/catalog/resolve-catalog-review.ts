@@ -11,6 +11,8 @@ import type { AuthorizationContext } from "@/application/identity";
 import type { ListPendingCatalogReviewsResult, ResolveCatalogReviewResult, ReviewResolutionTarget } from "./contracts";
 import type { CatalogReviewApplicationPorts } from "./ports";
 
+class CatalogReviewIdentityConflict extends Error {}
+
 export function createCatalogReviewApplication(ports: CatalogReviewApplicationPorts) {
   async function resolveVehicleMatchTarget(review: VehicleMatchReview, target: ReviewResolutionTarget): Promise<Vehicle | undefined> {
     if (target.kind === "existing") {
@@ -42,10 +44,19 @@ export function createCatalogReviewApplication(ports: CatalogReviewApplicationPo
     const vehicle = await resolveVehicleMatchTarget(review, target);
     if (!vehicle) return { kind: "not-found" };
     const resolution = resolveCatalogReviewToVehicle(review, vehicle.id);
-    if ((await ports.reviews.resolve(resolution.review)) === "already-resolved") return { kind: "already-resolved" };
-    if (target.kind === "new") await ports.vehicles.save(vehicle);
-    await ports.vehicleIdentities.save(bindExternalVehicleIdentity({ id: ports.ids.create(), organizationId: review.organizationId, connectionId: review.connectionId, entityKind: "vehicle", externalId: review.externalId }, vehicle.id));
-    return { kind: "resolved", review: resolution.review };
+    const identity = { ...bindExternalVehicleIdentity({ id: ports.ids.create(), organizationId: review.organizationId, connectionId: review.connectionId, entityKind: "vehicle", externalId: review.externalId }, vehicle.id), vehicleId: vehicle.id };
+    try {
+      return await ports.transactions.run(async ({ reviews, vehicles, vehicleIdentities }) => {
+        if (!vehicleIdentities.ensureBoundToVehicle) throw new Error("Catalog review transaction repositories are incomplete");
+        if ((await reviews.resolve(resolution.review)) === "already-resolved") return { kind: "already-resolved" } as const;
+        if (target.kind === "new") await vehicles.save(vehicle);
+        if ((await vehicleIdentities.ensureBoundToVehicle(identity)) === "conflict") throw new CatalogReviewIdentityConflict();
+        return { kind: "resolved", review: resolution.review } as const;
+      });
+    } catch (error) {
+      if (error instanceof CatalogReviewIdentityConflict) return { kind: "conflict" };
+      throw error;
+    }
   }
 
   async function listPendingCatalogReviews({ actor }: { actor: AuthorizationContext }): Promise<ListPendingCatalogReviewsResult> {

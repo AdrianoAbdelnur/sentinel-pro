@@ -5,7 +5,7 @@ import type { CatalogReview, ExternalFleetIdentity, ExternalVehicleIdentity, Fle
 import type { CatalogReviewApplicationPorts } from "./ports";
 import { createCatalogReviewApplication } from "./resolve-catalog-review";
 
-function createFixture() {
+function createFixture({ failVehicleSave = false, failIdentitySave = false, concurrentIdentity }: { failVehicleSave?: boolean; failIdentitySave?: boolean; concurrentIdentity?: ExternalVehicleIdentity } = {}) {
   const reviews = new Map<string, CatalogReview>();
   const fleets = new Map<string, Fleet>([[targetFleet.id, targetFleet], [foreignFleet.id, foreignFleet], ["fleet-target-2", { ...targetFleet, id: "fleet-target-2" }], [unassignedFleetA.id, unassignedFleetA]]);
   const vehicles = new Map<string, Vehicle>([[targetVehicle.id, targetVehicle], [foreignVehicle.id, foreignVehicle], ["vehicle-target-2", { ...targetVehicle, id: "vehicle-target-2" }]]);
@@ -14,6 +14,12 @@ function createFixture() {
   const vehicleSaves: Vehicle[] = [];
   const fleetIdentitySaves: ExternalFleetIdentity[] = [];
   let sequence = 0;
+  const identityKey = (identity: Pick<ExternalVehicleIdentity, "organizationId" | "connectionId" | "externalId">) => `${identity.organizationId}:${identity.connectionId}:${identity.externalId}`;
+  const transactionRepositories = () => ({
+    reviews: ports.reviews,
+    vehicles: ports.vehicles,
+    vehicleIdentities: ports.vehicleIdentities,
+  });
   const ports: CatalogReviewApplicationPorts = {
     reviews: {
       findById: async (id) => reviews.get(id),
@@ -28,12 +34,30 @@ function createFixture() {
       },
     },
     fleets: { findById: async (id) => fleets.get(id), listByCompany: async (companyId) => [...fleets.values()].filter((fleet) => fleet.companyId === companyId) },
-    vehicles: { findById: async (id) => vehicles.get(id), save: async (vehicle) => { vehicles.set(vehicle.id, vehicle); vehicleSaves.push(vehicle); } },
+    vehicles: { findById: async (id) => vehicles.get(id), save: async (vehicle) => { if (failVehicleSave) throw new Error("vehicle save failed"); vehicles.set(vehicle.id, vehicle); vehicleSaves.push(vehicle); } },
     fleetIdentities: {
       findByConnectionAndExternalId: async (organizationId, connectionId, externalId) => [...fleetIdentities.values()].find((i) => i.organizationId === organizationId && i.connectionId === connectionId && i.externalId === externalId),
       save: async (identity) => { fleetIdentities.set(identity.id, identity); fleetIdentitySaves.push(identity); },
     },
-    vehicleIdentities: { save: async (identity) => { vehicleIdentities.set(identity.id, identity); } },
+    vehicleIdentities: {
+      ensureBoundToVehicle: async (identity) => {
+        if (failIdentitySave) throw new Error("identity save failed");
+        if (concurrentIdentity && ![...vehicleIdentities.values()].some((existing) => identityKey(existing) === identityKey(concurrentIdentity))) vehicleIdentities.set(concurrentIdentity.id, concurrentIdentity);
+        const existing = [...vehicleIdentities.values()].find((candidate) => identityKey(candidate) === identityKey(identity));
+        if (existing) return existing.vehicleId === identity.vehicleId ? "bound" as const : "conflict" as const;
+        vehicleIdentities.set(identity.id, identity);
+        return "bound" as const;
+      },
+    },
+    transactions: {
+      run: async (work) => {
+        const reviewSnapshot = new Map(reviews);
+        const vehicleSnapshot = new Map(vehicles);
+        const identitySnapshot = new Map(vehicleIdentities);
+        try { return await work(transactionRepositories() as never); }
+        catch (error) { reviews.clear(); reviewSnapshot.forEach((value, key) => reviews.set(key, value)); vehicles.clear(); vehicleSnapshot.forEach((value, key) => vehicles.set(key, value)); vehicleIdentities.clear(); identitySnapshot.forEach((value, key) => vehicleIdentities.set(key, value)); throw error; }
+      },
+    },
     ids: { create: () => `id-${++sequence}` },
   };
   return { app: createCatalogReviewApplication(ports), reviews, fleets, vehicles, vehicleSaves, fleetIdentities, fleetIdentitySaves, vehicleIdentities };
@@ -224,6 +248,69 @@ describe("resolving a pending review requires an authorized, fresh tenant admini
     expect(links).toHaveLength(1);
     const createdProviderVehicles = [...fixture.vehicles.values()].filter((vehicle) => vehicle.origin === "provider");
     expect(createdProviderVehicles).toHaveLength(newAttempt.kind === "resolved" ? 1 : 0);
+  });
+});
+
+describe("vehicle review resolution is atomic", () => {
+  it("commits the review and a new Vehicle identity together", async () => {
+    const fixture = createFixture();
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+
+    const result = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "new" } });
+
+    expect(result.kind).toBe("resolved");
+    expect(fixture.reviews.get("review-vehicle")?.status).toBe("resolved");
+    expect([...fixture.vehicles.values()].filter((vehicle) => vehicle.origin === "provider")).toHaveLength(1);
+    expect([...fixture.vehicleIdentities.values()]).toMatchObject([{ externalId: "V1", vehicleId: result.kind === "resolved" ? (result.review as VehicleMatchReview).resolvedVehicleId : undefined }]);
+  });
+
+  it.each(["vehicle", "identity"])("rolls back the review and new Vehicle when %s persistence fails", async (failure) => {
+    const fixture = createFixture(failure === "vehicle" ? { failVehicleSave: true } : { failIdentitySave: true });
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+
+    await expect(fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "new" } })).rejects.toThrow(`${failure} save failed`);
+
+    expect(fixture.reviews.get("review-vehicle")?.status).toBe("pending");
+    expect([...fixture.vehicles.values()].filter((vehicle) => vehicle.origin === "provider")).toHaveLength(0);
+    expect(fixture.vehicleIdentities.size).toBe(0);
+  });
+
+  it("treats a concurrently created identity for the same Vehicle as idempotent", async () => {
+    const fixture = createFixture({ concurrentIdentity: { id: "sync-identity", organizationId: "org-a", connectionId: "conn-a", entityKind: "vehicle", externalId: "V1", vehicleId: targetVehicle.id } });
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+
+    const result = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "existing", targetId: targetVehicle.id } });
+
+    expect(result.kind).toBe("resolved");
+    expect(fixture.reviews.get("review-vehicle")?.status).toBe("resolved");
+    expect([...fixture.vehicleIdentities.values()]).toMatchObject([{ id: "sync-identity", vehicleId: targetVehicle.id }]);
+    expect(fixture.vehicleIdentities.size).toBe(1);
+  });
+
+  it("returns conflict and commits nothing when an identity already targets another Vehicle", async () => {
+    const fixture = createFixture();
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+    fixture.vehicleIdentities.set("other-identity", { id: "other-identity", organizationId: "org-a", connectionId: "conn-a", entityKind: "vehicle", externalId: "V1", vehicleId: "vehicle-target-2" });
+
+    const result = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "new" } });
+
+    expect(result).toEqual({ kind: "conflict" });
+    expect(fixture.reviews.get("review-vehicle")?.status).toBe("pending");
+    expect([...fixture.vehicles.values()].filter((vehicle) => vehicle.origin === "provider")).toHaveLength(0);
+    expect(fixture.vehicleIdentities.get("other-identity")?.vehicleId).toBe("vehicle-target-2");
+  });
+
+  it("reports already-resolved on retry without creating another Vehicle or identity", async () => {
+    const fixture = createFixture();
+    fixture.reviews.set("review-vehicle", vehicleMatchReview());
+
+    const first = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "new" } });
+    const retry = await fixture.app.resolveCatalogReview({ actor: admin, reviewId: "review-vehicle", target: { kind: "new" } });
+
+    expect(first.kind).toBe("resolved");
+    expect(retry).toEqual({ kind: "already-resolved" });
+    expect([...fixture.vehicles.values()].filter((vehicle) => vehicle.origin === "provider")).toHaveLength(1);
+    expect(fixture.vehicleIdentities.size).toBe(1);
   });
 });
 

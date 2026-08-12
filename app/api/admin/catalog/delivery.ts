@@ -38,6 +38,10 @@ export function alreadyResolved() {
   return NextResponse.json({ error: "Esta revisión ya fue resuelta." }, { status: 409 });
 }
 
+export function reviewIdentityConflict() {
+  return NextResponse.json({ error: "The external identity is already associated with another Vehicle." }, { status: 409 });
+}
+
 export function badRequest() {
   return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 });
 }

@@ -57,6 +57,15 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
       async listByConnection(organizationId, connectionId) { return (await vehicleIdentities.find({ organizationId, connectionId }, options(session)).toArray()).map(toExternalVehicleIdentityDomain); },
       async listStaleByRun(organizationId, connectionId, currentRunId) { return (await vehicleIdentities.find({ organizationId, connectionId, presence: { $ne: "absent" }, lastSeenRunId: { $ne: currentRunId } }, options(session)).toArray()).map(toExternalVehicleIdentityDomain); },
       async save(identity) { const existing = await vehicleIdentities.findOne({ id: identity.id }, options(session)); await vehicleIdentities.replaceOne({ id: identity.id }, toExternalVehicleIdentityDocument(identity, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
+      async ensureBoundToVehicle(identity) {
+        const created = toExternalVehicleIdentityDocument(identity, now());
+        const document = await vehicleIdentities.findOneAndUpdate(
+          { organizationId: identity.organizationId, connectionId: identity.connectionId, entityKind: "vehicle", externalId: identity.externalId },
+          { $setOnInsert: created },
+          { upsert: true, returnDocument: "after", ...options(session) },
+        );
+        return document?.vehicleId === identity.vehicleId ? "bound" : "conflict";
+      },
     },
     reviews: {
       async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },

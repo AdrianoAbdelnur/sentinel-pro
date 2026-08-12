@@ -117,6 +117,15 @@ describe("POST /api/admin/catalog/reviews/[reviewId]/resolve", () => {
     expect(await missing.json()).toEqual(await crossTenant.json());
     expect(crossTenant.status).toBe(403);
   });
+
+  it("maps a conflicting external identity to a distinct 409 response", async () => {
+    resolveCatalogReview.mockResolvedValue({ kind: "conflict" });
+
+    const response = await resolveReview(post("https://sentinel.test/api/admin/catalog/reviews/review-1/resolve", { targetId: "vehicle-1" }), { params: Promise.resolve({ reviewId: "review-1" }) });
+
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toContain("external identity");
+  });
 });
 
 describe("POST /api/admin/catalog/companies/candidates/[candidateId]/bind", () => {

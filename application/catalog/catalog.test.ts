@@ -26,12 +26,13 @@ function createFixture() {
   };
   const noopIdentities = { findByConnectionAndExternalId: async () => undefined, listByConnection: async () => [], listStaleByRun: async () => [], save: async () => {} };
   const noopImportItems = { findByRunAndExternalId: async () => undefined, listPendingByRun: async () => [], save: async () => {} };
+  const noopReviews = { findById: async () => undefined, findByConnectionAndExternalId: async () => undefined, listPendingByOrganization: async () => [], save: async () => {}, resolve: async () => "already-resolved" as const };
   const ports: CatalogApplicationPorts = {
     companies: companyPort,
     fleets: fleetPort,
     vehicles: vehiclePort,
     ids: { create: () => `id-${++sequence}` },
-    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort, vehicles: vehiclePort, vehicleIdentities: noopIdentities, importItems: noopImportItems }) },
+    transactions: { run: async (work) => work({ companies: companyPort, fleets: fleetPort, vehicles: vehiclePort, vehicleIdentities: noopIdentities, reviews: noopReviews, importItems: noopImportItems }) },
   };
   return { app: createCatalogApplication(ports), companies, fleets, vehicles };
 }

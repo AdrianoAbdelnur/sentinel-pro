@@ -587,6 +587,17 @@ describe("Mongo catalog persistence", () => {
     expect(JSON.stringify(stored)).not.toContain("vault:cybermapa");
   });
 
+  it("atomically claims a scoped external Vehicle identity, returning idempotence for the same Vehicle and conflict for a different Vehicle", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
+    const repos = createMongoCatalogRepositories(db);
+    const first = { id: "identity-first", organizationId: "org-a", connectionId: "conn-a", entityKind: "vehicle" as const, externalId: "V1", vehicleId: "vehicle-a" };
+
+    await expect(repos.vehicleIdentities.ensureBoundToVehicle?.(first)).resolves.toBe("bound");
+    await expect(repos.vehicleIdentities.ensureBoundToVehicle?.({ ...first, id: "identity-retry" })).resolves.toBe("bound");
+    await expect(repos.vehicleIdentities.ensureBoundToVehicle?.({ ...first, id: "identity-conflict", vehicleId: "vehicle-b" })).resolves.toBe("conflict");
+    await expect(db.collection("external_vehicle_identities").find({ organizationId: "org-a", connectionId: "conn-a", externalId: "V1" }).toArray()).resolves.toMatchObject([{ id: "identity-first", vehicleId: "vehicle-a" }]);
+  });
+
   it("finds present external Vehicle identities not seen in the given run, scoped to their own tenant and connection, without disturbing an already-absent identity or a same-run identity elsewhere", async () => {
     const db = client.db(`catalog_${Date.now()}`); await migrateCatalogDatabase(db);
     const repos = createMongoCatalogRepositories(db);
