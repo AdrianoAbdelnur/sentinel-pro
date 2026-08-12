@@ -14,7 +14,11 @@ export function getSessionCookieOptions(request: Request) {
 
 export function readSessionToken(request: Request) {
   const cookieName = getSessionCookieName(request);
-  return request.headers.get("cookie")?.split(";").map((entry) => entry.trim()).find((entry) => entry.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
+  const cookies = request.headers.get("cookie")?.split(";").map((entry) => entry.trim()) ?? [];
+  const token = cookies.find((entry) => entry.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
+  if (token || process.env.NODE_ENV === "production") return token;
+  const fallbackName = cookieName === SESSION_COOKIE ? LOCAL_SESSION_COOKIE : SESSION_COOKIE;
+  return cookies.find((entry) => entry.startsWith(`${fallbackName}=`))?.slice(fallbackName.length + 1);
 }
 
 export function isSameOrigin(request: Request) {

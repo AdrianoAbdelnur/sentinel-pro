@@ -22,4 +22,12 @@ describe("session cookie delivery", () => {
     expect(getSessionCookieOptions(request).secure).toBe(true);
     expect(readSessionToken(request)).toBe("secure-token");
   });
+
+  it("accepts the alternate session cookie during local development", () => {
+    const request = new Request("http://192.168.56.1:3000/admin/import", {
+      headers: { cookie: "__Host-sentinel_session=secure-token" },
+    });
+
+    expect(readSessionToken(request)).toBe("secure-token");
+  });
 });
