@@ -24,6 +24,7 @@ export function createMongoCatalogRepositories(db: Db, session?: ClientSession):
   return {
     companies: {
       async findById(id) { const document = await companies.findOne({ id }, options(session)); return document ? toCompanyDomain(document) : undefined; },
+      async listByOrganization(organizationId) { return (await companies.find({ organizationId }, options(session)).toArray()).map(toCompanyDomain); },
       async save(company) { const existing = await companies.findOne({ id: company.id }, options(session)); await companies.replaceOne({ id: company.id }, toCompanyDocument(company, now(), existing ?? undefined), { upsert: true, ...options(session) }); },
     },
     fleets: {

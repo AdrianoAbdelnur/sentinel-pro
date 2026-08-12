@@ -11,3 +11,4 @@ export * from "./sync-contracts";
 export * from "./synchronize-catalog-connection";
 export * from "./synchronize-due-catalog-connections";
 export * from "./get-catalog-sync-status";
+export * from "./import-provider"

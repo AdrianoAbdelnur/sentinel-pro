@@ -4,6 +4,7 @@ export type Clock = { now(): Date };
 
 export type CompanyRepository = {
   findById(id: string): Promise<Company | undefined>;
+  listByOrganization?(organizationId: string): Promise<Company[]>;
   save(company: Company): Promise<void>;
 };
 
