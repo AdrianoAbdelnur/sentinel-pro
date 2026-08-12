@@ -63,6 +63,15 @@ describe("authentication route handlers", () => {
     expect(response.headers.get("set-cookie")).toContain("Max-Age=43200");
   });
 
+  it("uses a non-prefixed session cookie over local HTTP", async () => {
+    application.login.mockResolvedValue({ kind: "authenticated", token: "opaque-token", organizationId: "organization-1", role: "operator" });
+
+    const response = await login(new Request("http://192.168.56.1:3000/api/auth/login", { method: "POST", body: JSON.stringify({ email: "user@example.test", password: "valid-password" }), headers: { "content-type": "application/json" } }));
+
+    expect(response.headers.get("set-cookie")).toContain("sentinel_session=opaque-token");
+    expect(response.headers.get("set-cookie")).not.toContain("Secure");
+  });
+
   it("maps tenant selection to its focused navigation", async () => {
     application.login.mockResolvedValue({ kind: "tenant_selection_required", token: "opaque-token" });
 
