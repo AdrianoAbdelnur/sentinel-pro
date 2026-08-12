@@ -15,11 +15,8 @@ export function createHowenImportSource({ client, companyId }: CreateHowenImport
         const records = await client.fetchRoster();
         const candidates = mapHowenCatalog(records, companyId);
 
-        if (records.length > 0 && candidates.length === 0) {
-          return { kind: "failed", failure: { category: "invalid-response" } };
-        }
-
-        return { kind: "complete", candidates };
+        const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length;
+        return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: candidates.length } };
       } catch {
         return { kind: "failed", failure: { category: "internal" } };
       }

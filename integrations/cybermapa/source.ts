@@ -23,11 +23,8 @@ export function createCybermapaImportSource({ client }: CreateCybermapaImportSou
         const records = await client.fetchVehicles();
         const candidates = mapCybermapaCatalog(records);
 
-        if (records.length > 0 && candidates.length === 0) {
-          return { kind: "failed", failure: { category: "invalid-response" } };
-        }
-
-        return { kind: "complete", candidates };
+        const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length;
+        return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: candidates.length } };
       } catch (error) {
         return { kind: "failed", failure: toCatalogSyncFailure(error) };
       }

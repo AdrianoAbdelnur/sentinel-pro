@@ -1,4 +1,5 @@
 import {
+  assessCatalogSnapshot,
   failCatalogSyncRun,
   isCatalogSyncDue,
   markExternalVehicleIdentityAbsent,
@@ -61,20 +62,36 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
       }
     }
 
-    const run = startCatalogSyncRun(runId, { organizationId, connectionId, trigger, fullSnapshot: true }, ports.clock.now());
-    if ((await ports.syncRuns.claimActive(run)) === "already-active") {
+    const provisionalRun = startCatalogSyncRun(runId, { organizationId, connectionId, trigger, fullSnapshot: false }, ports.clock.now());
+    if ((await ports.syncRuns.claimActive(provisionalRun)) === "already-active") {
       await ports.syncLeases.release(organizationId, connectionId, runId);
       return { kind: "already-running" };
     }
 
-    const authorizedSource: CatalogImportSource = {
-      async loadCompleteSnapshot() {
-        if (!hasCatalogImportAuthorization(connection)) return { kind: "failed", failure: { category: "invalid-response", providerErrorCode: "missing-authorization" } };
-        const snapshot = await source.loadCompleteSnapshot();
-        return snapshot.kind === "complete" ? { ...snapshot, candidates: authorizeCatalogSnapshot(connection, snapshot.candidates) } : snapshot;
-      },
-    };
-
+    let snapshot;
+    try {
+      snapshot = await source.loadCompleteSnapshot();
+    } catch {
+      snapshot = { kind: "failed" as const, failure: { category: "internal" as const } };
+    }
+    if (snapshot.kind === "failed") {
+      const failed = failCatalogSyncRun(provisionalRun, ports.clock.now(), snapshot.failure);
+      await ports.syncRuns.save(failed);
+      await ports.syncLeases.release(organizationId, connectionId, runId);
+      return { kind: "retryable-failure", run: failed, failure: snapshot.failure };
+    }
+    if (!hasCatalogImportAuthorization(connection)) {
+      const failure = { category: "invalid-response" as const, providerErrorCode: "missing-authorization" };
+      const failed = failCatalogSyncRun(provisionalRun, ports.clock.now(), failure);
+      await ports.syncRuns.save(failed);
+      await ports.syncLeases.release(organizationId, connectionId, runId);
+      return { kind: "retryable-failure", run: failed, failure };
+    }
+    const candidates = authorizeCatalogSnapshot(connection, snapshot.candidates);
+    const priorConfirmed = await ports.syncRuns.findLastConfirmed?.(organizationId, connectionId);
+    const assessment = assessCatalogSnapshot(snapshot.evidence, candidates.length, priorConfirmed);
+    const run = { ...provisionalRun, fullSnapshot: assessment.status === "complete", snapshot: assessment };
+    const authorizedSource: CatalogImportSource = { async loadCompleteSnapshot() { return { kind: "complete", candidates, evidence: snapshot.evidence ?? { retrievalComplete: false, paginationComplete: false, receivedRecordCount: 0, parseableRecordCount: 0 } }; } };
     let result: ImportCatalogResult;
     try {
       result = await importer.importCatalog({ connection, run, source: authorizedSource, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
@@ -91,7 +108,7 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
     }
 
     const succeeded = succeedCatalogSyncRun({ ...run, checkpoint: result.checkpoint }, completedAt, result.counts);
-    const finalRun = shouldReconcileCatalogSyncAbsence(succeeded)
+    const finalRun = shouldReconcileCatalogSyncAbsence(succeeded, priorConfirmed)
       ? { ...succeeded, counts: { ...succeeded.counts, absent: await reconcileAbsence(organizationId, connectionId, runId) } }
       : succeeded;
     await ports.syncRuns.save(finalRun);

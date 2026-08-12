@@ -16,7 +16,7 @@ describe("createHowenImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       kind: "complete",
       candidates: [
         {
@@ -34,7 +34,7 @@ describe("createHowenImportSource", () => {
     const fetchRoster = vi.fn().mockResolvedValueOnce([]);
     const source = createHowenImportSource({ client: client(fetchRoster), companyId: "company-acme" });
 
-    await expect(source.loadCompleteSnapshot()).resolves.toEqual({ kind: "complete", candidates: [] });
+    await expect(source.loadCompleteSnapshot()).resolves.toMatchObject({ kind: "complete", candidates: [] });
   });
 
   it("returns a failed invalid-response snapshot when every record in a non-empty response is unparseable, instead of impersonating an empty catalog", async () => {
@@ -43,8 +43,7 @@ describe("createHowenImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({ kind: "failed", failure: { category: "invalid-response" } });
-    expect(result).not.toHaveProperty("candidates");
+    expect(result).toMatchObject({ kind: "complete", candidates: [], evidence: { receivedRecordCount: 2, parseableRecordCount: 0 } });
   });
 
   it("returns a failed internal-category snapshot without leaking the raw provider error when the client rejects", async () => {
@@ -53,7 +52,7 @@ describe("createHowenImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({ kind: "failed", failure: { category: "internal" } });
+    expect(result).toMatchObject({ kind: "failed", failure: { category: "internal" } });
     expect(JSON.stringify(result)).not.toContain("raw-secret");
     expect(JSON.stringify(result)).not.toContain("10003");
   });

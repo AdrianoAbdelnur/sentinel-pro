@@ -15,7 +15,7 @@ export function createGetCatalogSyncStatusApplication(ports: GetCatalogSyncStatu
 
     const [latestRun, lastSuccess] = await Promise.all([
       ports.syncRuns.findLatest(organizationId, connectionId),
-      ports.syncRuns.findLastSuccess(organizationId, connectionId),
+      ports.syncRuns.findLastConfirmed?.(organizationId, connectionId),
     ]);
 
     return {

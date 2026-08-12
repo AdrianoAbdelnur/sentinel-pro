@@ -61,8 +61,10 @@ export function parseCybermapaVehiclesResponse(value: unknown): CybermapaVehicle
     throw new Error("Invalid Cybermapa vehicles response");
   }
 
-  return value.flatMap((item) => {
+  const records = value.flatMap((item) => {
     const record = parseRecord(item);
     return record ? [record] : [];
   });
+  Object.defineProperty(records, "receivedRecordCount", { value: value.length });
+  return records;
 }

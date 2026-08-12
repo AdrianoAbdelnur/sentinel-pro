@@ -66,9 +66,9 @@ describe("catalog sync due computation", () => {
 describe("catalog sync absence reconciliation gate", () => {
   const zeroCounts = { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 };
 
-  it("reconciles absence only when a run is both succeeded and a full snapshot, proven by varying each field independently", () => {
+  it("requires a new-format confirmed baseline before reconciling absence, proven by varying each field independently", () => {
     const succeededFull = succeedCatalogSyncRun(startCatalogSyncRun("run-1", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: true }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:05:00Z"), zeroCounts);
-    expect(shouldReconcileCatalogSyncAbsence(succeededFull)).toBe(true);
+    expect(shouldReconcileCatalogSyncAbsence(succeededFull)).toBe(false);
 
     const failedFull = failCatalogSyncRun(startCatalogSyncRun("run-2", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: true }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:01:00Z"), { category: "internal" });
     expect(shouldReconcileCatalogSyncAbsence(failedFull)).toBe(false);
@@ -78,5 +78,16 @@ describe("catalog sync absence reconciliation gate", () => {
 
     const succeededPartial = succeedCatalogSyncRun(startCatalogSyncRun("run-4", { organizationId: "org-a", connectionId: "conn-cyber", trigger: "scheduled", fullSnapshot: false }, new Date("2026-01-01T00:00:00Z")), new Date("2026-01-01T00:05:00Z"), zeroCounts);
     expect(shouldReconcileCatalogSyncAbsence(succeededPartial)).toBe(false);
+  });
+});
+
+describe("snapshot completeness assessment", () => {
+  const evidence = { retrievalComplete: true, paginationComplete: true, receivedRecordCount: 100, parseableRecordCount: 98 };
+  const prior = succeedCatalogSyncRun(startCatalogSyncRun("baseline", { organizationId: "org", connectionId: "conn", trigger: "manual", fullSnapshot: true, snapshot: { ...evidence, authorizedCandidateCount: 100, status: "complete" } }, new Date()), new Date(), { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 });
+  it("accepts 98% parsing, but rejects empty populated and 90% declines", async () => {
+    const { assessCatalogSnapshot } = await import("./sync-run");
+    expect(assessCatalogSnapshot(evidence, 100, prior)).toMatchObject({ status: "complete" });
+    expect(assessCatalogSnapshot({ ...evidence, receivedRecordCount: 0, parseableRecordCount: 0 }, 0, prior)).toMatchObject({ status: "partial", reason: "unexpected-empty" });
+    expect(assessCatalogSnapshot(evidence, 89, prior)).toMatchObject({ status: "partial", reason: "population-decline" });
   });
 });

@@ -92,6 +92,7 @@ function createFixture() {
       findById: async (id) => syncRuns.get(id),
       findLatest: async (organizationId, connectionId) => [...syncRuns.values()].filter((r) => r.organizationId === organizationId && r.connectionId === connectionId).sort((a, b) => b.startedAt.getTime() - a.startedAt.getTime())[0],
       findLastSuccess: async (organizationId, connectionId) => [...syncRuns.values()].filter((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.status === "succeeded").sort((a, b) => (b.completedAt as Date).getTime() - (a.completedAt as Date).getTime())[0],
+      findLastConfirmed: async (organizationId, connectionId) => [...syncRuns.values()].filter((r) => r.organizationId === organizationId && r.connectionId === connectionId && r.status === "succeeded" && r.fullSnapshot && r.snapshot?.status === "complete").sort((a, b) => (b.completedAt as Date).getTime() - (a.completedAt as Date).getTime())[0],
       claimActive: async (run) => {
         const activeExists = [...syncRuns.values()].some((r) => r.organizationId === run.organizationId && r.connectionId === run.connectionId && r.status === "active" && r.id !== run.id);
         if (activeExists) return "already-active";
@@ -129,8 +130,8 @@ const connectionA: ProviderConnection = {
 };
 const connectionOtherTenant: ProviderConnection = { id: "conn-stolen", organizationId: "org-b", credentialRef: "vault:cybermapa/org-b" };
 
-const fakeSource = (candidates: CatalogImportCandidate[]): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates }) });
-const failingSource = (): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "failed", failure: { category: "connectivity" } }) });
+const fakeSource = (candidates: CatalogImportCandidate[]): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount: candidates.length, parseableRecordCount: candidates.length } }) });
+const failingSource = (): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "failed", failure: { category: "connectivity" } }) });const sourceWithEvidence = (candidates: CatalogImportCandidate[], evidence: { retrievalComplete: boolean; paginationComplete: boolean; receivedRecordCount: number; parseableRecordCount: number }): CatalogImportSource => ({ loadCompleteSnapshot: async () => ({ kind: "complete", candidates, evidence }) });
 
 async function bindCompany(fixture: ReturnType<typeof createFixture>, connection: ProviderConnection, label: string) {
   const companyId = fixture.ports.ids.create();
@@ -204,7 +205,7 @@ describe("mutual exclusion", () => {
     const fixture = createFixture();
     fixture.connections.set(connectionA.id, connectionA);
     await bindCompany(fixture, connectionA, "Acme Transport");
-    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates: [] }));
+    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates: [], evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount: 0, parseableRecordCount: 0 } }));
     const sharedSource: CatalogImportSource = { loadCompleteSnapshot };
 
     const [first, second] = await Promise.all([
@@ -274,13 +275,13 @@ describe("absence reconciliation gated on a successful full snapshot", () => {
     const fixture = createFixture();
     fixture.connections.set(connectionA.id, connectionA);
     await bindCompany(fixture, connectionA, "Acme Transport");
-    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([{ externalId: "ext-1", companyLabel: "Acme Transport" }]) });
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(Array.from({ length: 10 }, (_, index) => ({ externalId: `ext-${index}`, companyLabel: "Acme Transport" }))) });
     const [vehicle] = [...fixture.vehicles.values()];
-    const [identityAfterFirstRun] = [...fixture.vehicleIdentities.values()];
+    const identityAfterFirstRun = [...fixture.vehicleIdentities.values()].find((identity) => identity.externalId === "ext-0") as ExternalVehicleIdentity;
     expect(identityAfterFirstRun.presence).toBe("present");
     fixture.setNow("2026-08-09T07:00:00Z");
 
-    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource([]) });
+    const outcome = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(Array.from({ length: 9 }, (_, index) => ({ externalId: `ext-${index + 1}`, companyLabel: "Acme Transport" }))) });
 
     expect(outcome.kind === "succeeded" ? outcome.run.counts.absent : -1).toBe(1);
     expect(fixture.vehicleIdentities.get(identityAfterFirstRun.id)?.presence).toBe("absent");
@@ -398,7 +399,7 @@ describe("lease renewal keeps a single long batch alive on a time debounce, not 
     await bindCompany(fixture, connectionA, "Acme Transport");
     const total = CATALOG_IMPORT_BATCH_SIZE;
     const candidates: CatalogImportCandidate[] = Array.from({ length: total }, (_, index) => ({ externalId: `ext-${String(index).padStart(5, "0")}`, companyLabel: "Acme Transport" }));
-    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates }));
+    const loadCompleteSnapshot = vi.fn(async () => ({ kind: "complete" as const, candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount: candidates.length, parseableRecordCount: candidates.length } }));
     const sharedSource: CatalogImportSource = { loadCompleteSnapshot };
 
     let rivalOutcome: CatalogSyncOutcome | undefined;
@@ -452,5 +453,33 @@ describe("a renewal that discovers the lease was already stolen stops the run in
     expect(outcome.kind === "retryable-failure" ? outcome.run.status : undefined).toBe("failed");
     expect(claimCalls).toBeGreaterThanOrEqual(2);
     expect(fixture.vehicleIdentities.size).toBe(3);
+  });
+});
+
+
+
+
+
+
+
+describe("snapshot integrity", () => {
+  it("imports valid partial candidates but preserves unseen identities, rejects unexpected empty and parse-degraded snapshots, then recovers on a confirmed run idempotently", async () => {
+    const fixture = createFixture();
+    fixture.connections.set(connectionA.id, connectionA);
+    await bindCompany(fixture, connectionA, "Acme Transport");
+    const full = Array.from({ length: 10 }, (_, index) => ({ externalId: `safe-${index}`, companyLabel: "Acme Transport" }));
+    await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(full) });
+    const partial = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: sourceWithEvidence(full.slice(0, 2), { retrievalComplete: true, paginationComplete: false, receivedRecordCount: 10, parseableRecordCount: 2 }) });
+    expect(partial.kind === "succeeded" ? partial.run.snapshot : undefined).toMatchObject({ status: "partial", reason: "pagination-unproven" });
+    expect([...fixture.vehicleIdentities.values()].every((identity) => identity.presence === "present")).toBe(true);
+    const empty = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: sourceWithEvidence([], { retrievalComplete: true, paginationComplete: true, receivedRecordCount: 0, parseableRecordCount: 0 }) });
+    expect(empty.kind === "succeeded" ? empty.run.snapshot?.reason : undefined).toBe("unexpected-empty");
+    const degraded = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: sourceWithEvidence(full.slice(0, 2), { retrievalComplete: true, paginationComplete: true, receivedRecordCount: 100, parseableRecordCount: 2 }) });
+    expect(degraded.kind === "succeeded" ? degraded.run.snapshot?.reason : undefined).toBe("parse-quality-below-threshold");
+    const recovered = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(full) });
+    const retried = await fixture.sync.synchronizeCatalogConnection({ organizationId: "org-a", connectionId: "conn-cyber", trigger: "manual", source: fakeSource(full) });
+    expect(recovered.kind === "succeeded" ? recovered.run.fullSnapshot : false).toBe(true);
+    expect(retried.kind === "succeeded" ? retried.run.counts.absent : -1).toBe(0);
+    expect(fixture.vehicleIdentities.size).toBe(10);
   });
 });

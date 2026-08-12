@@ -17,7 +17,7 @@ export function createSynchronizeDueCatalogConnectionsApplication(
 
     for (const { organizationId, connectionId, source } of candidates) {
       try {
-        const lastSuccess = await ports.syncRuns.findLastSuccess(organizationId, connectionId);
+        const lastSuccess = await ports.syncRuns.findLastConfirmed?.(organizationId, connectionId);
         if (!isCatalogSyncDue(lastSuccess?.completedAt, ports.clock.now())) {
           results.push({ organizationId, connectionId, outcome: { kind: "skipped-fresh", lastSuccessAt: lastSuccess?.completedAt as Date } });
           continue;

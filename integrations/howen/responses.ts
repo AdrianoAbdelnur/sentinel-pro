@@ -65,8 +65,10 @@ export function parseHowenRosterResponse(value: unknown): HowenRosterRecord[] {
     throw new Error("Invalid Howen roster response");
   }
 
-  return value.data.dataList.flatMap((item) => {
+  const records = value.data.dataList.flatMap((item) => {
     const record = parseRecord(item);
     return record ? [record] : [];
   });
+  Object.defineProperty(records, "receivedRecordCount", { value: value.data.dataList.length });
+  return records;
 }

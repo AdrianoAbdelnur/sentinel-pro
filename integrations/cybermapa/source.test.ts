@@ -19,7 +19,7 @@ describe("createCybermapaImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       kind: "complete",
       candidates: [
         {
@@ -35,7 +35,7 @@ describe("createCybermapaImportSource", () => {
     const fetchVehicles = vi.fn().mockResolvedValueOnce([]);
     const source = createCybermapaImportSource({ client: client(fetchVehicles) });
 
-    await expect(source.loadCompleteSnapshot()).resolves.toEqual({ kind: "complete", candidates: [] });
+    await expect(source.loadCompleteSnapshot()).resolves.toMatchObject({ kind: "complete", candidates: [] });
   });
 
   it("returns a complete snapshot with every candidate when a non-empty response is fully usable", async () => {
@@ -57,8 +57,7 @@ describe("createCybermapaImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({ kind: "failed", failure: { category: "invalid-response" } });
-    expect(result).not.toHaveProperty("candidates");
+    expect(result).toMatchObject({ kind: "complete", candidates: [], evidence: { receivedRecordCount: 3, parseableRecordCount: 0 } });
   });
 
   it("returns a failed snapshot carrying only the allow-listed category when the client rejects with a CybermapaRequestError, never a complete result", async () => {
@@ -67,7 +66,7 @@ describe("createCybermapaImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({ kind: "failed", failure: { category: "invalid-response", httpStatus: 500 } });
+    expect(result).toMatchObject({ kind: "failed", failure: { category: "invalid-response", httpStatus: 500 } });
     expect(result).not.toHaveProperty("candidates");
   });
 
@@ -77,7 +76,7 @@ describe("createCybermapaImportSource", () => {
 
     const result = await source.loadCompleteSnapshot();
 
-    expect(result).toEqual({ kind: "failed", failure: { category: "internal" } });
+    expect(result).toMatchObject({ kind: "failed", failure: { category: "internal" } });
     expect(JSON.stringify(result)).not.toContain("unexpected mapper crash");
   });
 });

@@ -82,3 +82,7 @@ fully reverts to pre-catalog behavior. Catalog data, sync run history,
 Company/Fleet bindings, pending and resolved reviews, and admin-assigned
 placement are untouched by rollback — they simply stop being read until the
 feature switch is re-enabled.
+
+## Snapshot integrity
+
+Absence reconciliation is deny-by-default. A provider snapshot is confirmed only when retrieval and pagination are proven, at least 98% of received records are parseable, and its authorized population is at least 90% of the previous confirmed run. An empty result after a populated confirmed run is partial. Partial runs may import valid records but preserve unseen identities and do not refresh the six-hour cadence. The first confirmed run establishes a baseline; only a subsequent confirmed run may reconcile absence. A later confirmed snapshot resumes normal reconciliation.

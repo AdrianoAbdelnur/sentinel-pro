@@ -1,4 +1,4 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogReviewSubject, CatalogSyncFailure, CatalogSyncRun, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogReviewSubject, CatalogSyncFailure, CatalogSyncRun, CatalogSnapshotEvidence, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
 
 export type Clock = { now(): Date };
 
@@ -107,6 +107,7 @@ export type CatalogSyncRunRepository = {
   findById(id: string): Promise<CatalogSyncRun | undefined>;
   findLatest(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
   findLastSuccess(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
+  findLastConfirmed?(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
   claimActive(run: CatalogSyncRun): Promise<"claimed" | "already-active">;
   save(run: CatalogSyncRun): Promise<void>;
 };
@@ -136,7 +137,7 @@ export type CatalogImportCandidate = {
 };
 
 export type CatalogSnapshotResult =
-  | { kind: "complete"; candidates: CatalogImportCandidate[] }
+  | { kind: "complete"; candidates: CatalogImportCandidate[]; evidence?: CatalogSnapshotEvidence }
   | { kind: "failed"; failure: CatalogSyncFailure };
 
 export type CatalogImportSource = {
@@ -173,12 +174,12 @@ export type CatalogReviewApplicationPorts = {
 };
 
 export type SynchronizeDueCatalogConnectionsPorts = {
-  syncRuns: Pick<CatalogSyncRunRepository, "findLastSuccess">;
+  syncRuns: Pick<CatalogSyncRunRepository, "findLastSuccess" | "findLastConfirmed">;
   clock: Clock;
 };
 
 export type GetCatalogSyncStatusPorts = {
   connections: Pick<ProviderConnectionRepository, "findById">;
-  syncRuns: Pick<CatalogSyncRunRepository, "findLatest" | "findLastSuccess">;
+  syncRuns: Pick<CatalogSyncRunRepository, "findLatest" | "findLastSuccess" | "findLastConfirmed">;
   clock: Clock;
 };
