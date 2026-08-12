@@ -20,5 +20,6 @@ export async function readJson(request: Request): Promise<Record<string, unknown
 }
 
 export function isRole(value: unknown): value is IdentityRole { return value === "admin" || value === "operator"; }
-export function badRequest() { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }
-export function lastAdmin() { return NextResponse.json({ error: "The last administrator cannot be changed." }, { status: 409 }); }
+export function badRequest() { return NextResponse.json({ error: "Solicitud inválida." }, { status: 400 }); }
+export function lastAdmin() { return NextResponse.json({ error: "No se puede modificar al último administrador." }, { status: 409 }); }
+export function adminForbidden() { return NextResponse.json({ error: "No tenés permisos para realizar esta acción." }, { status: 403 }); }

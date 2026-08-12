@@ -180,3 +180,35 @@ They MUST NOT become the live business layer.
 How the current delivery layer is wired — composition root, copy module, client
 island, and the Leaflet/Tailwind/`Intl` constraints it works around — is in
 `06-live-delivery-layer.md`.
+
+## Canonical catalog composition switch
+
+`app/live/create-operational-sources.ts`'s `createOperationalSources()`
+accepts an optional `canonicalCatalogSource` dependency. When supplied, it is
+composed alongside the Howen source using
+`createCanonicalCatalogOperationalSource`
+(`application/live/project-canonical-live.ts`), which wraps
+`projectCanonicalLive` as an `OperationalSource`. When omitted — the current
+production default, since `app/live/page.tsx` calls
+`createOperationalSources(runtime)` with a single argument — behavior is
+byte-for-byte identical to the pre-catalog composition.
+
+No production loader is wired yet: nothing in this codebase resolves a
+tenant-scoped Mongo catalog read into the projection's `sourceSnapshots`
+input and passes it as `canonicalCatalogSource`. This is a deliberate,
+disclosed scope boundary, not a silent gap — activating the switch is a
+separate follow-up.
+
+Before that loader is wired, `aggregate-operational-sources.ts`'s collision
+guard must be revisited: it rejects a duplicate live tile only on
+string-identical source ids. Howen's raw source emits ids shaped like
+`howen:vehicle:${deviceNumber}`; the canonical projection emits the
+catalog's own `vehicle.id`. Running both sources together for the same
+physical vehicle would surface two live tiles for one vehicle, violating the
+one-tile-per-source rule in `02-provider-agnostic-live-principles.md`, unless
+the switch replaces the Howen source outright or the guard learns to compare
+canonical identity instead of raw source id. Whoever wires the loader owns
+proving this before shipping it active.
+
+See `08-catalog-synchronization.md` for how the underlying catalog data this
+projection reads stays synchronized with providers.

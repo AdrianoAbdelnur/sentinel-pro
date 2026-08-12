@@ -1,6 +1,6 @@
 import { getIdentityApplication } from "@/app/api/auth/composition";
 import { NextResponse } from "next/server";
-import { authorizeAdminRequest, badRequest, isRole, lastAdmin, readJson } from "../../delivery";
+import { adminForbidden, authorizeAdminRequest, badRequest, isRole, lastAdmin, readJson } from "../../delivery";
 
 type Context = { params: Promise<{ userId: string }> };
 
@@ -13,7 +13,7 @@ export async function DELETE(request: Request, { params }: Context) {
   switch (result.kind) {
     case "deactivated": return new NextResponse(null, { status: 204 });
     case "last_admin": return lastAdmin();
-    case "forbidden": case "changed": case "reactivated": return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    case "forbidden": case "changed": case "reactivated": return adminForbidden();
     default: { const neverResult: never = result; return neverResult; }
   }
 }
@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: Context) {
   switch (result.kind) {
     case "changed": case "reactivated": return new NextResponse(null, { status: 204 });
     case "last_admin": return lastAdmin();
-    case "forbidden": case "deactivated": return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    case "forbidden": case "deactivated": return adminForbidden();
     default: { const neverResult: never = result; return neverResult; }
   }
 }

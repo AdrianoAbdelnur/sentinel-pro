@@ -94,10 +94,10 @@ describe("POST /api/admin/catalog/reviews/[reviewId]/resolve", () => {
     expect(body.review.resolvedVehicleId).toBe("vehicle-1");
   });
 
-  it("maps an unsupported target (a new Fleet, which the domain does not allow) to 400", async () => {
+  it("maps an unsupported target (a new Fleet, which the domain does not allow) to 409, distinct from a malformed request", async () => {
     resolveCatalogReview.mockResolvedValue({ kind: "unsupported" });
     const response = await resolveReview(post("https://sentinel.test/api/admin/catalog/reviews/review-1/resolve", { new: true }), { params: Promise.resolve({ reviewId: "review-1" }) });
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(409);
   });
 
   it("rejects a missing or blank reviewId before calling the application", async () => {

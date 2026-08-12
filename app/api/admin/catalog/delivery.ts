@@ -11,6 +11,10 @@ export function unsupportedProvider() {
   return NextResponse.json({ error: "Este proveedor todavía no admite sincronización." }, { status: 409 });
 }
 
+export function unsupportedResolution() {
+  return NextResponse.json({ error: "Este tipo de revisión no admite esa resolución." }, { status: 409 });
+}
+
 export function missingCompanyAssignment() {
   return NextResponse.json({ error: "Esta conexión no tiene una Company asignada. Asigná una Company para poder sincronizar." }, { status: 409 });
 }

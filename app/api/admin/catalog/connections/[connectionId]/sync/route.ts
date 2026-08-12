@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAdminRequest } from "@/app/api/admin/users/delivery";
-import { classifyConnectionSourceProblem, resolveConnectionSource } from "@/app/api/internal/catalog/synchronize/composition";
+import { classifyConnectionSourceProblem, resolveConnectionSource } from "@/app/api/catalog/connection-sources";
 
 import { getCatalogAdminRuntime } from "../../../composition";
 import { badRequest, catalogForbidden, missingCompanyAssignment, providerMisconfigured, toSyncOutcomeResponse, unsupportedProvider } from "../../../delivery";

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { createAssignConnectionCompanyApplication, createCatalogReviewApplication, createCompanyBindingApplication, createGetCatalogSyncStatusApplication, createSynchronizeCatalogConnectionApplication } from "@/application/catalog";
-import { createDefaultConnectionSourceFactories } from "@/app/api/internal/catalog/synchronize/composition";
+import { createDefaultConnectionSourceFactories } from "@/app/api/catalog/connection-sources";
 import { createMongoCatalogRepositories, getMongoClient, getMongoDatabase, MongoCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
 
 async function createCatalogAdminRuntime() {

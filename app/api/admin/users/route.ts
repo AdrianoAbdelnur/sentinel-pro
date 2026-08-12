@@ -1,6 +1,6 @@
 import { getIdentityApplication } from "@/app/api/auth/composition";
 import { NextResponse } from "next/server";
-import { authorizeAdminRequest, badRequest, isRole, readJson } from "./delivery";
+import { adminForbidden, authorizeAdminRequest, badRequest, isRole, lastAdmin, readJson } from "./delivery";
 
 export async function POST(request: Request) {
   const actor = await authorizeAdminRequest(request);
@@ -12,8 +12,8 @@ export async function POST(request: Request) {
     case "created": return NextResponse.json({ userId: result.userId, temporaryPassword: result.temporaryPassword }, { status: 201 });
     case "membership_attached": return NextResponse.json({ userId: result.userId });
     case "invalid_email": return badRequest();
-    case "last_admin": return NextResponse.json({ error: "The last administrator cannot be changed." }, { status: 409 });
-    case "forbidden": return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+    case "last_admin": return lastAdmin();
+    case "forbidden": return adminForbidden();
     default: { const neverResult: never = result; return neverResult; }
   }
 }

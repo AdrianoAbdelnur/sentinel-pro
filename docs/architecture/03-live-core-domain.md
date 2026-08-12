@@ -100,3 +100,18 @@ Resolution rules:
 ## Consequence
 
 Any provider adapter must map into these contracts before the UI or page view model consumes the data.
+
+## Canonical catalog projection
+
+`application/live/project-canonical-live.ts` populates these same contracts
+from the catalog module's canonical `Fleet`/`Vehicle` roster
+(`domain/catalog`) instead of a single provider's raw payload. It resolves
+each of the catalog's four capabilities — `gps`, `video`,
+`operationalAlerts`, `videoAlerts` — independently through
+`domain/catalog/precedence.ts`'s five-level policy precedence, then maps
+only `gps` into `DeviceTelemetry` and only `video` into `Device`.
+`operationalAlerts` and `videoAlerts` resolve but currently have no sink:
+neither `Device` nor `DeviceTelemetry` carries an alert field yet, so a
+resolved alert capability is computed and then discarded before it reaches
+this domain. Extending these contracts to carry alert data is a separate,
+not-yet-implemented unit of work.
