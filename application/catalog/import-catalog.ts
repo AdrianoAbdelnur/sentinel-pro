@@ -1,16 +1,14 @@
 import {
   belongsToOrganization,
+  bindExternalFleetIdentity,
   bindExternalVehicleIdentity,
   markCatalogImportItemProcessed,
   markExternalVehicleIdentitySeen,
-  normalizeFleetName,
   normalizePlate,
-  resolveExternalFleetBinding,
   resolveVehicleMatch,
   stageCatalogImportItem,
   stageExternalFleetIdentity,
   stageExternalVehicleIdentity,
-  stageFleetBindingReview,
   stageVehicleMatchReview,
   type ActiveCompanyVehicle,
   type CatalogImportItem,
@@ -83,30 +81,39 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     companyId: string,
     candidate: CatalogImportCandidate,
     fleetIdentities: ExternalFleetIdentity[],
+    fleets: Fleet[],
   ): Promise<string | undefined> {
     if (!candidate.externalFleetId) return undefined;
-    const label = normalizeFleetName(candidate.fleetLabel ?? candidate.externalFleetId);
-    const outcome = resolveExternalFleetBinding(
-      { organizationId: connection.organizationId, connectionId: connection.id, entityKind: "fleet", externalId: candidate.externalFleetId, label },
-      fleetIdentities,
+    const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalFleetId, "fleet-binding");
+    const existingIdentity = fleetIdentities.find(
+      (identity) => identity.organizationId === connection.organizationId && identity.connectionId === connection.id && identity.externalId === candidate.externalFleetId,
     );
-    if (outcome.kind === "reused") return outcome.fleetId;
+    const existingFleet = existingIdentity?.fleetId ? fleets.find((fleet) => fleet.id === existingIdentity.fleetId) : undefined;
+    if (existingFleet) return existingFleet.id;
 
-    const alreadyStaged = fleetIdentities.some((identity) => identity.connectionId === connection.id && identity.externalId === candidate.externalFleetId);
-    if (!alreadyStaged) {
-      const identity = stageExternalFleetIdentity(ports.ids.create(), connection, candidate.externalFleetId, candidate.fleetLabel ?? candidate.externalFleetId);
-      await ports.fleetIdentities.save(identity);
+    const fleet: Fleet = {
+      id: ports.ids.create(),
+      companyId,
+      name: candidate.fleetLabel?.trim() || candidate.externalFleetId,
+      kind: "standard",
+    };
+    await ports.fleets.save(fleet);
+    fleets.push(fleet);
+
+    const identity = existingIdentity
+      ? bindExternalFleetIdentity(existingIdentity, fleet.id)
+      : bindExternalFleetIdentity(stageExternalFleetIdentity(ports.ids.create(), connection, candidate.externalFleetId, candidate.fleetLabel ?? candidate.externalFleetId), fleet.id);
+    await ports.fleetIdentities.save(identity);
+    if (existingIdentity) {
+      const identityIndex = fleetIdentities.findIndex((item) => item.id === existingIdentity.id);
+      fleetIdentities[identityIndex] = identity;
+    } else {
       fleetIdentities.push(identity);
     }
-
-    const existingReview = await ports.reviews.findByConnectionAndExternalId(connection.organizationId, connection.id, candidate.externalFleetId, "fleet-binding");
-    if (!existingReview) {
-      await ports.reviews.save(
-        stageFleetBindingReview(ports.ids.create(), { organizationId: connection.organizationId, connectionId: connection.id, companyId, externalId: candidate.externalFleetId, label: candidate.fleetLabel ?? candidate.externalFleetId, candidateFleetIds: outcome.candidateFleetIds ?? [] }),
-      );
+    if (existingReview?.status === "pending" && existingReview.subject === "fleet-binding") {
+      await ports.reviews.resolve({ ...existingReview, status: "resolved", resolvedFleetId: fleet.id });
     }
-
-    return undefined;
+    return fleet.id;
   }
 
   async function resolveCandidateCompanyId(connection: ProviderConnection, candidate: CatalogImportCandidate, companiesCache: Map<string, Company | undefined>): Promise<string | undefined> {
@@ -156,7 +163,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     const identity = baseIdentity ? markExternalVehicleIdentitySeen(baseIdentity, runId) : undefined;
     const fleets = await loadCompanyFleets(companyId, companyFleetsCache);
     const unassignedFleetId = fleets.find((fleet) => fleet.kind === "unassigned")?.id;
-    const matchedFleetId = await resolveCandidateFleetPlacement(connection, companyId, candidate, fleetIdentities);
+    const matchedFleetId = await resolveCandidateFleetPlacement(connection, companyId, candidate, fleetIdentities, fleets);
 
     const outcome = await ports.transactions.run(async (txRepos) => {
       const existingVehicle = await txRepos.vehicles.findById(vehicleId);
