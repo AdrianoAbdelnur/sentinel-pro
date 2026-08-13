@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type Provider = "cybermapa" | "howen";
 type Counts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
@@ -21,6 +22,7 @@ function Stat({ label, value, tone = "text-zinc-100" }: { label: string; value: 
 }
 
 export function ProviderImportScreen() {
+  const router = useRouter();
   const [provider, setProvider] = useState<Provider>("cybermapa");
   const [loading, setLoading] = useState(false);
   const [startedAt, setStartedAt] = useState<number>();
@@ -39,6 +41,10 @@ export function ProviderImportScreen() {
     setLoading(true); setStartedAt(start); setElapsed(0); setProgress(initialProgress); setResult(undefined);
     try {
       const response = await fetch("/api/admin/import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider }) });
+      if (response.status === 401 || response.status === 403) {
+        router.replace("/login");
+        return;
+      }
       if (!response.body) throw new Error("Import stream unavailable");
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
       let buffer = "";
