@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { requestCatalogApi } from "./catalog-client";
 import { ReviewItem, type ReviewSummary } from "./review-item";
 
-export function PendingReviewsPanel() {
+export function PendingReviewsPanel({ autoLoad = false }: { autoLoad?: boolean } = {}) {
   const [reviews, setReviews] = useState<ReviewSummary[]>();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -24,6 +24,11 @@ export function PendingReviewsPanel() {
     setNotice("Revisión resuelta.");
     setReviews((current) => current?.filter((review) => review.id !== reviewId));
   }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (autoLoad) void cargarRevisiones();
+  }, [autoLoad]);
 
   return (
     <div className="flex flex-col gap-4">

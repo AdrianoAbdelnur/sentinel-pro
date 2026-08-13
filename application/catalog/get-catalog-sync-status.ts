@@ -9,13 +9,19 @@ function projectRunSummary(run: CatalogSyncRun | undefined): CatalogSyncRunSumma
 }
 
 export function createGetCatalogSyncStatusApplication(ports: GetCatalogSyncStatusPorts) {
+  async function findLastConfirmedOrSuccess(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined> {
+    return ports.syncRuns.findLastConfirmed
+      ? ports.syncRuns.findLastConfirmed(organizationId, connectionId)
+      : ports.syncRuns.findLastSuccess(organizationId, connectionId);
+  }
+
   async function getCatalogSyncStatus({ organizationId, connectionId }: GetCatalogSyncStatusInput): Promise<GetCatalogSyncStatusResult> {
     const connection = await ports.connections.findById(organizationId, connectionId);
     if (!connection) return { kind: "not-found" };
 
     const [latestRun, lastSuccess] = await Promise.all([
       ports.syncRuns.findLatest(organizationId, connectionId),
-      ports.syncRuns.findLastConfirmed?.(organizationId, connectionId),
+      findLastConfirmedOrSuccess(organizationId, connectionId),
     ]);
 
     return {

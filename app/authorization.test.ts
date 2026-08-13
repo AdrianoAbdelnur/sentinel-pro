@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const cookieStore = { get: vi.fn() };
 const application = { authorize: vi.fn() };
@@ -7,7 +7,11 @@ vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication: () => app
 import { getPageAuthorization } from "./authorization";
 
 describe("page authorization", () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it("uses the application authorization service with the opaque cookie and never client roles", async () => {
     cookieStore.get.mockReturnValue({ value: "opaque" });
@@ -28,5 +32,21 @@ describe("page authorization", () => {
     application.authorize.mockResolvedValue({ kind: "forbidden" });
     await expect(getPageAuthorization("admin")).resolves.toEqual({ kind: "forbidden" });
     expect(application.authorize).toHaveBeenCalledWith({ token: "revoked-token", requiredRole: "admin" });
+  });
+
+  it("uses the local HTTP session cookie outside production", async () => {
+    cookieStore.get.mockImplementation((name: string) => name === "sentinel_session" ? { value: "local-http-token" } : undefined);
+    application.authorize.mockResolvedValue({ kind: "authorized", context: { userId: "u", organizationId: "o", role: "operator" } });
+
+    await expect(getPageAuthorization("operator")).resolves.toEqual({ kind: "authorized", context: { userId: "u", organizationId: "o", role: "operator" } });
+    expect(application.authorize).toHaveBeenCalledWith({ token: "local-http-token", requiredRole: "operator" });
+  });
+
+  it("does not accept the local HTTP session cookie in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    cookieStore.get.mockImplementation((name: string) => name === "sentinel_session" ? { value: "local-http-token" } : undefined);
+
+    await expect(getPageAuthorization("operator")).resolves.toEqual({ kind: "forbidden" });
+    expect(application.authorize).not.toHaveBeenCalled();
   });
 });

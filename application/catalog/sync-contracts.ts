@@ -1,4 +1,5 @@
 import type { CatalogSyncCounts, CatalogSyncFailure, CatalogSyncRun, CatalogSyncRunStatus, CatalogSyncTrigger } from "@/domain/catalog";
+import type { CatalogImportProgress } from "./contracts";
 
 import type { CatalogImportSource } from "./ports";
 
@@ -7,6 +8,7 @@ export type SynchronizeCatalogConnectionInput = {
   connectionId: string;
   trigger: CatalogSyncTrigger;
   source: CatalogImportSource;
+  onProgress?: (progress: CatalogImportProgress) => Promise<void>;
 };
 
 export type CatalogSyncOutcome =

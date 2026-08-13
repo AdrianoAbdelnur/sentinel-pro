@@ -373,8 +373,8 @@ describe("canonical Fleet union across bound provider identities (Howen fleet bi
   });
 });
 
-describe("Howen Fleet identity pending admin review", () => {
-  it("places a new Howen-only Vehicle into the Company's Unassigned Fleet and stages exactly one pending Fleet binding review until an administrator binds it, never auto-binding by label", async () => {
+describe("Howen Fleet identity canonicalization", () => {
+  it("creates a canonical Fleet and places a new Howen-only Vehicle in it", async () => {
     const fixture = createFixture();
     const company = await bindCompany(fixture, "Acme Transport");
     await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
@@ -384,12 +384,31 @@ describe("Howen Fleet identity pending admin review", () => {
 
     expect(result.kind === "completed" ? result.counts.created : -1).toBe(1);
     const [vehicle] = [...fixture.vehicles.values()];
-    expect(vehicle.placement).toEqual({ fleetId: company.unassignedFleet.id, source: "system" });
-    expect([...fixture.reviews.values()].filter((r) => r.subject === "fleet-binding")).toHaveLength(1);
+    const importedFleets = [...fixture.fleets.values()].filter((fleet) => fleet.kind === "standard");
+    expect(importedFleets).toHaveLength(1);
+    expect(importedFleets[0]?.name).toBe("West Route");
+    expect(vehicle.placement).toEqual({ fleetId: importedFleets[0]?.id, source: "system" });
+    expect([...fixture.reviews.values()].filter((r) => r.subject === "fleet-binding")).toHaveLength(0);
 
     await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-2"), source: candidate });
-    expect([...fixture.reviews.values()].filter((r) => r.subject === "fleet-binding")).toHaveLength(1);
+    expect([...fixture.fleets.values()].filter((fleet) => fleet.kind === "standard")).toHaveLength(1);
     expect(fixture.fleetIdentities.size).toBe(1);
+  });
+
+  it("creates one canonical Fleet per external fleet and groups vehicles accordingly", async () => {
+    const fixture = createFixture();
+    const company = await bindCompany(fixture, "Acme Transport");
+    await bindConnectionToCompany(fixture, connectionHowen, company.company.id, "Acme Transport");
+    const result = await fixture.importer.importCatalog({ connection: connectionHowen, run: newRun("run-1"), source: fakeSource([
+      { externalId: "howen-west-1", companyId: company.company.id, externalFleetId: "H-WEST", fleetLabel: "West Route" },
+      { externalId: "howen-west-2", companyId: company.company.id, externalFleetId: "H-WEST", fleetLabel: "West Route" },
+      { externalId: "howen-north-1", companyId: company.company.id, externalFleetId: "H-NORTH", fleetLabel: "North Route" },
+    ]) });
+
+    expect(result.kind === "completed" ? result.counts.created : -1).toBe(3);
+    const importedFleets = [...fixture.fleets.values()].filter((fleet) => fleet.kind === "standard");
+    expect(importedFleets.map((fleet) => fleet.name).sort()).toEqual(["North Route", "West Route"]);
+    expect(new Set([...fixture.vehicles.values()].map((vehicle) => vehicle.placement.fleetId))).toHaveLength(2);
   });
 });
 

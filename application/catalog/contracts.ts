@@ -30,6 +30,12 @@ export type ImportCatalogResult =
   | { kind: "completed"; counts: CatalogSyncCounts; checkpoint?: string }
   | { kind: "failed"; failure: CatalogSyncFailure };
 
+export type CatalogImportProgress = {
+  total: number;
+  processed: number;
+  counts: CatalogSyncCounts;
+};
+
 export type ReviewResolutionTarget = { kind: "existing"; targetId: string } | { kind: "new" };
 
 export type ResolveCatalogReviewResult =
