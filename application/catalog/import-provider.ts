@@ -1,6 +1,6 @@
 ﻿import type { CatalogImportCandidate, CatalogImportSource, CatalogSnapshotResult, CompanyRepository, FleetRepository, IdGenerator, ProviderConnectionRepository } from "./ports";
 import type { SynchronizeCatalogConnectionUseCase } from "./sync-contracts";
-import type { Company, Fleet, ProviderConnection } from "@/domain/catalog";
+import type { Company, ProviderConnection } from "@/domain/catalog";
 import { createUnassignedFleet, normalizeCompanyLabel } from "@/domain/catalog";
 
 export type ImportProvider = "cybermapa" | "howen";
