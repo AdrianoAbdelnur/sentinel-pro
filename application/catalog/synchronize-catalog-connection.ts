@@ -44,7 +44,7 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
     };
   }
 
-  async function synchronizeCatalogConnection({ organizationId, connectionId, trigger, source }: SynchronizeCatalogConnectionInput): Promise<CatalogSyncOutcome> {
+  async function synchronizeCatalogConnection({ organizationId, connectionId, trigger, source, onProgress }: SynchronizeCatalogConnectionInput): Promise<CatalogSyncOutcome> {
     const connection = await ports.connections.findById(organizationId, connectionId);
     if (!connection) return { kind: "not-found" };
 
@@ -94,7 +94,16 @@ export function createSynchronizeCatalogConnectionApplication(ports: Synchronize
     const authorizedSource: CatalogImportSource = { async loadCompleteSnapshot() { return { kind: "complete", candidates, evidence: snapshot.evidence ?? { retrievalComplete: false, paginationComplete: false, receivedRecordCount: 0, parseableRecordCount: 0 } }; } };
     let result: ImportCatalogResult;
     try {
-      result = await importer.importCatalog({ connection, run, source: authorizedSource, onProgress: createLeaseRenewal(organizationId, connectionId, runId, claimedAt) });
+      const renewLease = createLeaseRenewal(organizationId, connectionId, runId, claimedAt);
+      result = await importer.importCatalog({
+        connection,
+        run,
+        source: authorizedSource,
+        onProgress: async (progress) => {
+          await renewLease();
+          await onProgress?.(progress);
+        },
+      });
     } catch {
       result = { kind: "failed", failure: { category: "internal" } };
     }

@@ -1,10 +1,13 @@
 ﻿import type { CatalogImportCandidate, CatalogImportSource, CatalogSnapshotResult, CompanyRepository, FleetRepository, IdGenerator, ProviderConnectionRepository } from "./ports";
 import type { SynchronizeCatalogConnectionUseCase } from "./sync-contracts";
+import type { CatalogImportProgress } from "./contracts";
 import type { Company, ProviderConnection } from "@/domain/catalog";
 import { createUnassignedFleet, normalizeCompanyLabel } from "@/domain/catalog";
 
 export type ImportProvider = "cybermapa" | "howen";
-export type ProviderImportResult = { provider: ImportProvider; status: "succeeded"; companies: number; fleets: number; counts: { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number } } | { provider: ImportProvider; status: "failed"; code: "unsupported" | "provider-failure" | "configuration" };
+export type ProviderImportCounts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
+export type ProviderImportProgress = { phase: "loading" | "saving"; found: { companies: number; fleets: number; vehicles: number }; total: number; processed: number; counts: ProviderImportCounts };
+export type ProviderImportResult = { provider: ImportProvider; status: "succeeded"; found: { companies: number; fleets: number; vehicles: number }; companies: number; fleets: number; counts: ProviderImportCounts } | { provider: ImportProvider; status: "failed"; code: "unsupported" | "provider-failure" | "configuration" };
 
 type ProviderImportPorts = {
   companies: CompanyRepository & { listByOrganization(organizationId: string): Promise<Company[]> };
@@ -14,6 +17,8 @@ type ProviderImportPorts = {
   loadSource(provider: ImportProvider, companyId?: string): Promise<CatalogImportSource>;
   synchronize: SynchronizeCatalogConnectionUseCase;
 };
+
+type ProviderImportInput = { organizationId: string; provider: ImportProvider; onProgress?: (progress: ProviderImportProgress) => Promise<void> };
 
 const emptyCounts = () => ({ processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 });
 const sumCounts = (a: ReturnType<typeof emptyCounts>, b: ReturnType<typeof emptyCounts>) => ({ processed: a.processed + b.processed, created: a.created + b.created, linked: a.linked + b.linked, reviewed: a.reviewed + b.reviewed, rejected: a.rejected + b.rejected, absent: a.absent + b.absent });
@@ -29,7 +34,7 @@ function groupCandidates(provider: ImportProvider, candidates: CatalogImportCand
 }
 
 export function createProviderImportApplication(ports: ProviderImportPorts) {
-  return async function importProvider({ organizationId, provider }: { organizationId: string; provider: ImportProvider }): Promise<ProviderImportResult> {
+  return async function importProvider({ organizationId, provider, onProgress }: ProviderImportInput): Promise<ProviderImportResult> {
     let preview: CatalogSnapshotResult;
     try {
       const source = await ports.loadSource(provider, provider === "howen" ? "preview" : undefined);
@@ -38,6 +43,16 @@ export function createProviderImportApplication(ports: ProviderImportPorts) {
       return { provider, status: "failed", code: "configuration" };
     }
     if (preview.kind === "failed") return { provider, status: "failed", code: "provider-failure" };
+
+    const found = {
+      companies: new Set(preview.candidates.map((candidate) => candidate.companyLabel?.trim() || "Howen")).size,
+      fleets: new Set(preview.candidates.map((candidate) => candidate.externalFleetId).filter(Boolean)).size,
+      vehicles: preview.candidates.length,
+    };
+    const emitProgress = async (phase: ProviderImportProgress["phase"], progress: CatalogImportProgress = { total: found.vehicles, processed: 0, counts: emptyCounts() }) => {
+      await onProgress?.({ phase, found, total: progress.total, processed: progress.processed, counts: progress.counts });
+    };
+    await emitProgress("loading");
 
     const existingCompanies = await ports.companies.listByOrganization(organizationId);
     const groups = groupCandidates(provider, preview.candidates);
@@ -66,11 +81,11 @@ export function createProviderImportApplication(ports: ProviderImportPorts) {
           : { authorizedExternalFleetIds: [...new Set(candidates.flatMap((candidate) => candidate.externalFleetId ? [candidate.externalFleetId] : []))], authorizedExternalVehicleIds: candidates.map((candidate) => candidate.externalId) }),
       };
       await ports.connections.save(connection);
-      const outcome = await ports.synchronize({ organizationId, connectionId: connection.id, trigger: "manual", source: { async loadCompleteSnapshot() { const result = await source.loadCompleteSnapshot(); return result.kind === "complete" ? { ...result, candidates: result.candidates.filter((candidate) => candidates.some((selected) => selected.externalId === candidate.externalId)) } : result; } } });
+      const outcome = await ports.synchronize({ organizationId, connectionId: connection.id, trigger: "manual", source: { async loadCompleteSnapshot() { const result = await source.loadCompleteSnapshot(); return result.kind === "complete" ? { ...result, candidates: result.candidates.filter((candidate) => candidates.some((selected) => selected.externalId === candidate.externalId)) } : result; } }, onProgress: async (progress) => emitProgress("saving", progress) });
       if (outcome.kind === "succeeded") counts = sumCounts(counts, outcome.run.counts);
       else if (outcome.kind === "retryable-failure") return { provider, status: "failed", code: "provider-failure" };
     }
-    return { provider, status: "succeeded", companies: companiesCreated, fleets: fleetsCreated, counts };
+    return { provider, status: "succeeded", found, companies: companiesCreated, fleets: fleetsCreated, counts };
   };
 }
 

@@ -25,7 +25,7 @@ import {
 } from "@/domain/catalog";
 
 import { createCompanyBindingApplication } from "./bind-provider-company";
-import type { ImportCatalogResult } from "./contracts";
+import type { CatalogImportProgress, ImportCatalogResult } from "./contracts";
 import type { CatalogImportCandidate, CatalogImportSource, ImportCatalogPorts } from "./ports";
 import { computeVehiclePlacement } from "./use-cases";
 
@@ -183,7 +183,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
     return outcome.kind;
   }
 
-  async function importCatalog({ connection, run, source, onProgress }: { connection: ProviderConnection; run: CatalogSyncRun; source: CatalogImportSource; onProgress?: () => Promise<void> }): Promise<ImportCatalogResult> {
+  async function importCatalog({ connection, run, source, onProgress }: { connection: ProviderConnection; run: CatalogSyncRun; source: CatalogImportSource; onProgress?: (progress: CatalogImportProgress) => Promise<void> }): Promise<ImportCatalogResult> {
     const snapshot = await source.loadCompleteSnapshot();
     if (snapshot.kind === "failed") return { kind: "failed", failure: snapshot.failure };
 
@@ -220,7 +220,7 @@ export function createImportCatalogApplication(ports: ImportCatalogPorts) {
 
             counts = { ...counts, processed: counts.processed + 1, [outcome]: counts[outcome] + 1 };
           }
-          if (onProgress) await onProgress();
+          if (onProgress) await onProgress({ total: sorted.length, processed: counts.processed, counts });
         }
         checkpoint = batch[batch.length - 1]?.externalId ?? checkpoint;
         await ports.syncRuns.save({ ...run, checkpoint, counts });

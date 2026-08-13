@@ -22,4 +22,24 @@ describe("provider import", () => {
     expect(result).toMatchObject({ status: "succeeded", companies: 1, fleets: 1, counts: { created: 1 } });
     expect(savedConnections[0].authorizedExternalCompanyLabels).toEqual(["acme"]);
   });
+
+  it("emits found and persistence progress from real application counts", async () => {
+    const events: string[] = [];
+    const importProvider = createProviderImportApplication({
+      companies: { listByOrganization: async () => [], findById: async () => undefined, save: vi.fn() },
+      fleets: { findById: async () => undefined, listByCompany: async () => [], save: vi.fn() },
+      connections: { findById: async () => undefined, listAll: async () => [], save: vi.fn() },
+      ids: { create: vi.fn().mockReturnValueOnce("company-1").mockReturnValueOnce("fleet-1").mockReturnValueOnce("connection-1") },
+      loadSource: vi.fn(async () => source),
+      synchronize: vi.fn(async ({ onProgress }) => {
+        await onProgress?.({ total: 1, processed: 1, counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 } });
+        return { kind: "succeeded", run: { id: "run-1", organizationId: "org-1", connectionId: "connection-1", trigger: "manual", status: "succeeded", fullSnapshot: true, startedAt: new Date(), completedAt: new Date(), counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } } as CatalogSyncOutcome;
+      }),
+    });
+
+    const result = await importProvider({ organizationId: "org-1", provider: "cybermapa", onProgress: async (progress) => { events.push(`${progress.phase}:${progress.found.vehicles}:${progress.processed}:${progress.counts.created}`); } });
+
+    expect(events).toEqual(["loading:1:0:0", "saving:1:1:1"]);
+    expect(result).toMatchObject({ found: { vehicles: 1, companies: 1 }, counts: { processed: 1, created: 1 } });
+  });
 });

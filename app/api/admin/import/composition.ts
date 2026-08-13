@@ -7,6 +7,18 @@ import { createSynchronizeCatalogConnectionApplication } from "@/application/cat
 import type { ProviderConnection } from "@/domain/catalog";
 import type { Company } from "@/domain/catalog";
 
+export function createProviderImportConnection(
+  provider: "cybermapa" | "howen",
+  companyId?: string,
+): ProviderConnection {
+  return {
+    id: "provider-import",
+    organizationId: "provider-import",
+    credentialRef: "vault:" + provider + "/provider-import",
+    ...(companyId ? { companyId } : {}),
+  };
+}
+
 export async function getProviderImportRuntime() {
   const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);
   const repositories = createMongoCatalogRepositories(database);
@@ -24,7 +36,7 @@ export async function getProviderImportRuntime() {
     async loadSource(provider, companyId) {
       const factory = factories[provider];
       if (!factory) throw new Error("unsupported provider");
-      const connection: ProviderConnection = { id: "provider-import", organizationId: "provider-import", credentialRef: "vault:" + provider + "/provider-import", ...(companyId && companyId !== "preview" ? { companyId } : {}) };
+      const connection = createProviderImportConnection(provider, companyId);
       const source = factory(connection);
       if (!source) throw new Error("provider source unavailable");
       return source;
