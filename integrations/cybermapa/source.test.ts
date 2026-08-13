@@ -25,7 +25,7 @@ describe("createCybermapaImportSource", () => {
         {
           externalId: "90001",
           companyLabel: "Transporte Andino",
-          normalizedPlate: normalizePlate("AB123CD"),
+          registeredPlate: normalizePlate("AB123CD"),
         },
       ],
     });
