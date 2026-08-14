@@ -8,6 +8,7 @@ export type HowenConfig = {
   password: string;
   timeoutMs: number;
   inactivityThresholdMs: number;
+  sessionPersistPath?: string;
 };
 
 type HowenEnvironment = Record<string, string | undefined>;
@@ -61,5 +62,6 @@ export function readHowenConfig(
     password: required(environment, "HOWEN_PASSWORD"),
     timeoutMs: timeout(environment),
     inactivityThresholdMs: HOWEN_INACTIVITY_THRESHOLD_MS,
+    sessionPersistPath: environment.HOWEN_SESSION_PERSIST_PATH?.trim() || ".runtime/howen-session.json",
   };
 }

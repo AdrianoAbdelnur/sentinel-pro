@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 import type { HowenConfig } from "./config";
 
@@ -24,6 +26,8 @@ type CreateHowenSessionManagerInput = {
   fetch?: HowenFetch;
   now?: () => number;
 };
+
+type PersistedSession = HowenSession & { expiresAtMs: number };
 
 type CachedSession = {
   value: HowenSession;
@@ -86,6 +90,24 @@ export function createHowenSessionManager({
 }: CreateHowenSessionManagerInput): HowenSessionManager {
   let cached: CachedSession | undefined;
   let loginInFlight: Promise<HowenSession> | undefined;
+  let hydrationInFlight: Promise<void> | undefined;
+
+  const persist = async (session: HowenSession, expiresAtMs: number) => {
+    if (!config.sessionPersistPath) return;
+    await mkdir(path.dirname(config.sessionPersistPath), { recursive: true });
+    await writeFile(config.sessionPersistPath, JSON.stringify({ ...session, expiresAtMs }), "utf8");
+  };
+
+  const hydrate = async () => {
+    if (!config.sessionPersistPath || cached) return;
+    try {
+      const value = JSON.parse(await readFile(config.sessionPersistPath, "utf8")) as Partial<PersistedSession>;
+      if (typeof value.token !== "string" || typeof value.pid !== "string" || typeof value.cookie !== "string" || typeof value.expiresAtMs !== "number" || value.expiresAtMs <= now()) return;
+      cached = { value: { token: value.token, pid: value.pid, cookie: value.cookie }, lastActivityAtMs: now() };
+    } catch {
+      return;
+    }
+  };
 
   const login = async (): Promise<HowenSession> => {
     try {
@@ -113,7 +135,9 @@ export function createHowenSessionManager({
       }
 
       const value = { ...data, cookie };
-      cached = { value, lastActivityAtMs: now() };
+      const lastActivityAtMs = now();
+      cached = { value, lastActivityAtMs };
+      await persist(value, lastActivityAtMs + config.inactivityThresholdMs);
       return value;
     } catch {
       throw unavailable();
@@ -121,6 +145,10 @@ export function createHowenSessionManager({
   };
 
   const getSession = async (): Promise<HowenSession> => {
+    if (config.sessionPersistPath) {
+      if (!hydrationInFlight) hydrationInFlight = hydrate().finally(() => { hydrationInFlight = undefined; });
+      await hydrationInFlight;
+    }
     if (
       cached &&
       now() - cached.lastActivityAtMs < config.inactivityThresholdMs
@@ -149,6 +177,7 @@ export function createHowenSessionManager({
     invalidate(session) {
       if (cached?.value.token === session.token) {
         cached = undefined;
+        if (config.sessionPersistPath) void unlink(config.sessionPersistPath).catch(() => undefined);
       }
     },
   };

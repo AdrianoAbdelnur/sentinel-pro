@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { unlink } from "node:fs/promises";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -14,7 +15,8 @@ const config: HowenConfig = {
   username: "operator",
   password: "raw-secret",
   timeoutMs: 15_000,
-  inactivityThresholdMs: 25 * 60 * 1000,
+    inactivityThresholdMs: 25 * 60 * 1000,
+    sessionPersistPath: undefined,
 };
 
 function loginResponse(
@@ -42,6 +44,7 @@ describe("createHowenSessionManager", () => {
       password: "raw-secret",
       timeoutMs: 15_000,
       inactivityThresholdMs: HOWEN_INACTIVITY_THRESHOLD_MS,
+      sessionPersistPath: ".runtime/howen-session.json",
     });
   });
 
@@ -154,6 +157,22 @@ describe("createHowenSessionManager", () => {
 
     await expect(manager.getSession()).resolves.toEqual(second);
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("hydrates a valid persisted session without logging in again", async () => {
+    const sessionPersistPath = `session-${Date.now()}.json`;
+    try {
+      const firstFetch = vi.fn(async () => loginResponse("new-token", "new-pid"));
+      const firstManager = createHowenSessionManager({ config: { ...config, sessionPersistPath }, fetch: firstFetch });
+      await firstManager.getSession();
+
+      const secondFetch = vi.fn(async () => loginResponse("unexpected-token", "unexpected-pid"));
+      const secondManager = createHowenSessionManager({ config: { ...config, sessionPersistPath }, fetch: secondFetch });
+      await expect(secondManager.getSession()).resolves.toMatchObject({ token: "new-token" });
+      expect(secondFetch).not.toHaveBeenCalled();
+    } finally {
+      await unlink(sessionPersistPath).catch(() => undefined);
+    }
   });
 
   it("rejects incomplete login sessions without leaking credentials", async () => {
