@@ -36,9 +36,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 2. Global Domain
 
-- [ ] 2.1 RED: test global identity, immutable placement, contributions, memberships, grants, and reviews.
-- [ ] 2.2 GREEN: create `domain/catalog-global/*` and `application/catalog-global/ports.ts`.
-- [ ] 2.3 REFACTOR: enforce provider-neutral contracts.
+- [x] 2.1 RED: test global identity, immutable placement, contributions, memberships, grants, and reviews.
+- [x] 2.2 GREEN: create `domain/catalog-global/*` and `application/catalog-global/ports.ts`.
+- [x] 2.3 REFACTOR: enforce provider-neutral contracts.
 
 ## 3. V2 Persistence
 
