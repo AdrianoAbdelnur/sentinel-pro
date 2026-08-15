@@ -12,6 +12,17 @@ let replSet: MongoMemoryReplSet; let client: MongoClient;
 beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); client = new MongoClient(replSet.getUri()); await client.connect(); }, 60_000);
 afterAll(async () => { await client?.close(); await replSet?.stop(); });
 describe("Mongo identity persistence", () => {
+  it("backfills the platform role for the existing initial administrator", async () => {
+    const db = client.db(`identity_${Date.now()}`);
+    await migrateIdentityDatabase(db);
+    const now = new Date();
+    await db.collection("users").insertOne({ schemaVersion: 1, id: "initial-admin", firstName: "Initial", lastName: "Admin", emailNormalized: "initial@test.dev", passwordHash: "hash", passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, createdAt: now, updatedAt: now });
+
+    await migrateIdentityDatabase(db);
+
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
+  });
+
   it("creates strict validators and all required indexes idempotently", async () => {
     const db = client.db(`identity_${Date.now()}`); await migrateIdentityDatabase(db); await migrateIdentityDatabase(db);
     const users = await db.collection("users").indexes(); const organizations = await db.collection("organizations").indexes(); const memberships = await db.collection("organization_memberships").indexes(); const sessions = await db.collection("sessions").indexes();
@@ -74,6 +85,7 @@ describe("identity seed entrypoint", () => {
     const db = client.db(database);
     await expect(db.collection("organizations").countDocuments()).resolves.toBe(1);
     await expect(db.collection("users").countDocuments()).resolves.toBe(1);
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
     await expect(db.collection("organization_memberships").countDocuments()).resolves.toBe(1);
   }, 60_000);
 });

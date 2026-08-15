@@ -16,7 +16,7 @@ export async function runInitialIdentitySeed() {
   await migrateIdentityDatabase(db);
   const passwords = new Argon2idPasswordHasher();
   const repositories = createMongoIdentityRepositories(db, client);
-  return createIdentityApplication({ ...repositories, passwords, dummyPasswordHash: await passwords.hash("sentinel-invalid-credential"), tokens: { create: async () => "" }, tokenHasher: { hash: async () => "" }, temporaryPasswords: { create: () => "" }, ids: { create: randomUUID }, clock: { now: () => new Date() }, transactions: new MongoTransactionRunner(client, db) }).seed({ organizationId: "initial", organizationName, administrator: { id: "initial-admin", firstName: process.env.SENTINEL_INITIAL_ADMIN_FIRST_NAME ?? "Administrator", lastName: process.env.SENTINEL_INITIAL_ADMIN_LAST_NAME ?? "Sentinel", email: administratorEmail, passwordHash: await passwords.hash(administratorPassword) } });
+  return createIdentityApplication({ ...repositories, passwords, dummyPasswordHash: await passwords.hash("sentinel-invalid-credential"), tokens: { create: async () => "" }, tokenHasher: { hash: async () => "" }, temporaryPasswords: { create: () => "" }, ids: { create: randomUUID }, clock: { now: () => new Date() }, transactions: new MongoTransactionRunner(client, db) }).seed({ organizationId: "initial", organizationName, administrator: { id: "initial-admin", firstName: process.env.SENTINEL_INITIAL_ADMIN_FIRST_NAME ?? "Administrator", lastName: process.env.SENTINEL_INITIAL_ADMIN_LAST_NAME ?? "Sentinel", email: administratorEmail, passwordHash: await passwords.hash(administratorPassword), platformRole: "super-admin" } });
 }
 
 if (require.main === module) runInitialIdentitySeed().then(() => process.exit(0)).catch(() => process.exit(1));
