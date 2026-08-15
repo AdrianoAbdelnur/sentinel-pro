@@ -69,6 +69,26 @@ describe("Mongo identity persistence", () => {
 
 
 describe("identity seed entrypoint", () => {
+  it("creates the initial platform admin when the organization already exists", async () => {
+    const database = `identity_seed_existing_org_${Date.now()}`;
+    const env = {
+      ...process.env,
+      SENTINEL_MONGODB_URI: replSet.getUri(),
+      SENTINEL_MONGODB_DATABASE: database,
+      SENTINEL_INITIAL_ORGANIZATION_NAME: "Initial Organization",
+      SENTINEL_INITIAL_ADMIN_EMAIL: "admin@example.test",
+      SENTINEL_INITIAL_ADMIN_PASSWORD: "temporary-password",
+    };
+    const db = client.db(database);
+    await migrateIdentityDatabase(db);
+    await db.collection("organizations").insertOne({ schemaVersion: 1, id: "initial", name: "Initial Organization", seedKey: "initial", status: "active", authorizationVersion: 0, createdAt: new Date(), updatedAt: new Date() });
+
+    await execFileAsync(process.execPath, ["scripts/identity-seed.mjs"], { cwd: process.cwd(), env });
+
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
+    await expect(db.collection("organization_memberships").findOne({ organizationId: "initial", userId: "initial-admin" })).resolves.toMatchObject({ role: "admin", status: "active" });
+  }, 60_000);
+
   it("allows two concurrent executions and creates one initial identity", async () => {
     const database = `identity_seed_entry_${Date.now()}`;
     const env = {

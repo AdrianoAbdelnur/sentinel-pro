@@ -17,10 +17,9 @@ else {
     const db = client.db(database);
     await client.withSession((session) => session.withTransaction(async () => {
       const organization = await db.collection("organizations").findOne({ seedKey: "initial" }, { session });
-      if (organization) return;
       const now = new Date();
       const userId = "initial-admin";
-      await db.collection("organizations").insertOne({ schemaVersion: 1, id: "initial", name: organizationName, seedKey: "initial", status: "active", authorizationVersion: 0, createdAt: now, updatedAt: now }, { session });
+      if (!organization) await db.collection("organizations").insertOne({ schemaVersion: 1, id: "initial", name: organizationName, seedKey: "initial", status: "active", authorizationVersion: 0, createdAt: now, updatedAt: now }, { session });
       await db.collection("users").updateOne({ emailNormalized: email.trim().toLowerCase() }, { $setOnInsert: { schemaVersion: 1, id: userId, firstName: process.env.SENTINEL_INITIAL_ADMIN_FIRST_NAME ?? "Administrator", lastName: process.env.SENTINEL_INITIAL_ADMIN_LAST_NAME ?? "Sentinel", emailNormalized: email.trim().toLowerCase(), passwordHash: await argon2.hash(password, ARGON2ID_OPTIONS), passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, platformRole: "super-admin", createdAt: now, updatedAt: now } }, { upsert: true, session });
       const user = await db.collection("users").findOne({ emailNormalized: email.trim().toLowerCase() }, { session });
       await db.collection("organization_memberships").updateOne({ organizationId: "initial", userId: user.id }, { $setOnInsert: { schemaVersion: 1, organizationId: "initial", userId: user.id, role: "admin", status: "active", createdAt: now, updatedAt: now } }, { upsert: true, session });
