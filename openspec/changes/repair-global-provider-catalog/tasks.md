@@ -30,9 +30,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 1. Platform Authorization
 
-- [ ] 1.1 RED: test platform SUPER ADMIN allowed and tenant admin denied.
-- [ ] 1.2 GREEN: add `authorizePlatform()` through `domain/identity/*`, `application/identity/*`, and admin-import routes.
-- [ ] 1.3 REFACTOR: remove tenant-membership coupling.
+- [x] 1.1 RED: test platform SUPER ADMIN allowed and tenant admin denied.
+- [x] 1.2 GREEN: add `authorizePlatform()` through `domain/identity/*`, `application/identity/*`, and admin-import routes.
+- [x] 1.3 REFACTOR: remove tenant-membership coupling.
 
 ## 2. Global Domain
 

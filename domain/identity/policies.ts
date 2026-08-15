@@ -1,9 +1,13 @@
-import type { OrganizationMembership } from "./entities";
+import type { IdentityUser, OrganizationMembership } from "./entities";
 
 export const MINIMUM_PASSWORD_LENGTH = 8;
 export const MAXIMUM_LOGIN_FAILURES = 3;
 export const LOGIN_BLOCK_DURATION_MS = 15 * 60 * 1000;
 export const SESSION_INACTIVITY_DURATION_MS = 12 * 60 * 60 * 1000;
+
+export function isPlatformSuperAdmin(user: Pick<IdentityUser, "platformRole">): boolean {
+  return user.platformRole === "super-admin";
+}
 
 export function normalizeEmail(email: string): string | undefined {
   const normalized = email.trim().toLowerCase();

@@ -1,4 +1,5 @@
 export type IdentityRole = "admin" | "operator";
+export type PlatformRole = "super-admin";
 export type MembershipStatus = "active" | "inactive";
 export type UserStatus = "active" | "inactive";
 
@@ -15,6 +16,7 @@ export type IdentityUser = {
   createdAt: Date;
   updatedAt: Date;
   authorizationVersion: number;
+  platformRole?: PlatformRole;
 };
 
 export type Organization = {

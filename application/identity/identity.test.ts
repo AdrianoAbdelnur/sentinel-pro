@@ -148,6 +148,23 @@ async function addUser(fixture: ReturnType<typeof createFixture>, overrides: Par
 }
 
 describe("identity application use cases", () => {
+  it("authorizes a SUPER ADMIN without an active tenant membership", async () => {
+    const fixture = createFixture();
+    await addUser(fixture, { platformRole: "super-admin" });
+    fixture.sessions.push({ id: "platform", tokenHash: "hashed-platform", userId: "user-1", lastActivityAt: NOW, expiresAt: new Date(NOW.getTime() + 1), createdAt: NOW });
+
+    await expect(fixture.app.authorizePlatform({ token: "platform" })).resolves.toEqual({ kind: "authorized", context: { userId: "user-1", platformRole: "super-admin" } });
+  });
+
+  it("denies a tenant admin even when the tenant membership is active", async () => {
+    const fixture = createFixture();
+    await addUser(fixture);
+    fixture.memberships.push({ userId: "user-1", organizationId: "org-a", role: "admin", status: "active" });
+    fixture.sessions.push({ id: "tenant-admin", tokenHash: "hashed-tenant-admin", userId: "user-1", activeOrganizationId: "org-a", lastActivityAt: NOW, expiresAt: new Date(NOW.getTime() + 1), createdAt: NOW });
+
+    await expect(fixture.app.authorizePlatform({ token: "tenant-admin" })).resolves.toEqual({ kind: "forbidden" });
+  });
+
   it("starts a session for valid credentials, resets failures, and auto-selects one active membership", async () => {
     const fixture = createFixture();
     await addUser(fixture, { failureCount: 2 });

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { authorizeAdminRequest, readJson } from "@/app/api/admin/users/delivery";
+import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
 import { getProviderImportRuntime } from "./composition";
 import type { ProviderImportProgress } from "@/application/catalog";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const actor = await authorizeAdminRequest(request);
+  const actor = await authorizePlatformRequest(request);
   if (actor instanceof NextResponse) return actor;
   const body = await readJson(request);
   if (!body || (body.provider !== "cybermapa" && body.provider !== "howen")) return NextResponse.json({ error: "Elegí una plataforma válida." }, { status: 400 });
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
           send({ type: "progress", data: { phase: "loading", found: { companies: 0, fleets: 0, vehicles: 0 }, total: 0, processed: 0, counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } satisfies ProviderImportProgress });
           const importProvider = await getProviderImportRuntime();
           const result = await importProvider({
-            organizationId: actor.organizationId,
+            organizationId: "platform",
             provider,
             onProgress: async (progress: ProviderImportProgress) => send({ type: "progress", data: progress }),
           });

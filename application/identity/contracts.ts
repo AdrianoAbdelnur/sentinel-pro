@@ -1,4 +1,4 @@
-import type { IdentityRole } from "@/domain/identity";
+import type { IdentityRole, PlatformRole } from "@/domain/identity";
 
 import type { AuthorizationContext } from "./ports";
 
@@ -12,6 +12,11 @@ export type LoginResult =
 
 export type AuthorizationResult =
   | { kind: "authorized"; context: AuthorizationContext }
+  | { kind: "forbidden" };
+
+export type PlatformAuthorizationContext = { userId: string; platformRole: PlatformRole };
+export type PlatformAuthorizationResult =
+  | { kind: "authorized"; context: PlatformAuthorizationContext }
   | { kind: "forbidden" };
 
 export type PasswordResetResult =

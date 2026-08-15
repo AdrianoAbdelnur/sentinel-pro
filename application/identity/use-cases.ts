@@ -2,11 +2,12 @@ import {
   chooseActiveOrganization,
   isPasswordValid,
   normalizeEmail,
+  isPlatformSuperAdmin,
   SESSION_INACTIVITY_DURATION_MS,
   type IdentityUser,
 } from "@/domain/identity";
 
-import type { AuthorizationResult, LoginResult, MembershipResult, PasswordResetResult } from "./contracts";
+import type { AuthorizationResult, LoginResult, MembershipResult, PasswordResetResult, PlatformAuthorizationResult } from "./contracts";
 import type { AuthorizationContext, IdentityApplicationPorts, StoredSession } from "./ports";
 import type { IdentityRole } from "@/domain/identity";
 
@@ -101,6 +102,14 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
     const membership = await ports.memberships.findByUserAndOrganization(session.userId, session.activeOrganizationId);
     if (!membership || membership.status !== "active" || (requiredRole === "admin" && membership.role !== "admin")) return { kind: "forbidden" };
     return { kind: "authorized", context: { userId: session.userId, organizationId: session.activeOrganizationId, role: membership.role } };
+  }
+
+  async function authorizePlatform({ token }: { token: string }): Promise<PlatformAuthorizationResult> {
+    const session = await touchSession(token);
+    if (!session) return { kind: "forbidden" };
+    const user = await ports.users.findById(session.userId);
+    if (!user || user.status !== "active" || user.passwordChangeRequired || !isPlatformSuperAdmin(user)) return { kind: "forbidden" };
+    return { kind: "authorized", context: { userId: user.id, platformRole: "super-admin" } };
   }
 
   async function addUser(input: { actor: AuthorizationContext; firstName: string; lastName: string; email: string; role?: IdentityRole; temporaryPassword?: string }) {
@@ -202,17 +211,17 @@ export function createIdentityApplication(ports: IdentityApplicationPorts) {
     return { kind: "deactivated" };
   }
 
-  async function seed(input: { organizationId: string; organizationName: string; administrator: { id: string; firstName: string; lastName: string; email: string; passwordHash: string } }) {
+  async function seed(input: { organizationId: string; organizationName: string; administrator: { id: string; firstName: string; lastName: string; email: string; passwordHash: string; platformRole?: "super-admin" } }) {
     return ports.transactions.run(async ({ organizations, users, memberships }) => {
       if (await organizations.findById(input.organizationId)) return { kind: "already_seeded" as const };
       const now = ports.clock.now();
       const emailNormalized = normalizeEmail(input.administrator.email)!;
       await organizations.save({ id: input.organizationId, name: input.organizationName, status: "active" });
-      await users.save({ id: input.administrator.id, firstName: input.administrator.firstName, lastName: input.administrator.lastName, emailNormalized, passwordHash: input.administrator.passwordHash, passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, createdAt: now, updatedAt: now });
+      await users.save({ id: input.administrator.id, firstName: input.administrator.firstName, lastName: input.administrator.lastName, emailNormalized, passwordHash: input.administrator.passwordHash, passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, ...(input.administrator.platformRole ? { platformRole: input.administrator.platformRole } : {}), createdAt: now, updatedAt: now });
       await memberships.save({ organizationId: input.organizationId, userId: input.administrator.id, role: "admin", status: "active" });
       return { kind: "seeded" as const };
     });
   }
 
-  return { login, logout, changePassword, selectOrganization, authorize, addUser, resetPassword, changeMembershipRole, reactivateMembership, deactivateMembership, seed };
+  return { login, logout, changePassword, selectOrganization, authorize, authorizePlatform, addUser, resetPassword, changeMembershipRole, reactivateMembership, deactivateMembership, seed };
 }
