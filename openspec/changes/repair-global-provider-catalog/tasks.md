@@ -42,9 +42,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 3. V2 Persistence
 
-- [ ] 3.1 RED: test validators, unique indexes, races, and atomic writes.
-- [ ] 3.2 GREEN: create `integrations/persistence/mongodb/catalog-global-{documents,validators,repositories,migrations}.ts`.
-- [ ] 3.3 REFACTOR: prove empty-V2-only rollback.
+- [x] 3.1 RED: test validators, unique indexes, races, and atomic writes.
+- [x] 3.2 GREEN: create `integrations/persistence/mongodb/catalog-global-{documents,validators,repositories,migrations}.ts`.
+- [x] 3.3 REFACTOR: prove empty-V2-only rollback.
 
 ## 4. Matching
 

@@ -8,3 +8,7 @@ export { catalogValidators } from "./catalog-validators";
 export { catalogIndexes, migrateCatalogDatabase } from "./catalog-migrations";
 export { createMongoCatalogRepositories } from "./catalog-repositories";
 export { MongoCatalogTransactionRunner } from "./catalog-transaction-runner";
+export * from "./catalog-global-documents";
+export * from "./catalog-global-validators";
+export * from "./catalog-global-repositories";
+export * from "./catalog-global-migrations";
