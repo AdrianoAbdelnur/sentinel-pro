@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
+import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
 import { createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
 
 let replSet: MongoMemoryReplSet;
@@ -83,4 +84,66 @@ describe("global catalog v2 Mongo persistence", () => {
     await expect(rollbackGlobalCatalogDatabase(populatedDb)).rejects.toThrow(/non-empty/);
     expect(await populatedDb.collection("global_vehicles_v2").countDocuments()).toBe(1);
   });
+
+  it("converges concurrent matcher transactions through unique identity indexes", async () => {
+    const db = client.db(`global_catalog_match_race_${Date.now()}`);
+    await migrateGlobalCatalogDatabase(db);
+    let sequence = 0;
+    const candidate: ProviderCandidate = { connectionId: "connection", externalId: "external", plate: "ABC 123", normalizedPlate: "ABC123", placementFleetId: "fleet", capabilities: { gps: "eligible" }, presence: "present" };
+    const createDependencies = (): MatchAndApplyDependencies => ({
+      candidate,
+      ids: { create: () => `id-${++sequence}` },
+      vehicles: undefined as never,
+      contributions: undefined as never,
+      reviews: undefined as never,
+      transactions: {
+        isConflict: (error) => typeof error === "object" && error !== null && "code" in error && error.code === 11000,
+        run: async (work) => {
+          const session = client.startSession();
+          try {
+            let result;
+            await session.withTransaction(async () => { result = await work(createGlobalCatalogRepositories(db, session)); });
+            return result as Awaited<ReturnType<typeof work>>;
+          } finally { await session.endSession(); }
+        },
+      },
+    });
+
+    const results = await Promise.all([matchAndApplyProviderCandidate(createDependencies()), matchAndApplyProviderCandidate(createDependencies())]);
+
+    expect(results.every((result) => result.kind === "created" || result.kind === "reused")).toBe(true);
+    expect(await db.collection("global_vehicles_v2").countDocuments({ normalizedPlate: "ABC123" })).toBe(1);
+    expect(await db.collection("provider_contributions_v2").countDocuments({ connectionId: "connection", externalId: "external" })).toBe(1);
+  }, 60_000);
+
+  it("converges different external identities competing for one global plate", async () => {
+    const db = client.db(`global_catalog_cross_identity_race_${Date.now()}`);
+    await migrateGlobalCatalogDatabase(db);
+    let sequence = 0;
+    const createDependencies = (externalId: string): MatchAndApplyDependencies => ({
+      candidate: { connectionId: "connection", externalId, plate: "ABC 123", normalizedPlate: "ABC123", placementFleetId: "fleet", capabilities: { gps: "eligible" }, presence: "present" },
+      ids: { create: () => `id-${++sequence}` },
+      vehicles: undefined as never,
+      contributions: undefined as never,
+      reviews: undefined as never,
+      transactions: {
+        isConflict: (error) => typeof error === "object" && error !== null && "code" in error && error.code === 11000,
+        run: async (work) => {
+          const session = client.startSession();
+          try {
+            let result;
+            await session.withTransaction(async () => { result = await work(createGlobalCatalogRepositories(db, session)); });
+            return result as Awaited<ReturnType<typeof work>>;
+          } finally { await session.endSession(); }
+        },
+      },
+    });
+
+    const results = await Promise.all([matchAndApplyProviderCandidate(createDependencies("external-a")), matchAndApplyProviderCandidate(createDependencies("external-b"))]);
+
+    expect(results.every((result) => result.kind === "created" || result.kind === "matched")).toBe(true);
+    expect(new Set(results.map((result) => result.kind === "review" ? "review" : result.vehicleId)).size).toBe(1);
+    expect(await db.collection("global_vehicles_v2").countDocuments({ normalizedPlate: "ABC123" })).toBe(1);
+    expect(await db.collection("provider_contributions_v2").countDocuments({ connectionId: "connection" })).toBe(2);
+  }, 60_000);
 });

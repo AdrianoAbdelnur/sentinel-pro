@@ -48,9 +48,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 4. Matching
 
-- [ ] 4.1 RED: test external-ID reuse, exact plate, unsafe review, and concurrency.
-- [ ] 4.2 GREEN: create `application/catalog-global/match-and-apply-provider-candidate.ts`.
-- [ ] 4.3 REFACTOR: exclude tenant, Company, and fleet identity.
+- [x] 4.1 RED: test external-ID reuse, exact plate, unsafe review, and concurrency.
+- [x] 4.2 GREEN: create `application/catalog-global/match-and-apply-provider-candidate.ts`.
+- [x] 4.3 REFACTOR: exclude tenant, Company, and fleet identity.
 
 ## 5. Cybermapa
 

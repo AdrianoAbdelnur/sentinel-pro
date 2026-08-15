@@ -59,6 +59,7 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
     },
     reviews: {
       async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toGlobalCatalogReviewDomain(document) : undefined; },
+      async findByConnectionAndExternalId(connectionId, externalId) { const document = await reviews.findOne({ connectionId, externalId, status: "pending" }, options(session)); return document ? toGlobalCatalogReviewDomain(document) : undefined; },
       async listPending() { return (await reviews.find({ status: "pending" }, options(session)).sort({ id: 1 }).toArray()).map(toGlobalCatalogReviewDomain); },
       async save(review) { await atomicSave(reviews, { id: review.id }, toGlobalCatalogReviewDocument(review, now()), session); },
     },

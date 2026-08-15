@@ -49,6 +49,7 @@ export type TenantVehicleGrantRepository = {
 
 export type GlobalCatalogReviewRepository = {
   findById(id: string): Promise<GlobalCatalogReview | undefined>;
+  findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<GlobalCatalogReview | undefined>;
   listPending(): Promise<GlobalCatalogReview[]>;
   save(review: GlobalCatalogReview): Promise<void>;
 };
