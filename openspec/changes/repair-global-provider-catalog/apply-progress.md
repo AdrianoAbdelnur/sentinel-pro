@@ -2,7 +2,7 @@
 
 ## Scope
 
-PR 4 only: tasks 4.1, 4.2, and 4.3 on `catalog-v2-04-matcher`, targeting `catalog-v2-03-mongodb`.
+PR 5 only: tasks 5.1, 5.2, and 5.3 on `catalog-v2-05-cybermapa`, targeting `catalog-v2-04-matcher`.
 
 ## Completed Tasks
 
@@ -16,6 +16,9 @@ PR 4 only: tasks 4.1, 4.2, and 4.3 on `catalog-v2-04-matcher`, targeting `catalo
 - [x] 4.1 RED: added focused matcher tests for external-ID reuse, exact global plate matching, missing/malformed/conflicting evidence review, unsafe-review retry idempotency, serialized concurrent candidates, and Mongo unique-index transaction races including competing external IDs.
 - [x] 4.2 GREEN: created `application/catalog-global/match-and-apply-provider-candidate.ts` with transaction-scoped external identity reuse, exact normalized plate matching, safe creation, contribution application, and provider-neutral review outcomes.
 - [x] 4.3 REFACTOR: kept matching contracts free of tenant, Company, and provider-fleet identity; Sentinel placement is only an initial vehicle-placement value and is never changed during enrichment.
+- [x] 5.1 RED: added Cybermapa global mapping tests for Sentinel placement, GPS and operational-alert capabilities, absent plate review evidence, and the absence of inferred provider-fleet fields.
+- [x] 5.2 GREEN: added `mapCybermapaGlobalCatalog` and `seedCybermapaCatalog`; the seed delegates identity and review decisions to the global matcher and applies only Cybermapa GPS/operational-alert contributions.
+- [x] 5.3 REFACTOR: repeated seeding reuses the existing external contribution and global vehicle without creating duplicates; focused tests remained green after explicit dependency composition cleanup.
 
 ## TDD Cycle Evidence
 
@@ -27,6 +30,9 @@ PR 4 only: tasks 4.1, 4.2, and 4.3 on `catalog-v2-04-matcher`, targeting `catalo
 | 4.1 | `application/catalog-global/match-and-apply-provider-candidate.test.ts`, `integrations/persistence/mongodb/catalog-global-mongodb.test.ts` | Test-first import failure: matcher module did not exist | 8 focused matcher tests and 9 Mongo tests passed after implementing conflict retry | Reuse, exact match, unsafe review cases, unsafe retry, in-memory concurrency, and Mongo transaction races for identical and competing external IDs all passed | Assertions verify identity outcome, unique-index convergence, and repository side effects |
 | 4.2 | `application/catalog-global/match-and-apply-provider-candidate.test.ts` | Tests referenced missing matcher exports and contracts | Matcher implementation passed all focused scenarios | Existing external identity wins before plate evaluation; unmatched safe candidates create exactly one global vehicle | Application depends only on domain contracts and narrow repository/transaction ports |
 | 4.3 | `application/catalog-global/match-and-apply-provider-candidate.test.ts` | Approval tests established the forbidden identity inputs by omitting tenant, Company, and fleet identity from the candidate contract | TypeScript and focused tests pass with only connection/external identity, plate evidence, and initial placement | Concurrent execution is serialized by the transaction boundary and preserves one identity/contribution | No provider-specific, Next.js, MongoDB, tenant, Company, or provider-fleet dependency was introduced |
+| 5.1 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Test-first import failure: `seed-cybermapa-catalog` did not exist | 18 focused tests passed after global mapping and seed contracts were added | Added missing-plate and no-provider-fleet paths alongside valid placement/capability mapping | Mapping is isolated from legacy tenant/company catalog candidates |
+| 5.2 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Tests referenced missing global seed exports | Focused suite passed with global candidates carrying GPS and operational-alert eligibility and configured Sentinel placement | Valid and incomplete plate evidence exercise creation and review paths through the matcher | Seed delegates identity safety to the existing provider-neutral application matcher |
+| 5.3 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Idempotency test referenced the missing seed use case | Repeated seed passed with one vehicle and one contribution | Same external identity is exercised across two complete seed runs | Explicit repository/transaction dependency composition avoids provider or persistence leakage |
 
 ## Verification Evidence
 
@@ -36,10 +42,13 @@ PR 4 only: tasks 4.1, 4.2, and 4.3 on `catalog-v2-04-matcher`, targeting `catalo
 - `git diff --check`: passed.
 - Full suite: passed with `npm test` after separating parallel non-Mongo tests from serial Mongo tests; 112 files and 940 tests passed (107 non-Mongo files/862 tests and 5 Mongo files/78 tests).
 - PR4 focused tests: passed, 8 tests; Mongo race test passed.
+- PR5 focused tests: passed, 18 tests in `integrations/cybermapa/map-cybermapa-catalog.test.ts`.
+- PR5 typecheck: passed.
+- PR5 `git diff --check`: passed.
 
 ## Boundaries
 
-No Cybermapa, Howen, registry, policies, synchronization, cron, functional migration, grants/live compatibility, or PR5+ work was implemented.
+No Howen, registry, policies, synchronization, cron, functional migration, grants/live compatibility, or PR6+ work was implemented.
 
 ## Review
 

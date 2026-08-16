@@ -54,9 +54,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 5. Cybermapa
 
-- [ ] 5.1 RED: test placement and absent fleet evidence in `integrations/cybermapa/map-cybermapa-catalog.test.ts`.
-- [ ] 5.2 GREEN: seed V2 GPS, alerts, and placement.
-- [ ] 5.3 REFACTOR: prove idempotency.
+- [x] 5.1 RED: test placement and absent fleet evidence in `integrations/cybermapa/map-cybermapa-catalog.test.ts`.
+- [x] 5.2 GREEN: seed V2 GPS, alerts, and placement.
+- [x] 5.3 REFACTOR: prove idempotency.
 
 ## 6. Howen
 
