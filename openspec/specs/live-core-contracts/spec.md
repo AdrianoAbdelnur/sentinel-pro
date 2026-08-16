@@ -7,21 +7,18 @@ Define the normalized live domain and playback contracts that every provider int
 ## Requirements
 
 ### Requirement: Operational live entities
+The system MUST project global vehicles with independently resolved capability sources, then filter them through tenant access assignments. Tenants MUST NOT influence ingestion, matching, placement, or source resolution, and UI MUST remain provider-agnostic.
+(Previously: Live projected a tenant-owned Company/Fleet catalog with multi-provider capabilities.)
 
-The system MUST define internal live entities for customer, fleet, vehicle, device, telemetry, and live selection before provider-specific implementation begins.
+#### Scenario: Tenant opens Live
+- GIVEN global vehicle sources are resolved and access assignments exist
+- WHEN Live is projected for a tenant
+- THEN only assigned vehicles appear with provider-neutral capability contracts
 
-#### Scenario: Normalized operational model exists
-
-- GIVEN Sentinel Pro starts live feature implementation
-- WHEN developers read the project contracts
-- THEN they can find internal entity definitions for operational live concepts
-
-#### Scenario: Provider identity does not replace business identity
-
-- GIVEN provider payloads contain external identifiers
-- WHEN those payloads are normalized
-- THEN the business model still uses internal customer, fleet, vehicle, and device contracts
-
+#### Scenario: Provider source changes
+- GIVEN SUPER ADMIN changes one capability source
+- WHEN Live is projected
+- THEN the UI contract is unchanged
 ### Requirement: Playback contract is provider-agnostic
 
 The system MUST define a playback contract centered on a global monitor and individually playable tiles.
