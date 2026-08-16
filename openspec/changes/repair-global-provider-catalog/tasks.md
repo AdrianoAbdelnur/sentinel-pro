@@ -78,9 +78,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 9. Grants/Live
 
-- [ ] 9.1 RED: test disclosure, policies, legacy parity, and stable Live contracts.
-- [ ] 9.2 GREEN: add grants and compatibility loader beside `application/live/project-canonical-live.ts`.
-- [ ] 9.3 REFACTOR: prove default/rollback switches.
+- [x] 9.1 RED: test disclosure, policies, legacy parity, and stable Live contracts.
+- [x] 9.2 GREEN: add grants and compatibility loader beside `application/live/project-canonical-live.ts`.
+- [x] 9.3 REFACTOR: prove default/rollback switches.
 
 ## 10. Migration
 
