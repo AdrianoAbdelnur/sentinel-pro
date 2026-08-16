@@ -13,6 +13,7 @@
                     "test:coverage":  "vitest run --coverage",
                     "migrate:identity":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/migrate.ts",
                     "migrate:catalog":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/catalog-migrate.ts",
+                    "migrate:catalog:global":  "node scripts/run-with-system-ca.mjs node --experimental-strip-types integrations/persistence/mongodb/catalog-migrate-global.ts",
                     "seed:identity":  "node scripts/run-with-system-ca.mjs node scripts/identity-seed.mjs",
                     "benchmark:argon2id":  "node benchmarks/argon2id.mjs"
                 },

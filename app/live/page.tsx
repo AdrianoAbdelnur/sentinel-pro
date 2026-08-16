@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { LiveScreen } from "@/components/live/live-screen";
 import { LiveLogoutButton } from "./live-logout-button";
 import { aggregateOperationalSources } from "@/application/live";
+import { createLiveReadSwitch, readLiveCompatibilityMode } from "@/application/live/live-compatibility-loader";
 import {
   readInMemoryBottomPanelFixtures,
 } from "@/integrations/live/in-memory/in-memory-live-data-source";
@@ -21,7 +22,8 @@ export const dynamic = "force-dynamic";
 export default async function LivePage() {
   await requirePageAuthorization("operator");
   const runtime = readLiveRuntimeConfig();
-  const sources = createOperationalSources(runtime);
+  const liveReadSwitch = createLiveReadSwitch(readLiveCompatibilityMode());
+  const sources = createOperationalSources({ ...runtime, liveReadSwitch });
   const { state, warnings } = await aggregateOperationalSources(sources);
   const tabs = runtime.includeDevelopmentFixtures
     ? readInMemoryBottomPanelFixtures()

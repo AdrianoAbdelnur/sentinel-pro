@@ -74,3 +74,36 @@ unchanged; PR9 adds only the grants/Live compatibility files documented below.
 - `git diff --check`: passed with expected LF/CRLF warnings.
 - One complete `npm test` execution passed after the user explicitly waived the three-consecutive-run gate for this iteration: 113 files/894 tests, system 1/1, and MongoDB 5 files/78 tests.
 - Final review found and the follow-up fix isolated Live snapshots by `connectionId` plus `externalId`, preventing same-provider connection collisions; a regression test now covers reused external IDs.
+
+## PR10 — Migration
+
+### 10.1 RED
+
+- Added focused tests for read-only dry-run reports, shared-plate merges, isolated conflicts, absent approval, invalid and reused tokens, parity blocking, idempotent target application, and read-switch rollback.
+- Confirmed RED with `npx vitest run application/catalog-global/migrate-global-catalog.test.ts`: the migration module was absent.
+
+### 10.2 GREEN
+
+- Added the provider-neutral migration use case with legacy source, V2 target, parity, and approval-token ports.
+- Added the MongoDB CLI with dry-run default, persisted one-purpose approval tokens, report input, and explicit apply token.
+- Added the controlled Live read switch requiring parity before global cutover and supporting immediate legacy rollback.
+
+### 10.3 REFACTOR
+
+- Added migration rollout documentation and marked only tasks 10.1-10.3 complete.
+- MongoDB target writes use V2 repositories only; legacy collections are read-only inputs and no delete/update operation targets them.
+- Dry-run remains the default CLI behavior and conflicts/parity failures stop apply before any write.
+
+### TDD Cycle Evidence
+
+| Task | Test File | RED | GREEN | REFACTOR |
+|---|---|---|---|---|
+| 10.1 | `application/catalog-global/migrate-global-catalog.test.ts`, `application/live/live-compatibility-loader.test.ts` | Missing migration contracts failed import | Focused scenarios pass | Contracts isolate conflicts, approval, parity, and rollback |
+| 10.2 | Same focused suites | Delivery and token contracts absent | Migration, Mongo CLI, token persistence, and read switch typecheck | MongoDB and delivery behavior remain outside the application boundary |
+| 10.3 | Same focused suites | Rollout gates and no-write boundary absent | Focused tests pass after boundary refactor | Dry-run remains default; legacy is never a write target |
+
+### Independent PR10 review follow-up
+
+- Confirmed and fixed absent-state preservation, provider fleet membership persistence, V2 validator/index setup before apply, and read-switch wiring through operational-source composition.
+- A first exact `npm test` run hit two pre-existing sidebar test timeouts; the required repeat exact `npm test` passed with 114 files/899 tests, system 1/1, and MongoDB 5 files/78 tests.
+- Final PR10 validation passed after the review fixes: build, lint (0 errors, pre-existing coverage warning), typecheck, focused 14 tests, MongoDB 5 files/78 tests, exact `npm test` (114 files/899 tests, system 1/1, MongoDB 5 files/78 tests), and `git diff --check`.
