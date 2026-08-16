@@ -60,9 +60,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 6. Howen
 
-- [ ] 6.1 RED: test exact match, unchanged placement, memberships, and Howen-only creation.
-- [ ] 6.2 GREEN: update `integrations/howen/*` for V2 video contributions.
-- [ ] 6.3 REFACTOR: prove shared plates never duplicate.
+- [x] 6.1 RED: test exact match, unchanged placement, memberships, and Howen-only creation.
+- [x] 6.2 GREEN: update `integrations/howen/*` for V2 video contributions.
+- [x] 6.3 REFACTOR: prove shared plates never duplicate.
 
 ## 7. Policies/Registry
 

@@ -1,87 +1,105 @@
 ## Verification Report
 
 **Change**: repair-global-provider-catalog
-**Scope**: PR5 only, tasks 5.1-5.3
-**Branch**: `catalog-v2-05-cybermapa` targeting `catalog-v2-04-matcher`
-**Mode**: Strict TDD
+**Scope**: PR6 only, tasks 6.1-6.3
+**Branch**: catalog-v2-06-howen targeting catalog-v2-05-cybermapa
+**Mode**: Strict TDD (openspec/config.yaml)
 
 ### Completeness
 
 | Metric | Value |
 |---|---:|
-| PR5 tasks total | 3 |
-| PR5 tasks complete | 3 |
-| PR5 tasks incomplete | 0 |
+| PR6 tasks total | 3 |
+| PR6 tasks complete | 3 |
+| PR6 tasks incomplete | 0 |
+| PR7+ tasks changed | 0 |
 
-### Build & Tests Execution
+Tasks 6.1, 6.2, and 6.3 are checked. Tasks 7.1 onward remain unchecked.
 
-- `npm run lint`: passed with one pre-existing warning in `coverage/block-navigation.js`.
-- `npm run typecheck`: passed.
-- Focused Cybermapa tests: 18 passed.
-- MongoDB suite: 78 passed.
-- `git diff --check`: passed.
-- Full `npm test`: failed in four unrelated pre-existing tests (`scripts/run-with-system-ca.test.ts` and `components/live/live-map-clustering-harness.test.tsx`); 862 non-Mongo tests passed before those failures. The MongoDB command passed separately.
+### Runtime and Quality Evidence
 
-### Spec Compliance Matrix
-
-| Requirement | Scenario | Test | Result |
-|---|---|---|---|
-| Cybermapa establishes the current rollout catalog | Valid vehicle receives Sentinel placement, GPS, and operational-alert capabilities | `map-cybermapa-catalog.test.ts` > maps a vehicle to GPS and operational alerts | COMPLIANT |
-| Cybermapa establishes the current rollout catalog | Adapter data without fleet identity does not create provider-fleet evidence | `map-cybermapa-catalog.test.ts` > does not infer a provider fleet | COMPLIANT |
-| Global catalog owns vehicle identity | Repeated seed keeps one global vehicle and contribution | `map-cybermapa-catalog.test.ts` > is idempotent | COMPLIANT |
-
-**Compliance summary**: 3/3 PR5 scenarios compliant.
-
-### Correctness
-
-| Requirement | Status | Notes |
+| Command | Result | Evidence |
 |---|---|---|
-| Global Cybermapa seed | Implemented | `seedCybermapaCatalog` maps and applies provider-neutral candidates through the PR4 matcher. |
-| GPS and operational alerts | Implemented | Contributions declare only `gps` and `operationalAlerts` as eligible. |
-| Sentinel placement | Implemented | Placement is injected as Sentinel configuration and is not derived from provider data. |
-| No invented provider fleet | Implemented | No fleet field or membership is emitted by the Cybermapa mapper. |
-| Idempotency | Implemented | Existing external contributions are reused on repeated seeds. |
+| npm run lint | PASS WITH WARNING | Exit 0; existing unused eslint-disable warning in coverage/block-navigation.js:1:1. |
+| npm run typecheck | PASS | Exit 0. |
+| focused Howen, Cybermapa, matcher Vitest command | PASS | 3 files, 33 tests passed. |
+| focused MongoDB V2 Vitest command | PASS | 1 file, 9 tests passed. |
+| targeted coverage for Howen seed and matcher | PASS | 2 files, 15 tests passed. |
+| git diff --check | PASS | Exit 0. |
+| exact npm test x3 | BLOCKED / UNKNOWN | A sequential exact-command run timed out after 604.1 seconds (exit 124) before returning any completed run result; zero of three completed executions is evidenced. |
 
-### Coherence
+The exact project test command is vitest run --exclude=integrations/persistence/mongodb/** && vitest run --config vitest.mongodb.config.ts. The timeout is not declared pre-existing: concurrent node processes existed but no causal attribution was demonstrated.
 
-- Integrations depend on the provider adapter and application matcher, while the matcher retains provider-neutral contracts.
-- No Next.js, MongoDB, tenant, Company, Howen, registry, policy, synchronization, cron, migration, or Live compatibility code was added.
-- No source comments were added.
+### PR6 Behavioral Compliance
+
+| Requirement / scenario | Runtime coverage | Result |
+|---|---|---|
+| Exact global plate matches Cybermapa vehicle | seed-howen-catalog existing-global-plate test | COMPLIANT |
+| Matched contribution adds video and video alerts only | Contribution assertion has video/videoAlerts and no GPS/operational alerts | COMPLIANT |
+| Sentinel placement remains immutable | Existing-vehicle, absent-evidence, and refresh-evidence cases retain sentinel-cybermapa | COMPLIANT |
+| Membership persists only from actual Howen id plus label | Complete, absent, and late fleet-evidence cases | COMPLIANT |
+| Howen-only creation requires valid identity plus initial placement | Creation and missing-placement-review cases | COMPLIANT |
+| Shared plate has one vehicle | Distinct Howen external identities convergence case | COMPLIANT |
+| Invalid plate reviews rather than creates | Invalid plate case | COMPLIANT |
+
+### Design and Boundary Coherence
+
+| Decision | Evidence | Result |
+|---|---|---|
+| Reuses global matcher | seedHowenCatalog calls matchAndApplyProviderCandidate; no duplicate matcher | COMPLIANT |
+| Existing placement cannot move | Matcher creates only absent a matching vehicle | COMPLIANT |
+| Video-only Howen contribution | Mapper emits video/videoAlerts only | COMPLIANT |
+| Membership is generic metadata | Generic matcher persists it after vehicle resolution | COMPLIANT |
+| Boundaries remain clean | Provider mapping is in integrations/howen; changed application/domain code has no provider, Next.js, or MongoDB import | COMPLIANT |
+| PR7 excluded | No registry, policy, GPS, sync, cron, migration, grants/Live, or UI changes found | COMPLIANT |
 
 ### TDD Compliance
 
 | Check | Result | Details |
 |---|---|---|
-| TDD evidence reported | COMPLIANT | `apply-progress.md` contains evidence for 5.1-5.3. |
-| RED confirmed | COMPLIANT | The focused test first referenced the missing seed module. |
-| GREEN confirmed | COMPLIANT | 18 focused tests pass. |
-| Triangulation | COMPLIANT | Valid, absent-plate, absent-fleet, and repeated-seed paths are covered. |
-| Refactor regression | COMPLIANT | Focused tests and typecheck pass after cleanup. |
+| TDD evidence reported | COMPLIANT | apply-progress has 6.1-6.3 RED/GREEN/TRIANGULATE/REFACTOR rows. |
+| Test file exists | COMPLIANT | integrations/howen/seed-howen-catalog.test.ts exists. |
+| GREEN independently confirmed | COMPLIANT | 7 PR6 Howen tests and 33 combined focused tests passed. |
+| Triangulation adequate | COMPLIANT | Match, no evidence, late evidence, creation, duplicate, invalid plate, and unresolved placement covered. |
+| Safety net | COMPLIANT | Cybermapa, matcher, and Mongo V2 focused suites passed. |
+| Refactor regression | COMPLIANT | Focused tests, typecheck, and coverage passed. |
+
+**TDD Compliance**: 6/6 checks passed.
 
 ### Test Layer Distribution
 
-| Layer | Tests | Files |
-|---|---:|---:|
-| Unit | 18 | 1 |
-| Integration | 0 | 0 |
-| E2E | 0 | 0 |
+| Layer | Tests | Files | Tools |
+|---|---:|---:|---|
+| Unit | 7 PR6-specific; 33 combined focused | 3 | Vitest |
+| Integration | 9 focused MongoDB V2 | 1 | Vitest + mongodb-memory-server |
+| E2E | 0 | 0 | not installed |
 
 ### Changed File Coverage
 
-Focused coverage reported 100% line coverage for `integrations/cybermapa/seed-cybermapa-catalog.ts` and 100% line coverage for the Cybermapa integration files exercised by the focused run. Aggregate focused coverage is not used as the PR quality threshold because it includes unrelated imported legacy modules.
+| File | Lines | Branches | Rating |
+|---|---:|---:|---|
+| application/catalog-global/match-and-apply-provider-candidate.ts | 100% | 92.5% | Excellent |
+| integrations/howen/seed-howen-catalog.ts | 100% | 87.5% | Excellent |
+
+Targeted coverage reports the relevant PR6 production paths at full line coverage. No coverage threshold failure is configured.
 
 ### Assertion Quality
 
-All PR5 assertions verify production mapping or seed behavior; no tautologies, ghost loops, CSS assertions, or mock-heavy tests were found.
+**Assertion quality**: All PR6 assertions verify mapping, vehicle, contribution, membership, review, or deduplication behavior. No tautologies, ghost loops, type-only-only assertions, CSS assertions, or mock-heavy tests were found.
 
-### Issues Found
+### Issues
 
-**CRITICAL**: Full `npm test` remains failing in four unrelated pre-existing tests described above.
-**WARNING**: Existing lint warning in `coverage/block-navigation.js`.
-**SUGGESTION**: Resolve the unrelated full-suite timeouts in a separate change before merging the chain.
+**CRITICAL**
+- The mandatory repository-wide validation is incomplete. The three consecutive exact npm test commands have no completed result. The only attempt was killed by the 604.1-second harness timeout. Merge readiness is blocked until three runs complete successfully.
+
+**WARNING**
+- npm run lint retains one unrelated warning in coverage/block-navigation.js.
+
+**SUGGESTION**
+- Repeat exact full-suite validation in a non-contended runner and preserve all three completed outputs before starting PR7 or merging.
 
 ### Verdict
 
-**FAIL for repository-wide gate; PR5 scope otherwise PASS.**
+**FAIL - repository-wide validation gate unresolved.**
 
-The PR5 implementation and focused SDD scenarios pass, but the mandatory full suite is not green due to unrelated pre-existing failures. No unrelated fixes were made.
+PR6 tasks 6.1-6.3 comply with their Howen behavior, architecture, Mongo, and strict-TDD checks. Required completed npm test x3 evidence is absent, so this PR is not merge-ready. PR7 was not started.

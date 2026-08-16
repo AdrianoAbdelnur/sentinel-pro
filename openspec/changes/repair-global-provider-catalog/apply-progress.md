@@ -2,7 +2,7 @@
 
 ## Scope
 
-PR 5 only: tasks 5.1, 5.2, and 5.3 on `catalog-v2-05-cybermapa`, targeting `catalog-v2-04-matcher`.
+PR 6 only: tasks 6.1, 6.2, and 6.3 on `catalog-v2-06-howen`, targeting `catalog-v2-05-cybermapa`.
 
 ## Completed Tasks
 
@@ -19,6 +19,9 @@ PR 5 only: tasks 5.1, 5.2, and 5.3 on `catalog-v2-05-cybermapa`, targeting `cata
 - [x] 5.1 RED: added Cybermapa global mapping tests for Sentinel placement, GPS and operational-alert capabilities, absent plate review evidence, and the absence of inferred provider-fleet fields.
 - [x] 5.2 GREEN: added `mapCybermapaGlobalCatalog` and `seedCybermapaCatalog`; the seed delegates identity and review decisions to the global matcher and applies only Cybermapa GPS/operational-alert contributions.
 - [x] 5.3 REFACTOR: repeated seeding reuses the existing external contribution and global vehicle without creating duplicates; focused tests remained green after explicit dependency composition cleanup.
+- [x] 6.1 RED: added Howen global seed tests for exact global-plate matching, video/video-alert contribution, immutable Cybermapa placement, evidence-only memberships, Howen-only creation, invalid plate review, missing initial placement review, and repeated shared plates.
+- [x] 6.2 GREEN: added `seedHowenCatalog` and its Howen mapper; it delegates identity to the existing global matcher, contributes only video/video-alert capabilities, and persists provider fleet membership only from complete Howen fleet evidence.
+- [x] 6.3 REFACTOR: extracted provider-fleet membership persistence inside the provider-neutral matcher and verified that refreshed existing contributions receive newly exposed membership evidence without changing placement or duplicating a vehicle.
 
 ## TDD Cycle Evidence
 
@@ -33,6 +36,9 @@ PR 5 only: tasks 5.1, 5.2, and 5.3 on `catalog-v2-05-cybermapa`, targeting `cata
 | 5.1 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Test-first import failure: `seed-cybermapa-catalog` did not exist | 18 focused tests passed after global mapping and seed contracts were added | Added missing-plate and no-provider-fleet paths alongside valid placement/capability mapping | Mapping is isolated from legacy tenant/company catalog candidates |
 | 5.2 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Tests referenced missing global seed exports | Focused suite passed with global candidates carrying GPS and operational-alert eligibility and configured Sentinel placement | Valid and incomplete plate evidence exercise creation and review paths through the matcher | Seed delegates identity safety to the existing provider-neutral application matcher |
 | 5.3 | `integrations/cybermapa/map-cybermapa-catalog.test.ts` | Idempotency test referenced the missing seed use case | Repeated seed passed with one vehicle and one contribution | Same external identity is exercised across two complete seed runs | Explicit repository/transaction dependency composition avoids provider or persistence leakage |
+| 6.1 | `integrations/howen/seed-howen-catalog.test.ts` | Test-first import failure: `seed-howen-catalog` did not exist | 4 requested behavioral tests passed after the Howen global seed was implemented | 7 tests cover incomplete fleet evidence, later fleet evidence, invalid plate evidence, and unavailable initial placement | The tests exercise the mapper, matcher, contribution, and membership side effects through real in-memory repository ports |
+| 6.2 | `integrations/howen/seed-howen-catalog.test.ts` | Tests referenced missing global seed exports | Howen seed maps validated plate evidence and applies only video/video-alert contributions through PR4 matcher | Shared plate records with different external identities converge on one vehicle | Howen integration contains its provider-specific mapping; application matcher remains provider-neutral |
+| 6.3 | `integrations/howen/seed-howen-catalog.test.ts` | Refresh-evidence test failed with no membership after an existing contribution was reused | 7 focused Howen tests passed after membership persistence was applied to reused contributions | Existing placement, no-evidence membership absence, late evidence, invalid plate, no placement, and duplicate prevention remain covered | Extracted membership persistence into one matcher helper; focused Howen, Cybermapa, and matcher tests passed after refactor |
 
 ## Verification Evidence
 

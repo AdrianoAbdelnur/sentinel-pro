@@ -1,13 +1,16 @@
-import { createGlobalCatalogReview, createGlobalVehicle, createProviderContribution, type GlobalCatalogReview, type GlobalVehicle, type ProviderContribution, type CapabilityStates } from "@/domain/catalog-global";
+import { createGlobalCatalogReview, createGlobalVehicle, createProviderContribution, createProviderFleetMembership, type GlobalCatalogReview, type GlobalVehicle, type ProviderContribution, type CapabilityStates } from "@/domain/catalog-global";
+
+type ProviderFleetMembershipEvidence = Readonly<{ externalFleetId: string; label: string }>;
 
 export type ProviderCandidate = Readonly<{
   connectionId: string;
   externalId: string;
   plate?: string;
   normalizedPlate?: string;
-  placementFleetId: string;
+  placementFleetId?: string;
   capabilities: CapabilityStates;
   presence: "present" | "absent";
+  providerFleetMembership?: ProviderFleetMembershipEvidence;
   identityConflict?: boolean;
   conflictingVehicleIds?: readonly string[];
 }>;
@@ -24,6 +27,9 @@ export type MatchAndApplyRepositories = {
   reviews: {
     findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<GlobalCatalogReview | undefined>;
     save(review: GlobalCatalogReview): Promise<void>;
+  };
+  memberships?: {
+    save(membership: { connectionId: string; externalFleetId: string; vehicleId: string; label: string }): Promise<void>;
   };
 };
 
@@ -42,6 +48,20 @@ export type MatchAndApplyResult =
 
 const isNormalizedPlate = (value: string | undefined): value is string => value !== undefined && /^[A-Z0-9]+$/.test(value);
 
+async function saveProviderFleetMembership(
+  repositories: MatchAndApplyRepositories,
+  candidate: ProviderCandidate,
+  vehicleId: string,
+): Promise<void> {
+  if (!candidate.providerFleetMembership || !repositories.memberships) return;
+  await repositories.memberships.save(createProviderFleetMembership({
+    connectionId: candidate.connectionId,
+    externalFleetId: candidate.providerFleetMembership.externalFleetId,
+    vehicleId,
+    label: candidate.providerFleetMembership.label,
+  }));
+}
+
 export async function matchAndApplyProviderCandidate(dependencies: MatchAndApplyDependencies): Promise<MatchAndApplyResult> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
@@ -54,6 +74,7 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
         presence: dependencies.candidate.presence,
       });
       await repositories.contributions.save(contribution);
+      await saveProviderFleetMembership(repositories, dependencies.candidate, existingContribution.vehicleId);
       return { kind: "reused", vehicleId: existingContribution.vehicleId, contribution };
     }
 
@@ -81,11 +102,23 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
     const normalizedPlate = dependencies.candidate.normalizedPlate;
     if (!isNormalizedPlate(normalizedPlate)) throw new Error("Unsafe plate evidence reached matching");
     const matchedVehicle = await repositories.vehicles.findByNormalizedPlate(normalizedPlate);
+    if (!matchedVehicle && dependencies.candidate.placementFleetId === undefined) {
+      const review = createGlobalCatalogReview({
+        id: dependencies.ids.create(),
+        connectionId: dependencies.candidate.connectionId,
+        externalId: dependencies.candidate.externalId,
+        reason: "missing-placement",
+        normalizedPlate,
+        candidateVehicleIds: [],
+      });
+      await repositories.reviews.save(review);
+      return { kind: "review", review };
+    }
     const vehicle = matchedVehicle ?? createGlobalVehicle({
       id: dependencies.ids.create(),
       normalizedPlate,
       plate: dependencies.candidate.plate ?? normalizedPlate,
-      placementFleetId: dependencies.candidate.placementFleetId,
+      placementFleetId: dependencies.candidate.placementFleetId as string,
     });
     if (!matchedVehicle) await repositories.vehicles.save(vehicle);
 
@@ -98,6 +131,7 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
       presence: dependencies.candidate.presence,
     });
     await repositories.contributions.save(contribution);
+    await saveProviderFleetMembership(repositories, dependencies.candidate, vehicle.id);
     return { kind: matchedVehicle ? "matched" : "created", vehicleId: vehicle.id, contribution };
       });
     } catch (error) {

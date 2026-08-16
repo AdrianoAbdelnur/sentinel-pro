@@ -1,4 +1,4 @@
-export type GlobalCatalogReviewReason = "missing-plate" | "malformed-plate" | "ambiguous-match" | "conflicting-identity";
+export type GlobalCatalogReviewReason = "missing-plate" | "malformed-plate" | "missing-placement" | "ambiguous-match" | "conflicting-identity";
 
 export type GlobalCatalogReview = Readonly<{
   id: string;
