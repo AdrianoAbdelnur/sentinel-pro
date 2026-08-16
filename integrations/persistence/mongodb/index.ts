@@ -12,3 +12,5 @@ export * from "./catalog-global-documents";
 export * from "./catalog-global-validators";
 export * from "./catalog-global-repositories";
 export * from "./catalog-global-migrations";
+export * from "./catalog-global-sync-repositories";
+export * from "./catalog-global-transaction-runner";

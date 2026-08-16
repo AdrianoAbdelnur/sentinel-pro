@@ -8,6 +8,7 @@ import {
   type GlobalCatalogReviewDocument, type GlobalVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
   type ProviderDefinitionDocument, type ProviderFleetMembershipDocument, type TenantVehicleGrantDocument,
 } from "./catalog-global-documents";
+import { createGlobalSyncRepositories } from "./catalog-global-sync-repositories";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
@@ -16,7 +17,7 @@ const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; up
   await collection.updateOne(filter, { $set: mutable, $setOnInsert: { schemaVersion, createdAt } } as UpdateFilter<T>, { upsert: true, ...options(session) });
 };
 
-export function createGlobalCatalogRepositories(db: Db, session?: ClientSession): GlobalCatalogRepositories {
+export function createGlobalCatalogRepositories(db: Db, session?: ClientSession): GlobalCatalogRepositories & ReturnType<typeof createGlobalSyncRepositories> {
   const vehicles = db.collection<GlobalVehicleDocument>("global_vehicles_v2");
   const providers = db.collection<ProviderDefinitionDocument>("provider_definitions_v2");
   const connections = db.collection<ProviderConnectionDocument>("provider_connections_v2");
@@ -26,6 +27,7 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
   const reviews = db.collection<GlobalCatalogReviewDocument>("catalog_reviews_v2");
 
   return {
+    ...createGlobalSyncRepositories(db, session),
     vehicles: {
       async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
       async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
@@ -44,6 +46,7 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
     },
     contributions: {
       async findByConnectionAndExternalId(connectionId, externalId) { const document = await contributions.findOne({ connectionId, externalId }, options(session)); return document ? toProviderContributionDomain(document) : undefined; },
+      async listByConnectionId(connectionId) { return (await contributions.find({ connectionId }, options(session)).sort({ externalId: 1 }).toArray()).map(toProviderContributionDomain); },
       async listByVehicleId(vehicleId) { return (await contributions.find({ vehicleId }, options(session)).sort({ id: 1 }).toArray()).map(toProviderContributionDomain); },
       async save(contribution) { await atomicSave(contributions, { id: contribution.id }, toProviderContributionDocument(contribution, now()), session); },
     },

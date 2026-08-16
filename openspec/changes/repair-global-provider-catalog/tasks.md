@@ -72,9 +72,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 8. Synchronization
 
-- [ ] 8.1 RED: test leases, checkpoints, retries, incomplete snapshots, due connections, auth, and status.
-- [ ] 8.2 GREEN: create `synchronize-global-connection.ts`; wire manual/internal triggers and scheduler.
-- [ ] 8.3 REFACTOR: update `.env.example` and synchronization docs.
+- [x] 8.1 RED: test leases, checkpoints, retries, incomplete snapshots, due connections, auth, and status.
+- [x] 8.2 GREEN: create `synchronize-global-connection.ts`; wire manual/internal triggers and scheduler.
+- [x] 8.3 REFACTOR: update `.env.example` and synchronization docs.
 
 ## 9. Grants/Live
 

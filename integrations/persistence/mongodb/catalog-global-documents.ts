@@ -1,6 +1,7 @@
 import type { ObjectId } from "mongodb";
 import type { GlobalCatalogReview, GlobalVehicle, ProviderConnection, ProviderContribution, ProviderDefinition, ProviderFleetMembership, TenantVehicleGrant } from "@/domain/catalog-global";
 import type { CapabilitySourceStatus } from "@/domain/catalog-global/capabilities";
+import type { GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
 
 type Timestamps = { createdAt: Date; updatedAt: Date };
 export type GlobalVehicleDocument = { _id?: ObjectId; schemaVersion: number; id: string; normalizedPlate: string; plate: string; placementFleetId: string } & Timestamps;
@@ -11,6 +12,8 @@ export type ProviderContributionDocument = { _id?: ObjectId; schemaVersion: numb
 export type ProviderFleetMembershipDocument = { _id?: ObjectId; schemaVersion: number; connectionId: string; externalFleetId: string; vehicleId: string; label: string } & Timestamps;
 export type TenantVehicleGrantDocument = { _id?: ObjectId; schemaVersion: number; organizationId: string; vehicleId: string } & Timestamps;
 export type GlobalCatalogReviewDocument = { _id?: ObjectId; schemaVersion: number; id: string; connectionId: string; externalId: string; subject: "vehicle-identity"; reason: string; normalizedPlate?: string; candidateVehicleIds: string[]; status: "pending" | "resolved"; resolvedVehicleId?: string } & Timestamps;
+export type GlobalSyncRunDocument = Omit<GlobalSyncRun, "startedAt" | "completedAt"> & { _id?: ObjectId; schemaVersion: number; startedAt: Date; completedAt?: Date } & Timestamps;
+export type GlobalSyncLeaseDocument = { _id?: ObjectId; schemaVersion: number; connectionId: string; runId: string; leaseUntil: Date; createdAt: Date; updatedAt: Date };
 
 export function toGlobalVehicleDomain(document: GlobalVehicleDocument): GlobalVehicle { return { id: document.id, normalizedPlate: document.normalizedPlate, plate: document.plate, placementFleetId: document.placementFleetId }; }
 export function toGlobalVehicleDocument(value: GlobalVehicle, now: Date, existing?: GlobalVehicleDocument): GlobalVehicleDocument { return { schemaVersion: 2, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }

@@ -31,6 +31,7 @@ export type ProviderConnectionRepository = {
 
 export type ProviderContributionRepository = {
   findByConnectionAndExternalId(connectionId: string, externalId: string): Promise<ProviderContribution | undefined>;
+  listByConnectionId(connectionId: string): Promise<ProviderContribution[]>;
   listByVehicleId(vehicleId: string): Promise<ProviderContribution[]>;
   save(contribution: ProviderContribution): Promise<void>;
 };

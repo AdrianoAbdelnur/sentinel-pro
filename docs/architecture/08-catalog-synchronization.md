@@ -1,93 +1,57 @@
-# Catalog Synchronization
+# Global Catalog Synchronization
 
-## Goal
+## Boundary
 
-Define the operational contract for keeping the canonical `Company -> Fleet ->
-Vehicle` catalog synchronized with provider systems (Cybermapa, Howen): who
-triggers a sync, how often, under what authorization, and how to roll the
-feature out or back.
+V2 synchronization operates on global provider connections and global catalog
+repositories. The application use case depends on internal ports only; provider
+clients and payload mapping remain in `integrations/`. Manual, internal, and
+scheduler delivery adapters call the same `synchronize` use case.
 
-## Cadence
+## Triggers and authorization
 
-- `SynchronizeDueCatalogConnections` computes freshness as
-  `lastSuccessfulAt + 6h`. A connection becomes due for a new run six hours
-  after its last successful completion; a run that fails or only partially
-  completes does not reset this clock.
-- `POST /api/internal/catalog/synchronize` (the cron entry point) evaluates
-  every enabled connection once per invocation and synchronizes only the ones
-  currently due. It does not own a schedule itself — a hosting cron
-  scheduler is expected to call it repeatedly (for example every few
-  minutes) so no due connection waits meaningfully longer than six hours.
-  There is no `enabled`/`disabled` toggle on `ProviderConnection` today —
-  `domain/catalog/company-candidate.ts`'s `ProviderConnection` type carries
-  only `{id, organizationId, credentialRef, companyId}`. "Enabled" here means
-  "exists as a persisted connection"; any connection an admin has created is
-  evaluated on every cron invocation, and there is no way to persist a
-  connection while excluding it from the cron sweep (tracked as risk #17 in
-  `openspec/changes/multi-provider-canonical-catalog/tasks.md`).
-- A manual `Sync now`
-  (`POST /api/admin/catalog/connections/[connectionId]/sync`) bypasses the
-  due-connections freshness gate for that one connection at the requesting
-  admin's initiative. A manual trigger never re-checks freshness: the
-  post-lease recheck in `SynchronizeCatalogConnection` is gated behind
-  `trigger === "scheduled"`, and a manual run is meant to proceed regardless
-  of how recently the connection last succeeded.
+- Manual synchronization is exposed under `/api/admin/catalog/v2` and requires
+  an active platform `super-admin` session.
+- Internal synchronization is exposed under `/api/internal/catalog/v2` and
+  requires the server-only `SENTINEL_CATALOG_SYNC_SECRET` Bearer token.
+- The Cybermapa adapter requires `SENTINEL_CYBERMAPA_PLACEMENT_FLEET_ID` for
+  authoritative initial placement. Howen shared-plate enrichment does not
+  require placement; Howen-only creation requires the optional
+  `SENTINEL_HOWEN_INITIAL_PLACEMENT_FLEET_ID`.
+- The internal route enumerates enabled due connections and invokes the same
+  use case with the `scheduler` trigger. `SENTINEL_CATALOG_V2_SYNC_ENABLED`
+  controls scheduler rollout; manual runs are independent of that switch.
+- Authorization is performed by delivery adapters and is not part of the
+  synchronization algorithm.
 
-  Two distinct mechanisms keep runs from overlapping, and they protect
-  different scenarios. The per-connection lease is what stops a manual and a
-  scheduled trigger racing each other: exactly one claims it and the loser
-  reports `already-running`. The post-lease freshness recheck instead
-  protects the sequential case, where a scheduled run's due-candidate list
-  was computed before some other run completed and is stale by the time the
-  lease is held. Do not treat either as a substitute for the other.
+## Leases, checkpoints, and retries
 
-## Security
+Every connection claims one V2 lease before loading a snapshot. A held lease
+returns `already-running`; lease renewal must succeed before processing the next
+candidate. Sorted external IDs are persisted as checkpoints after each applied
+candidate. A failed run resumes after its last checkpoint, while contribution
+identity makes repeated application idempotent.
 
-- Provider master credentials are shared only behind explicit connection authorization. A `ProviderConnection` binds one canonical Company and records its authorized external scope IDs. Before an external snapshot reaches catalog staging, matching, identity creation, review, or canonical association, synchronization denies every record without a listed scope. Howen uses its stable `fleetid`; Cybermapa uses its confirmed stable, unique `nombre_empresa` through an exact normalized allowlist. A missing Company or empty authorization lists deny the entire snapshot and fail the run without reconciling absence.
-- `app/api/internal/catalog/synchronize/route.ts` declares
-  `export const runtime = "nodejs"`. The Edge runtime cannot run the
-  constant-time secret comparison this route needs, and the MongoDB driver
-  used by every catalog repository requires Node APIs.
-- Authorization is a Bearer token compared against the server-only
-  `SENTINEL_CATALOG_SYNC_SECRET` using
-  `integrations/security/authorize-internal-secret.ts`'s constant-time
-  comparison, never `===`, to avoid a timing side-channel. A missing or
-  mismatched secret returns 401 with no further detail; the secret itself is
-  never logged, echoed, or included in any response body.
-- Manual `Sync now` carries no separate secret. It reuses the same
-  same-origin, session-token, and fresh tenant-admin authorization
-  (`authorizeAdminRequest`) as every other `/api/admin/catalog/**` route.
-
-## Rollout
-
-1. Add the catalog collections and indexes idempotently — existing
-   migrations are safe to re-run and do not duplicate or drop data.
-2. Configure `SENTINEL_CATALOG_SYNC_SECRET` in the server environment.
-3. Run an initial Cybermapa sync, then an initial Howen sync. A Howen
-   connection only resolves to a real `CatalogImportSource` once an
-   administrator has assigned it a Company via
-   `POST /api/admin/catalog/connections/[connectionId]/company`; before that,
-   cron and manual sync both classify it as `missing-company-assignment`,
-   distinct from `unsupported` (no matching provider factory at all) and
-   `misconfigured` (a factory exists but declines) — see
-   `app/api/catalog/connection-sources.ts`'s `classifyConnectionSourceProblem`.
-4. Enable the cron scheduler against `POST /api/internal/catalog/synchronize`
-   once both providers have reached parity with the previous data source.
-
-## Rollback
-
-Disabling the cron scheduler, the manual sync routes, and the live
-composition's canonical feature switch (`05-live-application-responsibilities.md`)
-fully reverts to pre-catalog behavior. Catalog data, sync run history,
-Company/Fleet bindings, pending and resolved reviews, and admin-assigned
-placement are untouched by rollback — they simply stop being read until the
-feature switch is re-enabled.
+Failures are classified without persisting provider secrets. Connectivity,
+timeout, rate-limit, and internal failures are retryable. Authentication and
+invalid-response failures are reported as non-retryable.
 
 ## Snapshot integrity
 
-Absence reconciliation is deny-by-default. A provider snapshot is confirmed only when retrieval and pagination are proven, at least 98% of received records are parseable, and its authorized population is at least 90% of the previous confirmed run. An empty result after a populated confirmed run is partial. Partial runs may import valid records but preserve unseen identities and do not refresh the six-hour cadence. The first confirmed run establishes a baseline; only a subsequent confirmed run may reconcile absence. A later confirmed snapshot resumes normal reconciliation.
+Retrieval completeness, pagination completeness, parse quality, empty results,
+and population decline are assessed before absence reconciliation. Valid
+candidates from an incomplete snapshot may still be applied, but an incomplete
+snapshot NEVER marks unseen contributions absent. Absence is reconciled only by
+a complete snapshot after a previous complete baseline.
 
+## Status
 
-## Cross-provider vehicle identity matching
+Platform status returns the latest run, last successful completion, due state,
+checkpoint, counts, snapshot assessment, and sanitized failure classification.
+Credentials and raw provider errors are never returned.
 
-Exact connection identity reuse is deterministic. Only an explicit provider registered plate can auto-link a unique active Vehicle in the bound Company. An exact display label equal to a canonical registered plate creates an idempotent vehicle-match review; labels, fleets, partial values, and fuzzy matches never link automatically. No backfill or Vehicle merge is performed.
+## Rollout and rollback
+
+Keep `SENTINEL_CATALOG_V2_SYNC_ENABLED=false` until adapters and V2 persistence
+are configured. Manual runs remain the controlled verification path. Disable
+the scheduler switch to stop recurring work; leases, runs, contributions, and
+global identities remain intact for inspection and retry.

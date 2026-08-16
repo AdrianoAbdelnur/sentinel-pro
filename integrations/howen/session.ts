@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import type { HowenConfig } from "./config";
+import type { CatalogSyncFailureCategory } from "@/domain/catalog";
 
 export type HowenSession = {
   token: string;
@@ -30,8 +31,20 @@ type CachedSession = {
   lastActivityAtMs: number;
 };
 
-function unavailable(): Error {
-  return new Error("Howen request unavailable");
+export class HowenSessionError extends Error {
+  readonly category: CatalogSyncFailureCategory;
+  readonly httpStatus?: number;
+
+  constructor(category: CatalogSyncFailureCategory, httpStatus?: number) {
+    super("Howen request unavailable");
+    this.name = "HowenSessionError";
+    this.category = category;
+    this.httpStatus = httpStatus;
+  }
+}
+
+function unavailable(category: CatalogSyncFailureCategory = "connectivity", httpStatus?: number): HowenSessionError {
+  return new HowenSessionError(category, httpStatus);
 }
 
 function jsessionCookie(response: Response): string | undefined {
@@ -104,19 +117,25 @@ export function createHowenSessionManager({
           cache: "no-store",
         },
       );
-      const payload: unknown = await response.json();
+      let payload: unknown;
+      try {
+        payload = await response.json();
+      } catch {
+        throw unavailable("invalid-response", response.status);
+      }
       const data = response.ok ? sessionData(payload) : undefined;
       const cookie = response.ok ? jsessionCookie(response) : undefined;
 
       if (!data || !cookie) {
-        throw unavailable();
+        throw unavailable(response.ok ? "invalid-response" : response.status === 401 || response.status === 403 ? "authentication" : "invalid-response", response.status);
       }
 
       const value = { ...data, cookie };
       cached = { value, lastActivityAtMs: now() };
       return value;
-    } catch {
-      throw unavailable();
+    } catch (error) {
+      if (error instanceof HowenSessionError) throw error;
+      throw unavailable((error as { name?: string }).name === "TimeoutError" ? "timeout" : "connectivity");
     }
   };
 
