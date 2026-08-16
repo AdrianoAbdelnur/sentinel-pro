@@ -101,6 +101,11 @@ Resolution rules:
 
 Any provider adapter must map into these contracts before the UI or page view model consumes the data.
 
+The global catalog compatibility projector follows the same boundary: it filters
+global vehicles by tenant grants after capability source resolution and emits the
+same `LiveState` contract. Tenant assignments therefore affect disclosure only;
+they do not affect global identity, placement, or source precedence.
+
 ## Canonical catalog projection
 
 `application/live/project-canonical-live.ts` populates these same contracts
