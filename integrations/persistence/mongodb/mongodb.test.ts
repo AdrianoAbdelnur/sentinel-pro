@@ -12,6 +12,17 @@ let replSet: MongoMemoryReplSet; let client: MongoClient;
 beforeAll(async () => { replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } }); client = new MongoClient(replSet.getUri()); await client.connect(); }, 60_000);
 afterAll(async () => { await client?.close(); await replSet?.stop(); });
 describe("Mongo identity persistence", () => {
+  it("backfills the platform role for the existing initial administrator", async () => {
+    const db = client.db(`identity_${Date.now()}`);
+    await migrateIdentityDatabase(db);
+    const now = new Date();
+    await db.collection("users").insertOne({ schemaVersion: 1, id: "initial-admin", firstName: "Initial", lastName: "Admin", emailNormalized: "initial@test.dev", passwordHash: "hash", passwordChangeRequired: false, status: "active", failureCount: 0, authorizationVersion: 0, createdAt: now, updatedAt: now });
+
+    await migrateIdentityDatabase(db);
+
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
+  });
+
   it("creates strict validators and all required indexes idempotently", async () => {
     const db = client.db(`identity_${Date.now()}`); await migrateIdentityDatabase(db); await migrateIdentityDatabase(db);
     const users = await db.collection("users").indexes(); const organizations = await db.collection("organizations").indexes(); const memberships = await db.collection("organization_memberships").indexes(); const sessions = await db.collection("sessions").indexes();
@@ -58,6 +69,26 @@ describe("Mongo identity persistence", () => {
 
 
 describe("identity seed entrypoint", () => {
+  it("creates the initial platform admin when the organization already exists", async () => {
+    const database = `identity_seed_existing_org_${Date.now()}`;
+    const env = {
+      ...process.env,
+      SENTINEL_MONGODB_URI: replSet.getUri(),
+      SENTINEL_MONGODB_DATABASE: database,
+      SENTINEL_INITIAL_ORGANIZATION_NAME: "Initial Organization",
+      SENTINEL_INITIAL_ADMIN_EMAIL: "admin@example.test",
+      SENTINEL_INITIAL_ADMIN_PASSWORD: "temporary-password",
+    };
+    const db = client.db(database);
+    await migrateIdentityDatabase(db);
+    await db.collection("organizations").insertOne({ schemaVersion: 1, id: "initial", name: "Initial Organization", seedKey: "initial", status: "active", authorizationVersion: 0, createdAt: new Date(), updatedAt: new Date() });
+
+    await execFileAsync(process.execPath, ["scripts/identity-seed.mjs"], { cwd: process.cwd(), env });
+
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
+    await expect(db.collection("organization_memberships").findOne({ organizationId: "initial", userId: "initial-admin" })).resolves.toMatchObject({ role: "admin", status: "active" });
+  }, 60_000);
+
   it("allows two concurrent executions and creates one initial identity", async () => {
     const database = `identity_seed_entry_${Date.now()}`;
     const env = {
@@ -74,6 +105,7 @@ describe("identity seed entrypoint", () => {
     const db = client.db(database);
     await expect(db.collection("organizations").countDocuments()).resolves.toBe(1);
     await expect(db.collection("users").countDocuments()).resolves.toBe(1);
+    await expect(db.collection("users").findOne({ id: "initial-admin" })).resolves.toMatchObject({ platformRole: "super-admin" });
     await expect(db.collection("organization_memberships").countDocuments()).resolves.toBe(1);
   }, 60_000);
 });

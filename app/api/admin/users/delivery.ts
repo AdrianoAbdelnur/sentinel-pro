@@ -1,4 +1,4 @@
-import type { AuthorizationContext } from "@/application/identity";
+import type { AuthorizationContext, PlatformAuthorizationContext } from "@/application/identity";
 import type { IdentityRole } from "@/domain/identity";
 import { getIdentityApplication } from "@/app/api/auth/composition";
 import { forbidden, isSameOrigin, readSessionToken } from "@/app/api/auth/delivery";
@@ -9,6 +9,14 @@ export async function authorizeAdminRequest(request: Request): Promise<Authoriza
   const token = readSessionToken(request);
   if (!token) return forbidden();
   const result = await (await getIdentityApplication()).authorize({ token, requiredRole: "admin" });
+  return result.kind === "authorized" ? result.context : forbidden();
+}
+
+export async function authorizePlatformRequest(request: Request): Promise<PlatformAuthorizationContext | NextResponse> {
+  if (!isSameOrigin(request)) return forbidden();
+  const token = readSessionToken(request);
+  if (!token) return forbidden();
+  const result = await (await getIdentityApplication()).authorizePlatform({ token });
   return result.kind === "authorized" ? result.context : forbidden();
 }
 

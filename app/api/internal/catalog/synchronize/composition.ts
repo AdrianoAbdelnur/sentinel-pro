@@ -6,23 +6,27 @@ import { createMongoCatalogRepositories, getMongoClient, getMongoDatabase, Mongo
 
 import {
   classifyConnectionSourceProblem,
+  createConnectionSourceRegistry,
   createDefaultConnectionSourceFactories,
   resolveConnectionSource,
   type ConnectionSourceFactories,
+  type ConnectionSourceRegistry,
 } from "@/app/api/catalog/connection-sources";
 
 export {
   classifyConnectionSourceProblem,
+  createConnectionSourceRegistry,
   createDefaultConnectionSourceFactories,
   resolveConnectionSource,
   type ConnectionSourceFactories,
-  type ConnectionSourceFactory,
-  type ConnectionSourceProblem,
+  type ConnectionSourceRegistry,
 } from "@/app/api/catalog/connection-sources";
+
+type SourceResolver = ConnectionSourceFactories | ConnectionSourceRegistry;
 
 export async function buildDueCandidates(
   connections: Pick<ProviderConnectionRepository, "listAll">,
-  factories: ConnectionSourceFactories,
+  registry: SourceResolver,
 ): Promise<{ candidates: CatalogSyncBatchCandidate[]; unsupported: ProviderConnection[]; missingCompanyAssignment: ProviderConnection[]; misconfigured: ProviderConnection[] }> {
   const all = await connections.listAll();
   const candidates: CatalogSyncBatchCandidate[] = [];
@@ -31,12 +35,12 @@ export async function buildDueCandidates(
   const misconfigured: ProviderConnection[] = [];
 
   for (const connection of all) {
-    const source = resolveConnectionSource(connection, factories);
+    const source = resolveConnectionSource(connection, registry);
     if (source) {
       candidates.push({ organizationId: connection.organizationId, connectionId: connection.id, source });
       continue;
     }
-    const problem = classifyConnectionSourceProblem(connection, factories);
+    const problem = classifyConnectionSourceProblem(connection, registry);
     if (problem === "missing-company-assignment") missingCompanyAssignment.push(connection);
     else if (problem === "misconfigured") misconfigured.push(connection);
     else unsupported.push(connection);
@@ -52,9 +56,9 @@ async function createCatalogSyncRuntime() {
   const ports = { ...repositories, ids: { create: randomUUID }, clock, transactions: new MongoCatalogTransactionRunner(client, database) };
   const { synchronizeCatalogConnection } = createSynchronizeCatalogConnectionApplication(ports);
   const { synchronizeDueCatalogConnections } = createSynchronizeDueCatalogConnectionsApplication({ syncRuns: ports.syncRuns, clock }, synchronizeCatalogConnection);
-  const factories = createDefaultConnectionSourceFactories();
+  const registry = createConnectionSourceRegistry(createDefaultConnectionSourceFactories());
 
-  return { connections: repositories.connections, synchronizeDueCatalogConnections, factories };
+  return { connections: repositories.connections, synchronizeDueCatalogConnections, registry };
 }
 
 let runtime: Awaited<ReturnType<typeof createCatalogSyncRuntime>> | undefined;

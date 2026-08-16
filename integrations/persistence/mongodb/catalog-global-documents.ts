@@ -1,0 +1,34 @@
+import type { ObjectId } from "mongodb";
+import type { GlobalCatalogReview, GlobalVehicle, ProviderConnection, ProviderContribution, ProviderDefinition, ProviderFleetMembership, TenantVehicleGrant } from "@/domain/catalog-global";
+import type { CapabilitySourceStatus } from "@/domain/catalog-global/capabilities";
+import type { GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+
+type Timestamps = { createdAt: Date; updatedAt: Date };
+export type GlobalVehicleDocument = { _id?: ObjectId; schemaVersion: number; id: string; normalizedPlate: string; plate: string; placementFleetId: string } & Timestamps;
+export type SentinelFleetDocument = { _id?: ObjectId; schemaVersion: number; id: string; label: string } & Timestamps;
+export type ProviderDefinitionDocument = { _id?: ObjectId; schemaVersion: number; id: string; adapterKey: string; capabilities: string[] } & Timestamps;
+export type ProviderConnectionDocument = { _id?: ObjectId; schemaVersion: number; id: string; providerId: string; credentialRef: string; enabled: boolean; cadenceMinutes: number } & Timestamps;
+export type ProviderContributionDocument = { _id?: ObjectId; schemaVersion: number; id: string; connectionId: string; externalId: string; vehicleId: string; capabilities: Partial<Record<string, CapabilitySourceStatus>>; presence: "present" | "absent" } & Timestamps;
+export type ProviderFleetMembershipDocument = { _id?: ObjectId; schemaVersion: number; connectionId: string; externalFleetId: string; vehicleId: string; label: string } & Timestamps;
+export type TenantVehicleGrantDocument = { _id?: ObjectId; schemaVersion: number; organizationId: string; vehicleId: string } & Timestamps;
+export type GlobalCatalogReviewDocument = { _id?: ObjectId; schemaVersion: number; id: string; connectionId: string; externalId: string; subject: "vehicle-identity"; reason: string; normalizedPlate?: string; candidateVehicleIds: string[]; status: "pending" | "resolved"; resolvedVehicleId?: string } & Timestamps;
+export type GlobalSyncRunDocument = Omit<GlobalSyncRun, "startedAt" | "completedAt"> & { _id?: ObjectId; schemaVersion: number; startedAt: Date; completedAt?: Date } & Timestamps;
+export type GlobalSyncLeaseDocument = { _id?: ObjectId; schemaVersion: number; connectionId: string; runId: string; leaseUntil: Date; createdAt: Date; updatedAt: Date };
+
+export function toGlobalVehicleDomain(document: GlobalVehicleDocument): GlobalVehicle { return { id: document.id, normalizedPlate: document.normalizedPlate, plate: document.plate, placementFleetId: document.placementFleetId }; }
+export function toGlobalVehicleDocument(value: GlobalVehicle, now: Date, existing?: GlobalVehicleDocument): GlobalVehicleDocument { return { schemaVersion: 2, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toProviderDefinitionDomain(document: ProviderDefinitionDocument): ProviderDefinition { return { id: document.id, adapterKey: document.adapterKey, capabilities: [...document.capabilities] }; }
+export function toProviderDefinitionDocument(value: ProviderDefinition, now: Date, existing?: ProviderDefinitionDocument): ProviderDefinitionDocument { return { schemaVersion: 2, id: value.id, adapterKey: value.adapterKey, capabilities: [...value.capabilities], createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toProviderConnectionDomain(document: ProviderConnectionDocument): ProviderConnection { return { id: document.id, providerId: document.providerId, credentialRef: document.credentialRef, enabled: document.enabled, cadenceMinutes: document.cadenceMinutes }; }
+export function toProviderConnectionDocument(value: ProviderConnection, now: Date, existing?: ProviderConnectionDocument): ProviderConnectionDocument { return { schemaVersion: 2, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toProviderContributionDomain(document: ProviderContributionDocument): ProviderContribution { return { id: document.id, connectionId: document.connectionId, externalId: document.externalId, vehicleId: document.vehicleId, capabilities: { ...document.capabilities }, presence: document.presence }; }
+export function toProviderContributionDocument(value: ProviderContribution, now: Date, existing?: ProviderContributionDocument): ProviderContributionDocument { return { schemaVersion: 2, id: value.id, connectionId: value.connectionId, externalId: value.externalId, vehicleId: value.vehicleId, capabilities: { ...value.capabilities }, presence: value.presence, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toProviderFleetMembershipDomain(document: ProviderFleetMembershipDocument): ProviderFleetMembership { return { connectionId: document.connectionId, externalFleetId: document.externalFleetId, vehicleId: document.vehicleId, label: document.label }; }
+export function toProviderFleetMembershipDocument(value: ProviderFleetMembership, now: Date, existing?: ProviderFleetMembershipDocument): ProviderFleetMembershipDocument { return { schemaVersion: 2, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toTenantVehicleGrantDomain(document: TenantVehicleGrantDocument): TenantVehicleGrant { return { organizationId: document.organizationId, vehicleId: document.vehicleId }; }
+export function toTenantVehicleGrantDocument(value: TenantVehicleGrant, now: Date, existing?: TenantVehicleGrantDocument): TenantVehicleGrantDocument { return { schemaVersion: 2, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toGlobalCatalogReviewDomain(document: GlobalCatalogReviewDocument): GlobalCatalogReview { return { id: document.id, subject: "vehicle-identity", connectionId: document.connectionId, externalId: document.externalId, reason: document.reason as GlobalCatalogReview["reason"], ...(document.normalizedPlate !== undefined ? { normalizedPlate: document.normalizedPlate } : {}), candidateVehicleIds: [...document.candidateVehicleIds], status: document.status, ...(document.resolvedVehicleId !== undefined ? { resolvedVehicleId: document.resolvedVehicleId } : {}) }; }
+export function toGlobalCatalogReviewDocument(value: GlobalCatalogReview, now: Date, existing?: GlobalCatalogReviewDocument): GlobalCatalogReviewDocument { return { schemaVersion: 2, id: value.id, subject: "vehicle-identity", connectionId: value.connectionId, externalId: value.externalId, reason: value.reason, ...(value.normalizedPlate !== undefined ? { normalizedPlate: value.normalizedPlate } : {}), candidateVehicleIds: [...value.candidateVehicleIds], status: value.status, ...(value.resolvedVehicleId !== undefined ? { resolvedVehicleId: value.resolvedVehicleId } : {}), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+
+
+

@@ -1,10 +1,12 @@
 import type { HowenConfig } from "./config";
+import { HowenSessionError } from "./session";
 import { parseHowenRosterResponse, type HowenRosterRecord } from "./responses";
 import type {
   HowenFetch,
   HowenSession,
   HowenSessionManager,
 } from "./session";
+import type { CatalogSyncFailureCategory } from "@/domain/catalog";
 
 type CreateHowenClientInput = {
   config: HowenConfig;
@@ -12,12 +14,24 @@ type CreateHowenClientInput = {
   fetch?: HowenFetch;
 };
 
+export class HowenRequestError extends Error {
+  readonly category: CatalogSyncFailureCategory;
+  readonly httpStatus?: number;
+
+  constructor(category: CatalogSyncFailureCategory, httpStatus?: number) {
+    super("Howen request unavailable");
+    this.name = "HowenRequestError";
+    this.category = category;
+    this.httpStatus = httpStatus;
+  }
+}
+
 export type HowenClient = {
   fetchRoster(): Promise<HowenRosterRecord[]>;
 };
 
-function unavailable(): Error {
-  return new Error("Howen request unavailable");
+function unavailable(category: CatalogSyncFailureCategory = "connectivity", httpStatus?: number): HowenRequestError {
+  return new HowenRequestError(category, httpStatus);
 }
 
 function providerStatus(value: unknown): number | undefined {
@@ -50,9 +64,15 @@ export function createHowenClient({
         `${config.baseUrl}/vss/vehicle/findAll.action`,
         rosterRequest(activeSession, config.timeoutMs),
       );
+    } catch (error) {
+      if (error instanceof HowenRequestError) throw error;
+      throw unavailable((error as { name?: string }).name === "TimeoutError" ? "timeout" : "connectivity");
+    }
+
+    try {
       payload = await response.json();
     } catch {
-      throw unavailable();
+      throw unavailable("invalid-response", response.status);
     }
 
     const status = providerStatus(payload);
@@ -64,19 +84,20 @@ export function createHowenClient({
         return requestRoster(true);
       }
 
-      throw unavailable();
+      throw unavailable("authentication", typeof status === "number" ? status : response.status);
     }
 
     if (!response.ok || status !== 10000) {
-      throw unavailable();
+      throw unavailable(response.status === 401 || response.status === 403 ? "authentication" : "invalid-response", response.status);
     }
 
     session.recordAuthenticatedActivity(activeSession);
 
     try {
       return parseHowenRosterResponse(payload);
-    } catch {
-      throw unavailable();
+    } catch (error) {
+      if (error instanceof HowenRequestError) throw error;
+      throw unavailable("invalid-response", response.status);
     }
   };
 
@@ -84,8 +105,10 @@ export function createHowenClient({
     async fetchRoster() {
       try {
         return await requestRoster(false);
-      } catch {
-        throw unavailable();
+      } catch (error) {
+        if (error instanceof HowenSessionError) throw unavailable(error.category, error.httpStatus);
+        if (error instanceof HowenRequestError) throw error;
+        throw unavailable("internal");
       }
     },
   };

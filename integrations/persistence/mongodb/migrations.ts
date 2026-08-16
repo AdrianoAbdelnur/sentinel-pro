@@ -15,4 +15,5 @@ export async function migrateIdentityDatabase(db: Db) {
     else await db.createCollection(name, { validator, validationLevel: "strict", validationAction: "error" });
   }
   for (const [name, indexes] of Object.entries(identityIndexes)) await Promise.all(indexes.map(({ key, options }) => db.collection(name).createIndex(key, options)));
+  await db.collection("users").updateMany({ id: "initial-admin", platformRole: { $exists: false } }, { $set: { platformRole: "super-admin" } });
 }

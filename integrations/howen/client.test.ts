@@ -165,4 +165,14 @@ describe("createHowenClient", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
   });
+
+  it("classifies malformed login JSON as an invalid provider response", async () => {
+    const malformedLogin = new Response("not-json", { status: 200 });
+    const fetch = vi.fn().mockResolvedValueOnce(malformedLogin);
+    const client = createClient(fetch);
+
+    const failure = await client.fetchRoster().catch((error: unknown) => error) as { category?: string };
+
+    expect(failure.category).toBe("invalid-response");
+  });
 });

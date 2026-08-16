@@ -4,6 +4,7 @@ import {
   canChangeMembership,
   chooseActiveOrganization,
   isPasswordValid,
+  isPlatformSuperAdmin,
   normalizeEmail,
   registerFailedLogin,
   requireActiveMembership,
@@ -12,6 +13,11 @@ import {
 const NOW = new Date("2026-08-04T12:00:00.000Z");
 
 describe("identity domain rules", () => {
+  it("recognizes only the explicit platform SUPER ADMIN role", () => {
+    expect(isPlatformSuperAdmin({ platformRole: "super-admin" })).toBe(true);
+    expect(isPlatformSuperAdmin({ platformRole: undefined })).toBe(false);
+  });
+
   it("normalizes email and accepts permanent passwords with at least eight characters without composition rules", () => {
     expect(normalizeEmail("  Ada@Example.TEST ")).toBe("ada@example.test");
     expect(isPasswordValid("abcdefgh")).toBe(true);

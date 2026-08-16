@@ -26,6 +26,7 @@
 
 # generated caches
 .atl/.skill-registry.cache.json
+/.runtime/
 
 # debug
 npm-debug.log*

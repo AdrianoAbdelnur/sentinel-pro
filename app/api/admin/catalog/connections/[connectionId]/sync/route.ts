@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizeAdminRequest } from "@/app/api/admin/users/delivery";
-import { classifyConnectionSourceProblem, resolveConnectionSource } from "@/app/api/catalog/connection-sources";
+import { classifyConnectionSourceProblem, resolveConnectionSource, type ConnectionSourceFactories } from "@/app/api/catalog/connection-sources";
 
 import { getCatalogAdminRuntime } from "../../../composition";
 import { badRequest, catalogForbidden, missingCompanyAssignment, providerMisconfigured, toSyncOutcomeResponse, unsupportedProvider } from "../../../delivery";
@@ -13,12 +13,14 @@ export async function POST(request: Request, { params }: Context) {
   if (actor instanceof NextResponse) return actor;
   const { connectionId } = await params;
   if (!connectionId.trim()) return badRequest();
-  const { connections, synchronizeCatalogConnection, factories } = await getCatalogAdminRuntime();
+  const runtime = await getCatalogAdminRuntime();
+  const { connections, synchronizeCatalogConnection } = runtime;
+  const registry = "registry" in runtime ? runtime.registry : (runtime as { factories: ConnectionSourceFactories }).factories;
   const connection = await connections.findById(actor.organizationId, connectionId);
   if (!connection) return catalogForbidden();
-  const source = resolveConnectionSource(connection, factories);
+  const source = resolveConnectionSource(connection, registry);
   if (!source) {
-    const problem = classifyConnectionSourceProblem(connection, factories);
+    const problem = classifyConnectionSourceProblem(connection, registry);
     if (problem === "missing-company-assignment") return missingCompanyAssignment();
     if (problem === "misconfigured") return providerMisconfigured();
     return unsupportedProvider();

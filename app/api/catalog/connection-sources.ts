@@ -1,54 +1,45 @@
 import type { CatalogImportSource } from "@/application/catalog";
+import { createProviderAdapterRegistry, type ProviderAdapterRegistry } from "@/application/catalog-global";
 import type { ProviderConnection } from "@/domain/catalog";
-import { createCybermapaClient } from "@/integrations/cybermapa/client";
-import { readCybermapaConfig } from "@/integrations/cybermapa/config";
-import { createCybermapaImportSource } from "@/integrations/cybermapa/source";
-import { createHowenClient, type HowenClient } from "@/integrations/howen/client";
-import { readHowenConfig } from "@/integrations/howen/config";
-import { createHowenSessionManager } from "@/integrations/howen/session";
-import { createHowenImportSource } from "@/integrations/howen/source";
+import { createDefaultConnectionSourceFactories, type ConnectionSourceFactories, type ConnectionSourceFactory } from "@/integrations/catalog/connection-source-adapters";
 
 const CREDENTIAL_REF_PROVIDER = /^vault:([a-z0-9]+)\//;
 
-export type ConnectionSourceFactory = (connection: ProviderConnection) => CatalogImportSource | undefined;
-export type ConnectionSourceFactories = Record<string, ConnectionSourceFactory>;
+export type { ConnectionSourceFactories, ConnectionSourceFactory } from "@/integrations/catalog/connection-source-adapters";
+export type ConnectionSourceRegistry = ProviderAdapterRegistry<ProviderConnection, CatalogImportSource>;
+type SourceResolver = ConnectionSourceRegistry | ConnectionSourceFactories;
 
 function resolveProvider(connection: ProviderConnection): string | undefined {
   return CREDENTIAL_REF_PROVIDER.exec(connection.credentialRef)?.[1];
 }
 
-export function resolveConnectionSource(connection: ProviderConnection, factories: ConnectionSourceFactories): CatalogImportSource | undefined {
+function isRegistry(registry: SourceResolver): registry is ConnectionSourceRegistry {
+  return typeof (registry as ConnectionSourceRegistry).resolve === "function";
+}
+
+function resolveFactory(registry: SourceResolver, adapterKey: string): ConnectionSourceFactory | undefined {
+  if (isRegistry(registry)) return registry.has(adapterKey) ? (connection) => registry.resolve(adapterKey, connection) : undefined;
+  return registry[adapterKey];
+}
+
+export function createConnectionSourceRegistry(factories: ConnectionSourceFactories): ConnectionSourceRegistry {
+  const registry = createProviderAdapterRegistry<ProviderConnection, CatalogImportSource>();
+  for (const [adapterKey, factory] of Object.entries(factories)) registry.register(adapterKey, factory);
+  return registry;
+}
+
+export function resolveConnectionSource(connection: ProviderConnection, registry: SourceResolver): CatalogImportSource | undefined {
   const provider = resolveProvider(connection);
-  return provider ? factories[provider]?.(connection) : undefined;
+  if (!provider) return undefined;
+  return isRegistry(registry) ? registry.resolve(provider, connection) : resolveFactory(registry, provider)?.(connection);
 }
 
 export type ConnectionSourceProblem = "unsupported" | "missing-company-assignment" | "misconfigured";
 
-export function classifyConnectionSourceProblem(connection: ProviderConnection, factories: ConnectionSourceFactories): ConnectionSourceProblem {
+export function classifyConnectionSourceProblem(connection: ProviderConnection, registry: SourceResolver): ConnectionSourceProblem {
   const provider = resolveProvider(connection);
-  if (!provider || !factories[provider]) return "unsupported";
+  if (!provider || (isRegistry(registry) ? !registry.has(provider) : !resolveFactory(registry, provider))) return "unsupported";
   return connection.companyId ? "misconfigured" : "missing-company-assignment";
 }
 
-function createHowenConnectionFactory(): ConnectionSourceFactory {
-  let client: HowenClient | undefined;
-  return (connection) => {
-    if (!connection.companyId) return undefined;
-    try {
-      if (!client) {
-        const config = readHowenConfig();
-        client = createHowenClient({ config, session: createHowenSessionManager({ config }) });
-      }
-      return createHowenImportSource({ client, companyId: connection.companyId });
-    } catch {
-      return undefined;
-    }
-  };
-}
-
-export function createDefaultConnectionSourceFactories(): ConnectionSourceFactories {
-  return {
-    cybermapa: () => createCybermapaImportSource({ client: createCybermapaClient({ config: readCybermapaConfig() }) }),
-    howen: createHowenConnectionFactory(),
-  };
-}
+export { createDefaultConnectionSourceFactories };
