@@ -2,7 +2,7 @@
 
 ## Scope
 
-PR 6 only: tasks 6.1, 6.2, and 6.3 on `catalog-v2-06-howen`, targeting `catalog-v2-05-cybermapa`.
+PR 7 only: tasks 7.1, 7.2, and 7.3 on `catalog-v2-07-policies`, targeting `catalog-v2-06-howen`.
 
 ## Completed Tasks
 
@@ -54,8 +54,22 @@ PR 6 only: tasks 6.1, 6.2, and 6.3 on `catalog-v2-06-howen`, targeting `catalog-
 
 ## Boundaries
 
-No Howen, registry, policies, synchronization, cron, functional migration, grants/live compatibility, or PR6+ work was implemented.
+No PR8 synchronization behavior, cron, functional migration, grants/live compatibility, or PR9+ work was implemented. Registry wiring changed only where required to route existing connection-source resolution through the PR7 registry.
 
 ## Review
 
-Independent clean-context PR3 review required before merge-readiness verdict.
+Independent clean-context PR7 review passed after registry runtime wiring and diff-check corrections.
+
+## PR 7 Completion
+
+- [x] 7.1 RED: added focused tests for default capability sources, direct GPS override ordering, unknown adapter resolution, and registry registration.
+- [x] 7.2 GREEN: added global capability policy contracts/use case and a provider adapter registry; moved concrete connection-source factories into integrations and routed resolution through the registry.
+- [x] 7.3 REFACTOR: removed provider-specific imports and branches from `app/api/catalog/connection-sources.ts`; provider construction remains in `integrations/catalog/connection-source-adapters.ts`.
+
+## TDD Cycle Evidence
+
+| Task | Test File | RED | GREEN | REFACTOR |
+|---|---|---|---|---|
+| 7.1 | `application/catalog-global/policies-registry.test.ts` | Tests imported missing policy and registry modules and failed direct-GPS persistence expectation | Policy defaults, direct GPS ordering, unknown adapter, and registration tests pass | Defaults and override preserve ordered fallback sources without provider branches in application |
+| 7.2 | `application/catalog-global/policies-registry.test.ts`, `app/api/catalog/connection-sources.test.ts` | Route registry contract was absent and provider construction lived in delivery | Registry-backed resolution and existing connection-source tests pass | Delivery delegates adapter construction to integrations |
+| 7.3 | `application/catalog-global/policies-registry.test.ts` | Test asserted unknown adapters remain undefined | Provider-neutral generic registry passes registration and unknown adapter tests | Provider-specific behavior is isolated in integration adapter composition |

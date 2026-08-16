@@ -66,9 +66,9 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 7. Policies/Registry
 
-- [ ] 7.1 RED: test defaults, direct-GPS override, unknown adapter, and registration.
-- [ ] 7.2 GREEN: add policy use case and registry-backed `app/api/catalog/connection-sources.ts`.
-- [ ] 7.3 REFACTOR: confine provider branches to integrations.
+- [x] 7.1 RED: test defaults, direct-GPS override, unknown adapter, and registration.
+- [x] 7.2 GREEN: add policy use case and registry-backed `app/api/catalog/connection-sources.ts`.
+- [x] 7.3 REFACTOR: confine provider branches to integrations.
 
 ## 8. Synchronization
 
