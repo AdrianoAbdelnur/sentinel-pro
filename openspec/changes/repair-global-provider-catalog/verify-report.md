@@ -103,3 +103,54 @@ Targeted coverage reports the relevant PR6 production paths at full line coverag
 **FAIL - repository-wide validation gate unresolved.**
 
 PR6 tasks 6.1-6.3 comply with their Howen behavior, architecture, Mongo, and strict-TDD checks. Required completed npm test x3 evidence is absent, so this PR is not merge-ready. PR7 was not started.
+# Verification Report: Repair Global Provider Catalog
+
+## Scope
+
+PR10 only: migration dry-run, conflict isolation, approval token, parity gates, MongoDB CLI, and controlled Live read switch. PR11+ was excluded.
+
+## Completeness
+
+| Metric | Value |
+|---|---:|
+| Tasks total | 3 |
+| Tasks complete | 3 |
+| Tasks incomplete | 0 |
+
+## Build and tests
+
+- Build: passed (`npm run build`)
+- Lint: passed with 0 errors; one pre-existing warning in `coverage/block-navigation.js`
+- Typecheck: passed
+- Focused tests: passed, 14 tests
+- MongoDB suite: passed, 5 files / 78 tests
+- Exact `npm test`: passed, 114 files / 899 tests, system 1/1, MongoDB 5 files / 78 tests
+- `git diff --check`: passed; Git reported only existing line-ending normalization warnings
+- Coverage: not run as a blocking gate; focused runtime evidence is present
+
+## Spec compliance
+
+| Requirement | Evidence | Result |
+|---|---|---|
+| Dry-run performs no data writes | `application/catalog-global/migrate-global-catalog.test.ts` | COMPLIANT |
+| Conflicts stop apply | `application/catalog-global/migrate-global-catalog.test.ts` | COMPLIANT |
+| Approval is explicit, valid, scoped, and one-use | migration and Mongo token ports/tests | COMPLIANT |
+| Parity gates are mandatory before apply | migration test and Mongo CLI parity checker | COMPLIANT |
+| Apply is idempotent | migration target-port test and V2 repository upserts | COMPLIANT |
+| Legacy collections remain read-only | Mongo CLI reads legacy collections and writes V2 repositories only | COMPLIANT |
+| Live read rollback is immediate | `application/live/live-compatibility-loader.test.ts` and page composition | COMPLIANT |
+
+## TDD compliance
+
+- TDD evidence table present in `apply-progress.md`.
+- RED, GREEN, and REFACTOR evidence recorded for 10.1, 10.2, and 10.3.
+- Focused test files exist and pass.
+- Assertion audit found no tautologies, ghost loops, or smoke-only assertions.
+
+## Review
+
+The clean-context PR10 review identified four migration-boundary issues and a follow-up review identified parity enforcement, approval authorization, and read-switch wiring gaps. Confirmed findings were corrected without changing PR11+ behavior. No unresolved PR10 critical findings remain.
+
+## Verdict
+
+PASS WITH WARNINGS — PR10 is verified; the only warning is the pre-existing lint warning in generated coverage output.

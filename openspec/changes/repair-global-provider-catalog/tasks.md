@@ -84,6 +84,6 @@ Gate every PR with lint, typecheck, focused tests, and full tests before startin
 
 ## 10. Migration
 
-- [ ] 10.1 RED: test dry-run, conflicts, absent approval, apply, and parity gates.
-- [ ] 10.2 GREEN: create `migrate-global-catalog.ts`, Mongo CLI, approval token, and read switch.
-- [ ] 10.3 REFACTOR: run build/dry-run; forbid legacy writes.
+- [x] 10.1 RED: test dry-run, conflicts, absent approval, apply, and parity gates.
+- [x] 10.2 GREEN: create `migrate-global-catalog.ts`, Mongo CLI, approval token, and read switch.
+- [x] 10.3 REFACTOR: run build/dry-run; forbid legacy writes.

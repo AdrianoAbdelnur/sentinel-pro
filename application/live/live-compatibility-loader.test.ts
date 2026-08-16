@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createLiveCompatibilityLoader, readLiveCompatibilityMode } from "./live-compatibility-loader";
+import { createLiveCompatibilityLoader, createLiveReadSwitch, readLiveCompatibilityMode } from "./live-compatibility-loader";
 
 describe("createLiveCompatibilityLoader", () => {
   it("keeps legacy Live as the default", async () => {
@@ -37,5 +37,18 @@ describe("createLiveCompatibilityLoader", () => {
     expect(readLiveCompatibilityMode({ SENTINEL_LIVE_CATALOG_MODE: "legacy" })).toBe("legacy");
     expect(readLiveCompatibilityMode({ SENTINEL_LIVE_CATALOG_MODE: "unexpected" })).toBe("legacy");
     expect(readLiveCompatibilityMode({})).toBe("legacy");
+  });
+});
+
+describe("createLiveReadSwitch", () => {
+  it("requires passing parity gates before cutover and rolls back immediately", () => {
+    const readSwitch = createLiveReadSwitch();
+    expect(readSwitch.mode()).toBe("legacy");
+    expect(() => readSwitch.enableGlobal({ passed: false })).toThrow("parity");
+    expect(readSwitch.mode()).toBe("legacy");
+    readSwitch.enableGlobal({ passed: true });
+    expect(readSwitch.mode()).toBe("global");
+    readSwitch.rollback();
+    expect(readSwitch.mode()).toBe("legacy");
   });
 });
