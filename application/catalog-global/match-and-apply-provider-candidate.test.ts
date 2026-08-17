@@ -90,6 +90,29 @@ describe("matchAndApplyProviderCandidate", () => {
     expect(groups).toHaveLength(1);
   });
 
+  it("keeps repeated authoritative Cybermapa evidence idempotent after Howen-first import", async () => {
+    const fixture = createFixture();
+    const groups = new Map<string, SentinelGroup>();
+    const bindings = new Map<string, GroupEvidenceBinding>();
+    const repositories = {
+      ...fixture.dependencies,
+      groups: { findById: async (id: string) => groups.get(id), findByLabel: async (label: string) => [...groups.values()].filter((group) => group.label === label), save: async (group: SentinelGroup) => { groups.set(group.id, group); } },
+      evidenceBindings: { findById: async (id: string) => bindings.get(id), findByGroupId: async () => [], findByEvidence: async (connectionId: string, kind: string, externalKey: string) => [...bindings.values()].filter((binding) => binding.evidence.connectionId === connectionId && binding.evidence.kind === kind && binding.evidence.externalKey === externalKey), save: async (binding: GroupEvidenceBinding) => { bindings.set(binding.id, binding); } },
+    };
+    repositories.transactions.run = async (work) => work(repositories);
+    const howen = { ...repositories, candidate: candidate({ connectionId: "howen", externalId: "howen-1", placementFleetId: undefined, groupEvidence: { connectionId: "howen", kind: "fleet-membership", externalKey: "h1", label: "Howen", authority: "fallback" } }) };
+    const cybermapa = { ...repositories, candidate: candidate({ connectionId: "cyber", externalId: "cyber-1", groupEvidence: { connectionId: "cyber", kind: "company-label", externalKey: "acme", label: "Acme", authority: "authoritative" } }) };
+
+    const firstHowen = await matchAndApplyProviderCandidate(howen);
+    await matchAndApplyProviderCandidate(cybermapa);
+    await matchAndApplyProviderCandidate(cybermapa);
+
+    expect(fixture.vehicles).toHaveLength(1);
+    expect(groups).toHaveLength(2);
+    expect(fixture.contributions).toHaveLength(2);
+    expect(fixture.vehicles.get(firstHowen.kind === "review" ? "" : firstHowen.vehicleId)?.placement?.authority).toBe("authoritative");
+  });
+
   it("preserves authoritative Cybermapa placement when it arrives before Howen fallback evidence", async () => {
     const fixture = createFixture();
     const groups = new Map<string, SentinelGroup>();

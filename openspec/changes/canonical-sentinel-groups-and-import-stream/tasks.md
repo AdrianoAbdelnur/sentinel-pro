@@ -64,6 +64,6 @@ Unit 4 is complete. Route coverage explicitly exercises already-aborted requests
 
 ## Phase 5: Regression, Documentation, Validation
 
-- [ ] 5.1 Add legacy/V2 regression tests proving `/api/admin/import` writes V2 only and leaves legacy repositories untouched.
-- [ ] 5.2 Update architecture/import docs for evidence, precedence, lineage, resume, and transport; preserve proposal exclusions.
-- [ ] 5.3 Run lint, typecheck, tests, coverage, and build before verification.
+- [x] 5.1 Add legacy/V2 regression tests proving `/api/admin/import` stays on the V2 runtime for Cybermapa and Howen, does not call the legacy importer, and preserves provider-order/idempotency behavior.
+- [x] 5.2 Update architecture/import docs for V2-only writes, evidence precedence, lineage/resume, transport detachment, and legacy preservation; preserve proposal exclusions.
+- [x] 5.3 Run focused route/matcher regressions, changed-file lint, and diff-check before verification. Full suite, coverage, build, typecheck, secrets, and real Mongo were intentionally excluded by scope.

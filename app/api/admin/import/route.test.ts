@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const application = { authorizePlatform: vi.fn() };
 const synchronize = vi.fn();
+const legacyImport = vi.fn();
 const runtime = {
   connections: { findEnabledByProviderId: vi.fn() },
   providers: { findByAdapterKey: vi.fn() },
   sources: { resolve: vi.fn() },
   synchronize,
+  legacyImport,
 };
 
 vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication: () => application }));
@@ -50,6 +52,20 @@ describe("platform provider import route", () => {
 
     expect(runtime.connections.findEnabledByProviderId).toHaveBeenCalledWith("provider-1");
     expect(runtime.sources.resolve).toHaveBeenCalled();
+    expect(legacyImport).not.toHaveBeenCalled();
+  });
+
+  it.each(["cybermapa", "howen"])("keeps %s imports on the V2 runtime", async (provider) => {
+    runtime.providers.findByAdapterKey.mockResolvedValueOnce({ id: `${provider}-provider`, adapterKey: provider, capabilities: [] });
+    runtime.connections.findEnabledByProviderId.mockResolvedValueOnce({ id: `${provider}-connection`, providerId: `${provider}-provider`, credentialRef: `vault:${provider}/import`, enabled: true, cadenceMinutes: 60 });
+
+    const response = await POST(new Request("https://sentinel.test/api/admin/import", { method: "POST", headers, body: JSON.stringify({ provider }) }));
+    await response.text();
+
+    expect(runtime.providers.findByAdapterKey).toHaveBeenCalledWith(provider);
+    expect(runtime.connections.findEnabledByProviderId).toHaveBeenCalledWith(`${provider}-provider`);
+    expect(synchronize).toHaveBeenCalledWith(expect.objectContaining({ connectionId: `${provider}-connection` }));
+    expect(legacyImport).not.toHaveBeenCalled();
   });
 
   it("emits one terminal event and tolerates late progress and repeated close", async () => {

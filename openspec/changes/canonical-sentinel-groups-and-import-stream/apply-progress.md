@@ -59,6 +59,29 @@
 - No Units 4/5, routes, streaming, comments, secrets, or real Mongo data were touched.
 - Worktree remains uncommitted.
 
+# Unit 5 Apply Progress
+
+## TDD Cycle Evidence
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 5.1 | Added route regressions for both provider paths and legacy-import non-use; the pre-Unit-5 focused baseline had no coverage for these contracts | Route suite passed: 1 file / 10 tests | Kept the route on the existing V2 runtime boundary; no legacy application or repository path was introduced |
+| 5.2 | Documentation gaps were identified against the current route and synchronization behavior | Architecture docs now state V2-only writes, precedence, lineage/resume, and transport detachment | Limited edits to `docs/architecture/08-catalog-synchronization.md` and `09-global-catalog-migration.md` |
+| 5.3 | Focused validation commands were selected to avoid unrelated suites and external systems | Route + matcher regressions passed: 2 files / 22 tests; changed-file lint exited 0; `git diff --check` exited 0 | No implementation behavior changed; worktree remains uncommitted |
+
+## Validation
+
+- `npx vitest run app/api/admin/import/route.test.ts application/catalog-global/match-and-apply-provider-candidate.test.ts`: PASS, 2 files / 22 tests.
+- `npx eslint app/api/admin/import/route.test.ts application/catalog-global/match-and-apply-provider-candidate.test.ts docs/architecture/08-catalog-synchronization.md docs/architecture/09-global-catalog-migration.md`: PASS, 0 errors; 2 expected warnings because Markdown files are outside ESLint configuration.
+- `git diff --check`: PASS; Git reported only existing LF-to-CRLF working-copy warnings.
+- Full suite, coverage, build, typecheck, secrets, and real Mongo were not run by request.
+
+## Scope
+
+- Unit 5 tests and architecture documentation only; Units 1–4 behavior was not changed.
+- No secrets or real Mongo connections were used.
+- Worktree remains uncommitted.
+
 # Unit 4 Apply Progress
 
 ## TDD Cycle Evidence
