@@ -9,6 +9,8 @@ export type GlobalSnapshotEvidence = { retrievalComplete: boolean; paginationCom
 export type GlobalSnapshot = { kind: "complete"; candidates: ProviderCandidate[]; evidence?: GlobalSnapshotEvidence } | { kind: "failed"; failure: GlobalSyncFailure };
 export type GlobalSyncSource = { loadSnapshot(): Promise<GlobalSnapshot> };
 export type GlobalSyncCounts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
+export type GlobalSyncProgress = { connectionId: string; lineageId: string; runId: string; total: number; checkpoint?: string; counts: GlobalSyncCounts; currentGroup?: string };
+export type GlobalSyncProgressListener = (progress: GlobalSyncProgress) => Promise<void> | void;
 export type GlobalSyncRun = { id: string; lineageId: string; attempt: number; connectionId: string; trigger: GlobalSyncTrigger; status: "active" | "succeeded" | "failed"; startedAt: Date; completedAt?: Date; checkpoint?: string; total: number; counts: GlobalSyncCounts; snapshot: { status: "complete" | "partial"; reason?: string; receivedRecordCount?: number; parseableRecordCount?: number; authorizedCandidateCount?: number }; failure?: GlobalSyncFailure };
 export type GlobalSyncOutcome =
   | { kind: "succeeded"; run: GlobalSyncRun }
@@ -96,7 +98,11 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
     return { ...counts, absent };
   }
 
-  async function synchronize({ connectionId, trigger, source }: { connectionId: string; trigger: GlobalSyncTrigger; source: GlobalSyncSource }): Promise<GlobalSyncOutcome> {
+  async function synchronize({ connectionId, trigger, source, onProgress }: { connectionId: string; trigger: GlobalSyncTrigger; source: GlobalSyncSource; onProgress?: GlobalSyncProgressListener }): Promise<GlobalSyncOutcome> {
+    const publish = (run: GlobalSyncRun, currentGroup?: string) => {
+      if (!onProgress) return;
+      void Promise.resolve(onProgress({ connectionId: run.connectionId, lineageId: run.lineageId, runId: run.id, total: run.total, ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}), counts: run.counts, ...(currentGroup ? { currentGroup } : {}) })).catch(() => undefined);
+    };
     const connection = await ports.connections.findById(connectionId);
     if (!connection) return { kind: "not-found" };
     const provider = await ports.providers.findById(connection.providerId);
@@ -138,6 +144,7 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
     const assessment = assessSnapshot(snapshot.evidence, uniqueCandidates.length, priorConfirmed, sortedCandidates.length - uniqueCandidates.length);
     let run = { ...initial, total: Math.max(initial.total, uniqueCandidates.length), snapshot: assessment };
     await ports.runs.save(run);
+    publish(run);
     const candidates = uniqueCandidates.filter((candidate) => run.checkpoint === undefined || candidate.externalId > run.checkpoint);
     const seen = new Set(snapshot.candidates.map((candidate) => candidate.externalId));
     try {
@@ -148,10 +155,12 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
         const counts = withOutcomeCount(run.counts, result.kind === "review" ? "review" : result.kind);
         run = { ...run, checkpoint: candidate.externalId, counts };
         await ports.runs.save(run);
+        publish(run, candidate.groupEvidence?.label);
       }
       if (assessment.status === "complete" && priorConfirmed) run = { ...run, counts: await reconcileAbsence(connectionId, seen, run.counts) };
       const completed = { ...run, status: "succeeded" as const, completedAt: ports.clock.now() };
       await ports.runs.save(completed);
+      publish(completed);
       await ports.leases.release(connectionId, runId);
       return { kind: "succeeded", run: completed };
     } catch {
