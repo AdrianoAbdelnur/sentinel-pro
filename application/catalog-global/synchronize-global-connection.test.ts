@@ -55,7 +55,7 @@ describe("synchronize global connection", () => {
 
   it("resumes after the persisted checkpoint and does not duplicate a processed contribution", async () => {
     const { ports, runs, contributions } = fixture();
-    runs.push({ id: "run-1", connectionId: connection.id, trigger: "manual", status: "failed", startedAt: new Date(), checkpoint: "external-1", counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "partial" } });
+    runs.push({ id: "run-1", lineageId: "lineage-1", attempt: 1, connectionId: connection.id, trigger: "manual", status: "failed", startedAt: new Date(), checkpoint: "external-1", total: 2, counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "partial" } });
     contributions.push({ id: "contribution-1", connectionId: connection.id, externalId: "external-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, { ...candidate, externalId: "external-2", normalizedPlate: "XYZ999" }], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
 
@@ -65,6 +65,10 @@ describe("synchronize global connection", () => {
     expect(ports.contributions.save).toHaveBeenCalledTimes(1);
     expect(contributions).toHaveLength(2);
     expect(result.kind === "succeeded" ? result.run.checkpoint : undefined).toBe("external-2");
+    expect(result.kind === "succeeded" ? result.run.lineageId : undefined).toBe("lineage-1");
+    expect(result.kind === "succeeded" ? result.run.attempt : undefined).toBe(2);
+    expect(result.kind === "succeeded" ? result.run.total : undefined).toBe(2);
+    expect(result.kind === "succeeded" ? result.run.counts.processed : undefined).toBe(2);
   });
 
   it("imports valid candidates from an incomplete snapshot but never reconciles absent contributions", async () => {
@@ -90,12 +94,25 @@ describe("synchronize global connection", () => {
     expect(connectivityResult).toMatchObject({ kind: "failed", retryable: true });
   });
 
+  it("keeps a duplicate provider snapshot partial and applies each external item once", async () => {
+    const { ports, contributions } = fixture();
+    const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, candidate], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
+
+    const result = await createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
+
+    expect(result.kind).toBe("succeeded");
+    expect(result.kind === "succeeded" ? result.run.snapshot : undefined).toMatchObject({ status: "partial", reason: "duplicate-external-id" });
+    expect(result.kind === "succeeded" ? result.run.total : undefined).toBe(1);
+    expect(result.kind === "succeeded" ? result.run.counts.processed : undefined).toBe(1);
+    expect(contributions).toHaveLength(1);
+  });
+
   it("skips disabled and fresh connections while reporting due enabled connections", async () => {
     const { ports } = fixture();
     ports.connections.listEnabled = vi.fn(async () => [connection]);
     const scheduler = createSynchronizeGlobalConnectionApplication(ports);
     expect(await scheduler.listDueConnections()).toEqual([connection]);
-    ports.runs.findLastSuccess = vi.fn(async () => ({ id: "fresh", connectionId: connection.id, trigger: "scheduler" as const, status: "succeeded" as const, startedAt: new Date("2026-08-16T11:29:00Z"), completedAt: new Date("2026-08-16T11:30:00Z"), counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" as const } }));
+    ports.runs.findLastSuccess = vi.fn(async () => ({ id: "fresh", lineageId: "lineage-fresh", attempt: 1, connectionId: connection.id, trigger: "scheduler" as const, status: "succeeded" as const, startedAt: new Date("2026-08-16T11:29:00Z"), completedAt: new Date("2026-08-16T11:30:00Z"), total: 0, counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" as const } }));
     expect(await scheduler.listDueConnections()).toEqual([]);
   });
 });

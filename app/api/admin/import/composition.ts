@@ -1,45 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { createProviderImportApplication } from "@/application/catalog";
-import { createDefaultConnectionSourceFactories } from "@/app/api/catalog/connection-sources";
-import { createMongoCatalogRepositories, getMongoDatabase } from "@/integrations/persistence/mongodb";
-import { MongoCatalogTransactionRunner, getMongoClient } from "@/integrations/persistence/mongodb";
-import { createSynchronizeCatalogConnectionApplication } from "@/application/catalog";
-import type { ProviderConnection } from "@/domain/catalog";
-import type { Company } from "@/domain/catalog";
 
-export function createProviderImportConnection(
-  provider: "cybermapa" | "howen",
-  companyId?: string,
-): ProviderConnection {
-  return {
-    id: "provider-import",
-    organizationId: "provider-import",
-    credentialRef: "vault:" + provider + "/provider-import",
-    ...(companyId ? { companyId } : {}),
-  };
+import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog-global/synchronize-global-connection";
+import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/global-sync-source-adapters";
+import { createGlobalCatalogRepositories, getMongoClient, getMongoDatabase, MongoGlobalCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
+
+async function createRuntime() {
+  const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);
+  const repositories = createGlobalCatalogRepositories(database);
+  const application = createSynchronizeGlobalConnectionApplication({
+    ...repositories,
+    ids: { create: randomUUID },
+    clock: { now: () => new Date() },
+    runs: repositories.syncRuns,
+    leases: repositories.syncLeases,
+    transactions: new MongoGlobalCatalogTransactionRunner(client, database),
+  } as unknown as GlobalSyncPorts);
+  return { ...application, connections: repositories.connections, providers: repositories.providers, sources: createGlobalSyncSourceRegistry() };
 }
 
+let runtime: Awaited<ReturnType<typeof createRuntime>> | undefined;
+
 export async function getProviderImportRuntime() {
-  const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);
-  const repositories = createMongoCatalogRepositories(database);
-  const ids = { create: randomUUID };
-  const clock = { now: () => new Date() };
-  const { synchronizeCatalogConnection } = createSynchronizeCatalogConnectionApplication({ ...repositories, ids, clock, transactions: new MongoCatalogTransactionRunner(client, database) });
-  const factories = createDefaultConnectionSourceFactories();
-  const companies = repositories.companies as typeof repositories.companies & { listByOrganization(organizationId: string): Promise<Company[]> };
-  return createProviderImportApplication({
-    companies,
-    fleets: repositories.fleets,
-    connections: repositories.connections,
-    ids,
-    synchronize: synchronizeCatalogConnection,
-    async loadSource(provider, companyId) {
-      const factory = factories[provider];
-      if (!factory) throw new Error("unsupported provider");
-      const connection = createProviderImportConnection(provider, companyId);
-      const source = factory(connection);
-      if (!source) throw new Error("provider source unavailable");
-      return source;
-    },
-  });
+  runtime ??= await createRuntime();
+  return runtime;
 }

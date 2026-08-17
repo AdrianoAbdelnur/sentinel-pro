@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
-import { createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
+import { backfillLegacyUnverifiedPlacements, createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
 
 let replSet: MongoMemoryReplSet;
 let client: MongoClient;
@@ -146,4 +146,39 @@ describe("global catalog v2 Mongo persistence", () => {
     expect(await db.collection("global_vehicles_v2").countDocuments({ normalizedPlate: "ABC123" })).toBe(1);
     expect(await db.collection("provider_contributions_v2").countDocuments({ connectionId: "connection" })).toBe(2);
   }, 60_000);
+
+  it("persists canonical groups, evidence bindings, placement provenance, and ambiguity indexes", async () => {
+    const db = client.db(`global_catalog_groups_${Date.now()}`); await migrateGlobalCatalogDatabase(db);
+    const repos = createGlobalCatalogRepositories(db);
+    await repos.groups.save({ id: "group-1", label: "North" });
+    await repos.evidenceBindings.save({ id: "binding-1", groupId: "group-1", evidence: { connectionId: "c", kind: "company-label", externalKey: "north", label: "North", authority: "authoritative" } });
+    await repos.vehicles.save({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "legacy", placement: { groupId: "group-1", authority: "authoritative", evidenceBindingId: "binding-1", assignedAt: new Date() } });
+    expect(await repos.groups.findById("group-1")).toEqual({ id: "group-1", label: "North" });
+    expect((await repos.evidenceBindings.findByGroupId("group-1"))[0].evidence.externalKey).toBe("north");
+    expect((await db.collection("group_evidence_bindings_v2").indexes()).some((index) => index.name === "group_evidence_bindings_v2_evidence_unique")).toBe(true);
+  });
+
+  it("backfills an unverified placement only when its legacy fleet exists", async () => {
+    const db = client.db(`global_catalog_backfill_${Date.now()}`); await migrateGlobalCatalogDatabase(db);
+    const now = new Date("2026-08-17T12:00:00.000Z");
+    await db.collection("global_vehicles_v2").insertMany([
+      { schemaVersion: 2, id: "known", normalizedPlate: "KNOWN1", plate: "KNOWN1", placementFleetId: "fleet-known", createdAt: now, updatedAt: now },
+      { schemaVersion: 2, id: "unknown", normalizedPlate: "UNKNOWN1", plate: "UNKNOWN1", placementFleetId: "fleet-unknown", createdAt: now, updatedAt: now },
+    ]);
+    await db.collection("sentinel_fleets_v2").insertOne({ schemaVersion: 2, id: "fleet-known", label: "North", createdAt: now, updatedAt: now });
+
+    await expect(backfillLegacyUnverifiedPlacements(db, now)).resolves.toEqual({ migrated: 1, reviewed: 1 });
+    await expect(db.collection("global_vehicles_v2").findOne({ id: "known" })).resolves.toEqual(expect.objectContaining({ placement: expect.objectContaining({ groupId: "fleet-known", authority: "legacy-unverified" }) }));
+    await expect(db.collection("global_vehicles_v2").findOne({ id: "unknown" })).resolves.toEqual(expect.not.objectContaining({ placement: expect.anything() }));
+    await expect(db.collection("catalog_reviews_v2").findOne({ id: "legacy-placement:unknown" })).resolves.toEqual(expect.objectContaining({ reason: "missing-placement", candidateVehicleIds: ["unknown"], status: "pending" }));
+  });
+
+  it("persists ambiguity reviews with evidence and candidate groups", async () => {
+    const db = client.db(`global_catalog_review_${Date.now()}`); await migrateGlobalCatalogDatabase(db);
+    const repos = createGlobalCatalogRepositories(db);
+    await repos.reviews.save({ id: "review-1", subject: "vehicle-identity", connectionId: "connection", externalId: "vehicle", reason: "ambiguous-group-evidence", evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"], candidateVehicleIds: [], status: "pending" });
+
+    await expect(repos.reviews.findById("review-1")).resolves.toEqual({ id: "review-1", subject: "vehicle-identity", connectionId: "connection", externalId: "vehicle", reason: "ambiguous-group-evidence", evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"], candidateVehicleIds: [], status: "pending" });
+    await expect(db.collection("catalog_reviews_v2").findOne({ id: "review-1" })).resolves.toEqual(expect.objectContaining({ evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"] }));
+  });
 });

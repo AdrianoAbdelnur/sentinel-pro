@@ -5,4 +5,5 @@ export * from "./provider-contribution";
 export * from "./provider-fleet-membership";
 export * from "./tenant-vehicle-grant";
 export * from "./review";
+export * from "./sentinel-group";
 export * from "./capability-policy";

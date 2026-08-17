@@ -10,6 +10,7 @@ import {
   createTenantVehicleGrant,
   resolveGlobalCatalogReview,
   retainGlobalVehiclePlacement,
+  createSentinelGroup, createGroupEvidenceBinding, createVehiclePlacement,
   type GlobalCatalogReview,
   type GlobalVehicle,
   type ProviderContribution,
@@ -223,3 +224,19 @@ describe("global catalog domain", () => {
     expect(values.every((value) => Object.isFrozen(value))).toBe(true);
   });
 });
+
+  it("creates stable canonical groups and auditable placement evidence", () => {
+    const group = createSentinelGroup({ id: "group-1", label: "North" });
+    const binding = createGroupEvidenceBinding({ id: "binding-1", groupId: group.id, evidence: { connectionId: "c", kind: "company-label", externalKey: "north", label: "North", authority: "authoritative" } });
+    const vehicle = createGlobalVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "legacy", placement: createVehiclePlacement({ groupId: group.id, authority: "authoritative", evidenceBindingId: binding.id, assignedAt: new Date("2026-01-01") }) });
+    expect(group).toEqual({ id: "group-1", label: "North" });
+    expect(binding.evidence.authority).toBe("authoritative");
+    expect(vehicle.placement?.groupId).toBe(group.id);
+    expect(Object.isFrozen(binding.evidence)).toBe(true);
+  });
+
+  it("does not merge ambiguous group evidence and records a review", () => {
+    const review = createGlobalCatalogReview({ id: "review-1", connectionId: "c", externalId: "north", reason: "ambiguous-group-evidence", candidateVehicleIds: [], evidenceKey: "north", candidateGroupIds: ["g1", "g2"] });
+    expect(review.reason).toBe("ambiguous-group-evidence");
+    expect(review.candidateGroupIds).toEqual(["g1", "g2"]);
+  });

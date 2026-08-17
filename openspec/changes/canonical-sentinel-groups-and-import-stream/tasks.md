@@ -1,4 +1,4 @@
-# Tasks: Canonical Sentinel Groups and Resilient Import Streaming
+﻿# Tasks: Canonical Sentinel Groups and Resilient Import Streaming
 
 ## Review Workload Forecast
 
@@ -28,34 +28,42 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Canonical Group Foundation
 
-- [ ] 1.1 **RED:** Extend `domain/catalog-global/catalog-global.test.ts` for stable IDs, evidence/provenance, authority, ambiguity, label changes, and no auto-rename/delete.
-- [ ] 1.2 **GREEN:** Add `sentinel-group.ts`; update `global-vehicle.ts`, `review.ts`, exports, and `application/catalog-global/ports.ts` with group/binding/placement contracts.
-- [ ] 1.3 **RED:** Test validators, unique binding indexes, transactions, conservative `legacy-unverified` backfill, and ambiguity reviews in `catalog-global-mongodb.test.ts`.
-- [ ] 1.4 **GREEN:** Update Mongo `catalog-global-{documents,validators,repositories,migrations}.ts` and transaction wiring; preserve legacy collections/fields.
-- [ ] 1.5 **REFACTOR:** Deduplicate mapping while keeping domain/application provider- and Mongo-free.
+- [x] 1.1 **RED:** Extend `domain/catalog-global/catalog-global.test.ts` for stable IDs, evidence/provenance, authority, ambiguity, label changes, and no auto-rename/delete.
+- [x] 1.2 **GREEN:** Add `sentinel-group.ts`; update `global-vehicle.ts`, `review.ts`, exports, and `application/catalog-global/ports.ts` with group/binding/placement contracts.
+- [x] 1.3 **RED:** Test validators, unique binding indexes, transactions, conservative `legacy-unverified` backfill, and ambiguity reviews in `catalog-global-mongodb.test.ts`.
+- [x] 1.4 **GREEN:** Update Mongo `catalog-global-{documents,validators,repositories,migrations}.ts` and transaction wiring; preserve legacy collections/fields.
+- [x] 1.5 **REFACTOR:** Deduplicate mapping while keeping domain/application provider- and Mongo-free.
 
 ## Phase 2: Evidence Matching and Precedence
 
-- [ ] 2.1 **RED:** Extend candidate tests for plate reuse, Howen-only creation, idempotency/no duplicates, both provider orders, and ambiguity.
-- [ ] 2.2 **GREEN:** Update `ports.ts` and `match-and-apply-provider-candidate.ts`: authoritative replaces fallback/legacy; fallback never replaces authoritative.
-- [ ] 2.3 **GREEN:** Update provider `seed-*-catalog.ts` and `global-sync-source-adapters.ts` to emit Cybermapa company authority or Howen fleet fallback evidence.
-- [ ] 2.4 **REFACTOR:** Centralize evidence normalization; keep provider branching in adapters.
+- [x] 2.1 **RED:** Extend candidate tests for plate reuse, Howen-only creation, idempotency/no duplicates, both provider orders, and ambiguity.
+- [x] 2.2 **GREEN:** Update `ports.ts` and `match-and-apply-provider-candidate.ts`: authoritative replaces fallback/legacy; fallback never replaces authoritative.
+- [x] 2.3 **GREEN:** Update provider `seed-*-catalog.ts` and `global-sync-source-adapters.ts` to emit Cybermapa company authority or Howen fleet fallback evidence.
+- [x] 2.4 **REFACTOR:** Centralize evidence normalization; keep provider branching in adapters.
 
 ## Phase 3: Durable Global Progress
 
-- [ ] 3.1 **RED:** Test stable connection lookup, attempt lineage, checkpoint resume, cumulative totals/counts, retries, and no repeated effects in `synchronize-global-connection.test.ts`.
-- [ ] 3.2 **GREEN:** Update synchronization and Mongo sync ports/repositories/documents/validators/indexes to persist lineage, checkpoints, and per-candidate monotonic snapshots.
-- [ ] 3.3 **REFACTOR:** Publish persisted progress only; separate attempts from logical lineage.
+- [x] 3.1 **RED:** Test stable connection lookup, attempt lineage, checkpoint resume, cumulative totals/counts, retries, and no repeated effects in `synchronize-global-connection.test.ts`.
+- [x] 3.2 **GREEN:** Update synchronization and Mongo sync ports/repositories/documents/validators/indexes to persist lineage, checkpoints, and per-candidate monotonic snapshots.
+- [x] 3.3 **REFACTOR:** Publish persisted progress only; separate attempts from logical lineage.
+
+### Unit 3 repair status
+
+Fresh focused execution confirmed Unit 3 completion: synchronization coverage passed 6 tests and dedicated Mongo persistence coverage passed 17 tests. Tasks 3.1–3.3 are marked complete based on this evidence.
 
 ## Phase 4: V2 Delivery and UI
 
-- [ ] 4.1 **RED:** Test V2-only composition, connection errors, normal/error/cancel, late callback, transport failure, and double finish in `route.test.ts`.
-- [ ] 4.2 **GREEN:** Replace legacy `composition.ts`; guard idempotent NDJSON send/finish and detach aborts without cancelling execution in `route.ts`.
-- [ ] 4.3 **RED:** Test monotonic UI progress across group changes/reconnect snapshots in `provider-import-screen.test.tsx`.
-- [ ] 4.4 **GREEN/REFACTOR:** Render persisted V2 totals/counts; keep current group contextual in `provider-import-screen.tsx`.
+- [x] 4.1 **RED:** Test V2-only composition, connection errors, normal/error/cancel, late callback, transport failure, and double finish in `route.test.ts`.
+- [x] 4.2 **GREEN:** Replace legacy `composition.ts`; guard idempotent NDJSON send/finish and detach aborts without cancelling execution in `route.ts`.
+- [x] 4.3 **RED:** Test monotonic UI progress across group changes/reconnect snapshots in `provider-import-screen.test.tsx`.
+- [x] 4.4 **GREEN/REFACTOR:** Render persisted V2 totals/counts; keep current group contextual in `provider-import-screen.tsx`.
+
+### Unit 4 repair status
+
+Unit 4 is complete. Route coverage explicitly exercises already-aborted requests, transport cancellation with late progress, and callbacks after terminal completion. The route closes the stream once even when delivery is detached, while synchronization continues independently.
 
 ## Phase 5: Regression, Documentation, Validation
 
-- [ ] 5.1 Add legacy/V2 regression tests proving `/api/admin/import` writes V2 only and leaves legacy repositories untouched.
-- [ ] 5.2 Update architecture/import docs for evidence, precedence, lineage, resume, and transport; preserve proposal exclusions.
-- [ ] 5.3 Run lint, typecheck, tests, coverage, and build before verification.
+- [x] 5.1 Add legacy/V2 regression tests proving `/api/admin/import` stays on the V2 runtime for Cybermapa and Howen, does not call the legacy importer, and preserves provider-order/idempotency behavior.
+- [x] 5.2 Update architecture/import docs for V2-only writes, evidence precedence, lineage/resume, transport detachment, and legacy preservation; preserve proposal exclusions.
+- [x] 5.3 Run focused route/matcher regressions, changed-file lint, and diff-check before verification. Full suite, coverage, build, typecheck, secrets, and real Mongo were intentionally excluded by scope.

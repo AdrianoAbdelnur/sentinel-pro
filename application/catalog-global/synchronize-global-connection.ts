@@ -9,7 +9,9 @@ export type GlobalSnapshotEvidence = { retrievalComplete: boolean; paginationCom
 export type GlobalSnapshot = { kind: "complete"; candidates: ProviderCandidate[]; evidence?: GlobalSnapshotEvidence } | { kind: "failed"; failure: GlobalSyncFailure };
 export type GlobalSyncSource = { loadSnapshot(): Promise<GlobalSnapshot> };
 export type GlobalSyncCounts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
-export type GlobalSyncRun = { id: string; connectionId: string; trigger: GlobalSyncTrigger; status: "active" | "succeeded" | "failed"; startedAt: Date; completedAt?: Date; checkpoint?: string; counts: GlobalSyncCounts; snapshot: { status: "complete" | "partial"; reason?: string; receivedRecordCount?: number; parseableRecordCount?: number; authorizedCandidateCount?: number }; failure?: GlobalSyncFailure };
+export type GlobalSyncProgress = { connectionId: string; lineageId: string; runId: string; total: number; checkpoint?: string; counts: GlobalSyncCounts; currentGroup?: string };
+export type GlobalSyncProgressListener = (progress: GlobalSyncProgress) => Promise<void> | void;
+export type GlobalSyncRun = { id: string; lineageId: string; attempt: number; connectionId: string; trigger: GlobalSyncTrigger; status: "active" | "succeeded" | "failed"; startedAt: Date; completedAt?: Date; checkpoint?: string; total: number; counts: GlobalSyncCounts; snapshot: { status: "complete" | "partial"; reason?: string; receivedRecordCount?: number; parseableRecordCount?: number; authorizedCandidateCount?: number }; failure?: GlobalSyncFailure };
 export type GlobalSyncOutcome =
   | { kind: "succeeded"; run: GlobalSyncRun }
   | { kind: "failed"; run: GlobalSyncRun; retryable: boolean; failure: GlobalSyncFailure }
@@ -49,7 +51,8 @@ function isRetryable(failure: GlobalSyncFailure): boolean {
   return failure.category === "connectivity" || failure.category === "timeout" || failure.category === "rate-limited" || failure.category === "internal";
 }
 
-function assessSnapshot(evidence: GlobalSnapshotEvidence | undefined, candidateCount: number, previous: GlobalSyncRun | undefined) {
+function assessSnapshot(evidence: GlobalSnapshotEvidence | undefined, candidateCount: number, previous: GlobalSyncRun | undefined, duplicateCount: number) {
+  if (duplicateCount > 0) return { status: "partial" as const, reason: "duplicate-external-id", ...evidence, authorizedCandidateCount: candidateCount };
   if (!evidence || !evidence.retrievalComplete) return { status: "partial" as const, reason: "retrieval-unproven", ...evidence, authorizedCandidateCount: candidateCount };
   if (!evidence.paginationComplete) return { status: "partial" as const, reason: "pagination-unproven", ...evidence, authorizedCandidateCount: candidateCount };
   if (evidence.receivedRecordCount > 0 && evidence.parseableRecordCount / evidence.receivedRecordCount < 0.98) return { status: "partial" as const, reason: "parse-quality-below-threshold", ...evidence, authorizedCandidateCount: candidateCount };
@@ -62,8 +65,8 @@ function sortCandidates(candidates: ProviderCandidate[]): ProviderCandidate[] {
   return [...candidates].sort((left, right) => left.externalId.localeCompare(right.externalId));
 }
 
-function createRun(id: string, connectionId: string, trigger: GlobalSyncTrigger, startedAt: Date): GlobalSyncRun {
-  return { id, connectionId, trigger, status: "active", startedAt, counts: { ...ZERO_COUNTS }, snapshot: { status: "partial", reason: "pending" } };
+function createRun(id: string, lineageId: string, attempt: number, connectionId: string, trigger: GlobalSyncTrigger, startedAt: Date): GlobalSyncRun {
+  return { id, lineageId, attempt, connectionId, trigger, status: "active", startedAt, total: 0, counts: { ...ZERO_COUNTS }, snapshot: { status: "partial", reason: "pending" } };
 }
 
 function withOutcomeCount(counts: GlobalSyncCounts, kind: "created" | "matched" | "reused" | "review"): GlobalSyncCounts {
@@ -95,7 +98,11 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
     return { ...counts, absent };
   }
 
-  async function synchronize({ connectionId, trigger, source }: { connectionId: string; trigger: GlobalSyncTrigger; source: GlobalSyncSource }): Promise<GlobalSyncOutcome> {
+  async function synchronize({ connectionId, trigger, source, onProgress }: { connectionId: string; trigger: GlobalSyncTrigger; source: GlobalSyncSource; onProgress?: GlobalSyncProgressListener }): Promise<GlobalSyncOutcome> {
+    const publish = (run: GlobalSyncRun, currentGroup?: string) => {
+      if (!onProgress) return;
+      void Promise.resolve(onProgress({ connectionId: run.connectionId, lineageId: run.lineageId, runId: run.id, total: run.total, ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}), counts: run.counts, ...(currentGroup ? { currentGroup } : {}) })).catch(() => undefined);
+    };
     const connection = await ports.connections.findById(connectionId);
     if (!connection) return { kind: "not-found" };
     const provider = await ports.providers.findById(connection.providerId);
@@ -113,9 +120,11 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
         return { kind: "skipped-fresh", lastSuccessAt: lastSuccess.completedAt as Date };
       }
     }
-    const initialBase = createRun(runId, connectionId, trigger, startedAt);
+    const lineageId = previousRun?.lineageId ?? previousRun?.id ?? runId;
+    const attempt = (previousRun?.attempt ?? 0) + 1;
+    const initialBase = createRun(runId, lineageId, attempt, connectionId, trigger, startedAt);
     const initial = previousRun?.status === "failed"
-      ? { ...initialBase, checkpoint: previousRun.checkpoint, counts: previousRun.counts }
+      ? { ...initialBase, checkpoint: previousRun.checkpoint, total: previousRun.total, counts: previousRun.counts }
       : initialBase;
     if ((await ports.runs.claimActive(initial)) === "already-active") {
       await ports.leases.release(connectionId, runId);
@@ -130,9 +139,13 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
       return { kind: "failed", run: failed, retryable: isRetryable(snapshot.failure), failure: snapshot.failure };
     }
     const priorConfirmed = await ports.runs.findLastConfirmed(connectionId);
-    const assessment = assessSnapshot(snapshot.evidence, snapshot.candidates.length, priorConfirmed);
-    let run = { ...initial, snapshot: assessment };
-    const candidates = sortCandidates(snapshot.candidates).filter((candidate) => run.checkpoint === undefined || candidate.externalId > run.checkpoint);
+    const sortedCandidates = sortCandidates(snapshot.candidates);
+    const uniqueCandidates = sortedCandidates.filter((candidate, index) => index === 0 || candidate.externalId !== sortedCandidates[index - 1].externalId);
+    const assessment = assessSnapshot(snapshot.evidence, uniqueCandidates.length, priorConfirmed, sortedCandidates.length - uniqueCandidates.length);
+    let run = { ...initial, total: Math.max(initial.total, uniqueCandidates.length), snapshot: assessment };
+    await ports.runs.save(run);
+    publish(run);
+    const candidates = uniqueCandidates.filter((candidate) => run.checkpoint === undefined || candidate.externalId > run.checkpoint);
     const seen = new Set(snapshot.candidates.map((candidate) => candidate.externalId));
     try {
       for (const candidate of candidates) {
@@ -142,10 +155,12 @@ export function createSynchronizeGlobalConnectionApplication(ports: GlobalSyncPo
         const counts = withOutcomeCount(run.counts, result.kind === "review" ? "review" : result.kind);
         run = { ...run, checkpoint: candidate.externalId, counts };
         await ports.runs.save(run);
+        publish(run, candidate.groupEvidence?.label);
       }
       if (assessment.status === "complete" && priorConfirmed) run = { ...run, counts: await reconcileAbsence(connectionId, seen, run.counts) };
       const completed = { ...run, status: "succeeded" as const, completedAt: ports.clock.now() };
       await ports.runs.save(completed);
+      publish(completed);
       await ports.leases.release(connectionId, runId);
       return { kind: "succeeded", run: completed };
     } catch {

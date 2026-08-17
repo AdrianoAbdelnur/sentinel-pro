@@ -14,3 +14,8 @@
 6. Enable global Live only after parity with `SENTINEL_LIVE_CATALOG_MODE=global`.
 
 The CLI defaults to dry-run. V2 writes are idempotent through repository upserts, and the approval token is atomically consumed once. Legacy collections are read-only migration inputs and are never modified or deleted. `createLiveReadSwitch().rollback()` immediately restores legacy reads without changing V2 data.
+
+The admin import route is not a migration path: it writes only V2 global catalog
+repositories. Legacy Companies, Fleets, provider connections, and legacy sync
+runs remain untouched. Existing V2 data is reused by stable connection,
+lineage, checkpoint, vehicle, group, and evidence identities.

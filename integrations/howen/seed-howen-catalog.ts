@@ -56,6 +56,7 @@ export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: How
       ...(rawPlate !== undefined ? { plate: rawPlate } : {}),
       ...(normalizedPlate !== undefined && isValidatedPlate(normalizedPlate) ? { normalizedPlate } : {}),
       ...(placementFleetId !== undefined ? { placementFleetId } : {}),
+      ...(providerFleetMembership !== undefined ? { groupEvidence: { connectionId: options.connectionId, kind: "fleet-membership" as const, externalKey: fleetId as string, label: fleetLabel as string, authority: "fallback" as const } } : {}),
       ...(providerFleetMembership !== undefined ? { providerFleetMembership } : {}),
       capabilities: { video: "eligible", videoAlerts: "eligible" },
       presence: "present",

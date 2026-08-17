@@ -17,11 +17,9 @@ function failure(error: unknown) {
 }
 
 function createCybermapaSource(connection: GlobalConnection): GlobalSyncSource | undefined {
-  const placementFleetId = process.env.SENTINEL_CYBERMAPA_PLACEMENT_FLEET_ID?.trim();
-  if (!placementFleetId) return undefined;
   try {
     const client = createCybermapaClient({ config: readCybermapaConfig() });
-    return { async loadSnapshot(): Promise<GlobalSnapshot> { try { const records = await client.fetchVehicles(); const candidates = mapCybermapaGlobalCatalog(records, { connectionId: connection.id, placementFleetId }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
+    return { async loadSnapshot(): Promise<GlobalSnapshot> { try { const records = await client.fetchVehicles(); const candidates = mapCybermapaGlobalCatalog(records, { connectionId: connection.id }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
   } catch { return undefined; }
 }
 
@@ -29,8 +27,7 @@ function createHowenSource(connection: GlobalConnection): GlobalSyncSource | und
   try {
     const config = readHowenConfig();
     const client = createHowenClient({ config, session: createHowenSessionManager({ config }) });
-    const initialPlacementFleetId = process.env.SENTINEL_HOWEN_INITIAL_PLACEMENT_FLEET_ID?.trim();
-    return { async loadSnapshot(): Promise<GlobalSnapshot> { try { const records = await client.fetchRoster(); const candidates = mapHowenGlobalCatalog(records, { connectionId: connection.id, resolveInitialPlacementFleetId: () => initialPlacementFleetId }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
+    return { async loadSnapshot(): Promise<GlobalSnapshot> { try { const records = await client.fetchRoster(); const candidates = mapHowenGlobalCatalog(records, { connectionId: connection.id, resolveInitialPlacementFleetId: () => undefined }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
   } catch { return undefined; }
 }
 

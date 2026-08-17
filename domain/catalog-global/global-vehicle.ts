@@ -1,8 +1,10 @@
+import type { VehiclePlacement } from "./sentinel-group";
 export type GlobalVehicle = Readonly<{
   id: string;
   normalizedPlate: string;
   plate: string;
   placementFleetId: string;
+  placement?: VehiclePlacement;
 }>;
 
 export type GlobalVehicleInput = {
@@ -10,6 +12,7 @@ export type GlobalVehicleInput = {
   normalizedPlate: string;
   plate: string;
   placementFleetId: string;
+  placement?: VehiclePlacement;
 };
 
 export function createGlobalVehicle(input: GlobalVehicleInput): GlobalVehicle {
