@@ -112,7 +112,7 @@ describe("synchronize global connection", () => {
     ports.connections.listEnabled = vi.fn(async () => [connection]);
     const scheduler = createSynchronizeGlobalConnectionApplication(ports);
     expect(await scheduler.listDueConnections()).toEqual([connection]);
-    ports.runs.findLastSuccess = vi.fn(async () => ({ id: "fresh", connectionId: connection.id, trigger: "scheduler" as const, status: "succeeded" as const, startedAt: new Date("2026-08-16T11:29:00Z"), completedAt: new Date("2026-08-16T11:30:00Z"), counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" as const } }));
+    ports.runs.findLastSuccess = vi.fn(async () => ({ id: "fresh", lineageId: "lineage-fresh", attempt: 1, connectionId: connection.id, trigger: "scheduler" as const, status: "succeeded" as const, startedAt: new Date("2026-08-16T11:29:00Z"), completedAt: new Date("2026-08-16T11:30:00Z"), total: 0, counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" as const } }));
     expect(await scheduler.listDueConnections()).toEqual([]);
   });
 });
