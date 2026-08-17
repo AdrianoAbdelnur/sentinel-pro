@@ -28,6 +28,7 @@ export type ProviderDefinitionRepository = {
 
 export type ProviderConnectionRepository = {
   findById(id: string): Promise<ProviderConnection | undefined>;
+  findEnabledByProviderId(providerId: string): Promise<ProviderConnection | undefined>;
   listEnabled(): Promise<ProviderConnection[]>;
   save(connection: ProviderConnection): Promise<void>;
 };

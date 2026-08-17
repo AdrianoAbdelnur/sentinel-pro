@@ -7,22 +7,38 @@ const isDuplicate = (error: unknown) => typeof error === "object" && error !== n
 const now = () => new Date();
 
 function toDocument(run: GlobalSyncRun, existing?: GlobalSyncRunDocument): GlobalSyncRunDocument {
-  return { schemaVersion: 2, ...run, createdAt: existing?.createdAt ?? now(), updatedAt: now() };
+  return {
+    schemaVersion: 2,
+    id: run.id,
+    lineageId: run.lineageId,
+    attempt: run.attempt,
+    connectionId: run.connectionId,
+    trigger: run.trigger,
+    status: run.status,
+    startedAt: run.startedAt,
+    ...(run.completedAt ? { completedAt: run.completedAt } : {}),
+    ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}),
+    total: run.total,
+    counts: run.counts,
+    snapshot: run.snapshot,
+    ...(run.failure ? { failure: run.failure } : {}),
+    createdAt: existing?.createdAt ?? now(),
+    updatedAt: now(),
+  };
 }
 
 export function createGlobalSyncRepositories(db: Db, session?: ClientSession) {
   const runs = db.collection<GlobalSyncRunDocument>("catalog_runs_v2");
   const leases = db.collection<GlobalSyncLeaseDocument>("catalog_leases_v2");
   const findRun = async (filter: Filter<GlobalSyncRunDocument>) => runs.findOne(filter, options(session)) as Promise<GlobalSyncRunDocument | null>;
-  return {
-    syncRuns: {
-      async findLatest(connectionId: string) { return (await runs.find({ connectionId }, options(session)).sort({ startedAt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },
+  const syncRuns = {
+      async findLatest(connectionId: string) { return (await runs.find({ connectionId }, options(session)).sort({ startedAt: -1, attempt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },
       async findLastSuccess(connectionId: string) { return (await runs.find({ connectionId, status: "succeeded" }, options(session)).sort({ completedAt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },
       async findLastConfirmed(connectionId: string) { return (await runs.find({ connectionId, status: "succeeded", "snapshot.status": "complete" }, options(session)).sort({ completedAt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },
       async claimActive(run: GlobalSyncRun) { try { await runs.insertOne(toDocument(run), options(session)); return "claimed" as const; } catch (error) { if (isDuplicate(error)) return "already-active" as const; throw error; } },
       async save(run: GlobalSyncRun) { const existing = await findRun({ id: run.id }); await runs.replaceOne({ id: run.id }, toDocument(run, existing ?? undefined), { upsert: true, ...options(session) }); },
-    },
-    syncLeases: {
+    };
+  const syncLeases = {
       async claim(connectionId: string, runId: string, claimNow: Date, durationMs: number) {
         const leaseUntil = new Date(claimNow.getTime() + durationMs);
         try {
@@ -35,6 +51,6 @@ export function createGlobalSyncRepositories(db: Db, session?: ClientSession) {
         return result.matchedCount === 1 ? { outcome: "renewed" as const } : { outcome: "held" as const };
       },
       async release(connectionId: string, runId: string) { await leases.deleteOne({ connectionId, runId }, options(session)); },
-    },
-  };
+    };
+  return { runs: syncRuns, leases: syncLeases, syncRuns, syncLeases };
 }

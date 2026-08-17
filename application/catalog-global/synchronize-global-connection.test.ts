@@ -55,7 +55,7 @@ describe("synchronize global connection", () => {
 
   it("resumes after the persisted checkpoint and does not duplicate a processed contribution", async () => {
     const { ports, runs, contributions } = fixture();
-    runs.push({ id: "run-1", connectionId: connection.id, trigger: "manual", status: "failed", startedAt: new Date(), checkpoint: "external-1", counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "partial" } });
+    runs.push({ id: "run-1", lineageId: "lineage-1", attempt: 1, connectionId: connection.id, trigger: "manual", status: "failed", startedAt: new Date(), checkpoint: "external-1", total: 2, counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "partial" } });
     contributions.push({ id: "contribution-1", connectionId: connection.id, externalId: "external-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, { ...candidate, externalId: "external-2", normalizedPlate: "XYZ999" }], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
 
@@ -65,6 +65,10 @@ describe("synchronize global connection", () => {
     expect(ports.contributions.save).toHaveBeenCalledTimes(1);
     expect(contributions).toHaveLength(2);
     expect(result.kind === "succeeded" ? result.run.checkpoint : undefined).toBe("external-2");
+    expect(result.kind === "succeeded" ? result.run.lineageId : undefined).toBe("lineage-1");
+    expect(result.kind === "succeeded" ? result.run.attempt : undefined).toBe(2);
+    expect(result.kind === "succeeded" ? result.run.total : undefined).toBe(2);
+    expect(result.kind === "succeeded" ? result.run.counts.processed : undefined).toBe(2);
   });
 
   it("imports valid candidates from an incomplete snapshot but never reconciles absent contributions", async () => {
@@ -88,6 +92,19 @@ describe("synchronize global connection", () => {
     const retryableSource = { loadSnapshot: vi.fn(async () => ({ kind: "failed" as const, failure: { category: "connectivity" as const } })) };
     const connectivityResult = await createSynchronizeGlobalConnectionApplication(connectivity.ports).synchronize({ connectionId: connection.id, trigger: "scheduler", source: retryableSource });
     expect(connectivityResult).toMatchObject({ kind: "failed", retryable: true });
+  });
+
+  it("keeps a duplicate provider snapshot partial and applies each external item once", async () => {
+    const { ports, contributions } = fixture();
+    const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, candidate], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
+
+    const result = await createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
+
+    expect(result.kind).toBe("succeeded");
+    expect(result.kind === "succeeded" ? result.run.snapshot : undefined).toMatchObject({ status: "partial", reason: "duplicate-external-id" });
+    expect(result.kind === "succeeded" ? result.run.total : undefined).toBe(1);
+    expect(result.kind === "succeeded" ? result.run.counts.processed : undefined).toBe(1);
+    expect(contributions).toHaveLength(1);
   });
 
   it("skips disabled and fresh connections while reporting due enabled connections", async () => {

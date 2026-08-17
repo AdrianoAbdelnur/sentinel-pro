@@ -43,9 +43,13 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Durable Global Progress
 
-- [ ] 3.1 **RED:** Test stable connection lookup, attempt lineage, checkpoint resume, cumulative totals/counts, retries, and no repeated effects in `synchronize-global-connection.test.ts`.
-- [ ] 3.2 **GREEN:** Update synchronization and Mongo sync ports/repositories/documents/validators/indexes to persist lineage, checkpoints, and per-candidate monotonic snapshots.
-- [ ] 3.3 **REFACTOR:** Publish persisted progress only; separate attempts from logical lineage.
+- [x] 3.1 **RED:** Test stable connection lookup, attempt lineage, checkpoint resume, cumulative totals/counts, retries, and no repeated effects in `synchronize-global-connection.test.ts`.
+- [x] 3.2 **GREEN:** Update synchronization and Mongo sync ports/repositories/documents/validators/indexes to persist lineage, checkpoints, and per-candidate monotonic snapshots.
+- [x] 3.3 **REFACTOR:** Publish persisted progress only; separate attempts from logical lineage.
+
+### Unit 3 repair status
+
+Fresh focused execution confirmed Unit 3 completion: synchronization coverage passed 6 tests and dedicated Mongo persistence coverage passed 17 tests. Tasks 3.1–3.3 are marked complete based on this evidence.
 
 ## Phase 4: V2 Delivery and UI
 

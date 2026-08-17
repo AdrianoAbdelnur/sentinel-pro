@@ -35,3 +35,26 @@
 - `npm run lint`: PASS with pre-existing warning in `coverage/block-navigation.js`.
 - `git diff --check`: PASS.
 - No MongoDB, real provider API, routes, streaming, or Units 3-5 touched.
+
+# Unit 3 Repair Apply Progress
+
+## TDD Cycle Evidence
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 3.1 | Unit 3 synchronization tests cover stable connection lookup, lineage, checkpoint resume, cumulative progress, retries, and duplicate-effect prevention | Focused synchronization suite passed: 1 file / 6 tests | Synchronization keeps logical lineage separate from attempts |
+| 3.2 | Dedicated Mongo persistence tests cover lineage/attempts, checkpoints/resume, cumulative monotonic progress, leases/retries, and snapshot integrity | Focused Mongo suite passed: 1 file / 17 tests | Mongo persistence serializes optional fields safely and orders tied attempts deterministically |
+| 3.3 | Focused synchronization and Mongo tests cover persisted progress publication and attempt/lineage separation | Unit 3 focused evidence passed: 6 synchronization tests + 17 Mongo tests | Persisted progress is the publication source |
+
+## Validation
+
+- `npx vitest run application/catalog-global/synchronize-global-connection.test.ts`: PASS, 1 file / 6 tests.
+- `npx vitest run --config vitest.mongodb.config.ts integrations/persistence/mongodb/catalog-global-sync-mongodb.test.ts`: PASS, 1 file / 17 tests.
+- Changed-file lint: PASS.
+- `git diff --check`: PASS.
+
+## Scope
+
+- Unit 3 synchronization and Mongo persistence implementation/tests are included in the current worktree.
+- No Units 4/5, routes, streaming, comments, secrets, or real Mongo data were touched.
+- Worktree remains uncommitted.

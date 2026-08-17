@@ -56,6 +56,7 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
     },
     connections: {
       async findById(id) { const document = await connections.findOne({ id }, options(session)); return document ? toProviderConnectionDomain(document) : undefined; },
+      async findEnabledByProviderId(providerId) { const document = await connections.findOne({ providerId, enabled: true }, options(session)); return document ? toProviderConnectionDomain(document) : undefined; },
       async listEnabled() { return (await connections.find({ enabled: true }, options(session)).sort({ id: 1 }).toArray()).map(toProviderConnectionDomain); },
       async save(connection) { await atomicSave(connections, { id: connection.id }, toProviderConnectionDocument(connection, now()), session); },
     },
