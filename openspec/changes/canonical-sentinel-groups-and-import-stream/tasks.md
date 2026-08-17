@@ -1,4 +1,4 @@
-# Tasks: Canonical Sentinel Groups and Resilient Import Streaming
+﻿# Tasks: Canonical Sentinel Groups and Resilient Import Streaming
 
 ## Review Workload Forecast
 
@@ -36,10 +36,10 @@ Chain strategy: feature-branch-chain
 
 ## Phase 2: Evidence Matching and Precedence
 
-- [ ] 2.1 **RED:** Extend candidate tests for plate reuse, Howen-only creation, idempotency/no duplicates, both provider orders, and ambiguity.
-- [ ] 2.2 **GREEN:** Update `ports.ts` and `match-and-apply-provider-candidate.ts`: authoritative replaces fallback/legacy; fallback never replaces authoritative.
-- [ ] 2.3 **GREEN:** Update provider `seed-*-catalog.ts` and `global-sync-source-adapters.ts` to emit Cybermapa company authority or Howen fleet fallback evidence.
-- [ ] 2.4 **REFACTOR:** Centralize evidence normalization; keep provider branching in adapters.
+- [x] 2.1 **RED:** Extend candidate tests for plate reuse, Howen-only creation, idempotency/no duplicates, both provider orders, and ambiguity.
+- [x] 2.2 **GREEN:** Update `ports.ts` and `match-and-apply-provider-candidate.ts`: authoritative replaces fallback/legacy; fallback never replaces authoritative.
+- [x] 2.3 **GREEN:** Update provider `seed-*-catalog.ts` and `global-sync-source-adapters.ts` to emit Cybermapa company authority or Howen fleet fallback evidence.
+- [x] 2.4 **REFACTOR:** Centralize evidence normalization; keep provider branching in adapters.
 
 ## Phase 3: Durable Global Progress
 
