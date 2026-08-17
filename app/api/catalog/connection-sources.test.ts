@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createProviderImportConnection } from "../admin/import/composition";
 import { createDefaultConnectionSourceFactories } from "./connection-sources";
 
 describe("default connection source factories", () => {
@@ -14,7 +13,12 @@ describe("default connection source factories", () => {
       vi.stubEnv("HOWEN_PASSWORD", "secret");
 
       const source = createDefaultConnectionSourceFactories().howen?.(
-        createProviderImportConnection("howen", companyId),
+        {
+          id: "provider-import",
+          organizationId: "provider-import",
+          credentialRef: "vault:howen/provider-import",
+          companyId,
+        },
       );
 
       expect(source).toBeDefined();

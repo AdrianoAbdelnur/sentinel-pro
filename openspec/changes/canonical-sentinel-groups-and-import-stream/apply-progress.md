@@ -105,3 +105,8 @@
 
 - Unit 4 route, composition, and import UI only; no Unit 5 changes.
 - Worktree remains uncommitted.
+
+# Final-validation repair evidence
+
+- `app/api/catalog/connection-sources.test.ts` no longer imports the removed `createProviderImportConnection` helper from the V2-only admin composition. The test now supplies the connection fixture required by the legacy source-factory contract directly.
+- `npx vitest run app/api/catalog/connection-sources.test.ts`: PASS, 1 file / 2 tests.
