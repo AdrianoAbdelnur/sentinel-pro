@@ -6,6 +6,7 @@ import type {
   ProviderDefinition,
   ProviderFleetMembership,
   TenantVehicleGrant,
+  SentinelGroup, GroupEvidenceBinding,
 } from "@/domain/catalog-global";
 
 export type GlobalCatalogIdGenerator = { create(): string };
@@ -15,6 +16,8 @@ export type GlobalVehicleRepository = {
   findByNormalizedPlate(normalizedPlate: string): Promise<GlobalVehicle | undefined>;
   save(vehicle: GlobalVehicle): Promise<void>;
 };
+export type SentinelGroupRepository = { findById(id: string): Promise<SentinelGroup | undefined>; findByLabel(label: string): Promise<SentinelGroup[]>; save(group: SentinelGroup): Promise<void> };
+export type GroupEvidenceBindingRepository = { findById(id: string): Promise<GroupEvidenceBinding | undefined>; findByGroupId(groupId: string): Promise<GroupEvidenceBinding[]>; findByEvidence(connectionId: string, kind: string, externalKey: string): Promise<GroupEvidenceBinding[]>; save(binding: GroupEvidenceBinding): Promise<void> };
 
 export type ProviderDefinitionRepository = {
   findById(id: string): Promise<ProviderDefinition | undefined>;
@@ -63,6 +66,8 @@ export type GlobalCatalogRepositories = {
   memberships: ProviderFleetMembershipRepository;
   grants: TenantVehicleGrantRepository;
   reviews: GlobalCatalogReviewRepository;
+  groups: SentinelGroupRepository;
+  evidenceBindings: GroupEvidenceBindingRepository;
 };
 
 export type GlobalCatalogTransactionRunner = {

@@ -5,8 +5,10 @@ import {
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
   toProviderDefinitionDocument, toProviderDefinitionDomain, toProviderFleetMembershipDocument, toProviderFleetMembershipDomain,
   toTenantVehicleGrantDocument, toTenantVehicleGrantDomain,
+  toSentinelGroupDocument, toSentinelGroupDomain, toGroupEvidenceBindingDocument, toGroupEvidenceBindingDomain,
   type GlobalCatalogReviewDocument, type GlobalVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
   type ProviderDefinitionDocument, type ProviderFleetMembershipDocument, type TenantVehicleGrantDocument,
+  type SentinelGroupDocument, type GroupEvidenceBindingDocument,
 } from "./catalog-global-documents";
 import { createGlobalSyncRepositories } from "./catalog-global-sync-repositories";
 
@@ -25,9 +27,22 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
   const memberships = db.collection<ProviderFleetMembershipDocument>("provider_fleet_memberships_v2");
   const grants = db.collection<TenantVehicleGrantDocument>("tenant_vehicle_grants_v2");
   const reviews = db.collection<GlobalCatalogReviewDocument>("catalog_reviews_v2");
+  const groups = db.collection<SentinelGroupDocument>("sentinel_groups_v2");
+  const evidenceBindings = db.collection<GroupEvidenceBindingDocument>("group_evidence_bindings_v2");
 
   return {
     ...createGlobalSyncRepositories(db, session),
+    groups: {
+      async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toSentinelGroupDomain(document) : undefined; },
+      async findByLabel(label) { return (await groups.find({ label }, options(session)).sort({ id: 1 }).toArray()).map(toSentinelGroupDomain); },
+      async save(group) { await atomicSave(groups, { id: group.id }, toSentinelGroupDocument(group, now()), session); },
+    },
+    evidenceBindings: {
+      async findById(id) { const document = await evidenceBindings.findOne({ id }, options(session)); return document ? toGroupEvidenceBindingDomain(document) : undefined; },
+      async findByGroupId(groupId) { return (await evidenceBindings.find({ groupId }, options(session)).sort({ id: 1 }).toArray()).map(toGroupEvidenceBindingDomain); },
+      async findByEvidence(connectionId, kind, externalKey) { return (await evidenceBindings.find({ "evidence.connectionId": connectionId, "evidence.kind": kind, "evidence.externalKey": externalKey }, options(session)).sort({ id: 1 }).toArray()).map(toGroupEvidenceBindingDomain); },
+      async save(binding) { await atomicSave(evidenceBindings, { id: binding.id }, toGroupEvidenceBindingDocument(binding, now()), session); },
+    },
     vehicles: {
       async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
       async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },

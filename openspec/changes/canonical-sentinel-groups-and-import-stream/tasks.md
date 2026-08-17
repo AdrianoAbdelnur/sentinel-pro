@@ -28,11 +28,11 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Canonical Group Foundation
 
-- [ ] 1.1 **RED:** Extend `domain/catalog-global/catalog-global.test.ts` for stable IDs, evidence/provenance, authority, ambiguity, label changes, and no auto-rename/delete.
-- [ ] 1.2 **GREEN:** Add `sentinel-group.ts`; update `global-vehicle.ts`, `review.ts`, exports, and `application/catalog-global/ports.ts` with group/binding/placement contracts.
-- [ ] 1.3 **RED:** Test validators, unique binding indexes, transactions, conservative `legacy-unverified` backfill, and ambiguity reviews in `catalog-global-mongodb.test.ts`.
-- [ ] 1.4 **GREEN:** Update Mongo `catalog-global-{documents,validators,repositories,migrations}.ts` and transaction wiring; preserve legacy collections/fields.
-- [ ] 1.5 **REFACTOR:** Deduplicate mapping while keeping domain/application provider- and Mongo-free.
+- [x] 1.1 **RED:** Extend `domain/catalog-global/catalog-global.test.ts` for stable IDs, evidence/provenance, authority, ambiguity, label changes, and no auto-rename/delete.
+- [x] 1.2 **GREEN:** Add `sentinel-group.ts`; update `global-vehicle.ts`, `review.ts`, exports, and `application/catalog-global/ports.ts` with group/binding/placement contracts.
+- [x] 1.3 **RED:** Test validators, unique binding indexes, transactions, conservative `legacy-unverified` backfill, and ambiguity reviews in `catalog-global-mongodb.test.ts`.
+- [x] 1.4 **GREEN:** Update Mongo `catalog-global-{documents,validators,repositories,migrations}.ts` and transaction wiring; preserve legacy collections/fields.
+- [x] 1.5 **REFACTOR:** Deduplicate mapping while keeping domain/application provider- and Mongo-free.
 
 ## Phase 2: Evidence Matching and Precedence
 

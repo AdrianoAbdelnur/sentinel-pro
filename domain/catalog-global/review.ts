@@ -1,4 +1,4 @@
-export type GlobalCatalogReviewReason = "missing-plate" | "malformed-plate" | "missing-placement" | "ambiguous-match" | "conflicting-identity";
+export type GlobalCatalogReviewReason = "missing-plate" | "malformed-plate" | "missing-placement" | "ambiguous-match" | "conflicting-identity" | "ambiguous-group-evidence";
 
 export type GlobalCatalogReview = Readonly<{
   id: string;
@@ -10,6 +10,8 @@ export type GlobalCatalogReview = Readonly<{
   candidateVehicleIds: readonly string[];
   status: "pending" | "resolved";
   resolvedVehicleId?: string;
+  evidenceKey?: string;
+  candidateGroupIds?: readonly string[];
 }>;
 
 export type GlobalCatalogReviewInput = {
@@ -19,6 +21,8 @@ export type GlobalCatalogReviewInput = {
   reason: GlobalCatalogReviewReason;
   normalizedPlate?: string;
   candidateVehicleIds: readonly string[];
+  evidenceKey?: string;
+  candidateGroupIds?: readonly string[];
 };
 
 export function createGlobalCatalogReview(input: GlobalCatalogReviewInput): GlobalCatalogReview {
@@ -27,6 +31,8 @@ export function createGlobalCatalogReview(input: GlobalCatalogReviewInput): Glob
     subject: "vehicle-identity" as const,
     candidateVehicleIds: Object.freeze([...input.candidateVehicleIds]),
     status: "pending" as const,
+    ...(input.evidenceKey !== undefined ? { evidenceKey: input.evidenceKey } : {}),
+    ...(input.candidateGroupIds !== undefined ? { candidateGroupIds: Object.freeze([...input.candidateGroupIds]) } : {}),
   });
 }
 
