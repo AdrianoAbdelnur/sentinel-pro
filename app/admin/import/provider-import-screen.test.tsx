@@ -57,4 +57,16 @@ describe("ProviderImportScreen", () => {
     expect(screen.getByText("1.400")).toBeInTheDocument();
     expect(screen.getByText("Flotas detectadas")).toBeInTheDocument();
   });
+
+  it("keeps cumulative counters when a later group snapshot is smaller", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream([
+      { type: "progress", data: { phase: "saving", found: { companies: 0, fleets: 0, vehicles: 10 }, total: 10, processed: 8, currentGroup: "First", counts: { processed: 8, created: 8, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } },
+      { type: "progress", data: { phase: "saving", found: { companies: 0, fleets: 0, vehicles: 3 }, total: 3, processed: 2, currentGroup: "Second", counts: { processed: 2, created: 2, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } },
+      { type: "result", data: { provider: "cybermapa", status: "succeeded", counts: { processed: 8, created: 8, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } },
+    ]))));
+    render(<ProviderImportScreen />);
+    fireEvent.click(screen.getByRole("button"));
+    expect(await screen.findByText("Second")).toBeInTheDocument();
+    expect(screen.getAllByText("8")).toHaveLength(2);
+  });
 });

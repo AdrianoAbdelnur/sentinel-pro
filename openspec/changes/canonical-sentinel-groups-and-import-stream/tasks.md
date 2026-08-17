@@ -53,10 +53,14 @@ Fresh focused execution confirmed Unit 3 completion: synchronization coverage pa
 
 ## Phase 4: V2 Delivery and UI
 
-- [ ] 4.1 **RED:** Test V2-only composition, connection errors, normal/error/cancel, late callback, transport failure, and double finish in `route.test.ts`.
-- [ ] 4.2 **GREEN:** Replace legacy `composition.ts`; guard idempotent NDJSON send/finish and detach aborts without cancelling execution in `route.ts`.
-- [ ] 4.3 **RED:** Test monotonic UI progress across group changes/reconnect snapshots in `provider-import-screen.test.tsx`.
-- [ ] 4.4 **GREEN/REFACTOR:** Render persisted V2 totals/counts; keep current group contextual in `provider-import-screen.tsx`.
+- [x] 4.1 **RED:** Test V2-only composition, connection errors, normal/error/cancel, late callback, transport failure, and double finish in `route.test.ts`.
+- [x] 4.2 **GREEN:** Replace legacy `composition.ts`; guard idempotent NDJSON send/finish and detach aborts without cancelling execution in `route.ts`.
+- [x] 4.3 **RED:** Test monotonic UI progress across group changes/reconnect snapshots in `provider-import-screen.test.tsx`.
+- [x] 4.4 **GREEN/REFACTOR:** Render persisted V2 totals/counts; keep current group contextual in `provider-import-screen.tsx`.
+
+### Unit 4 repair status
+
+Unit 4 is complete. Route coverage explicitly exercises already-aborted requests, transport cancellation with late progress, and callbacks after terminal completion. The route closes the stream once even when delivery is detached, while synchronization continues independently.
 
 ## Phase 5: Regression, Documentation, Validation
 

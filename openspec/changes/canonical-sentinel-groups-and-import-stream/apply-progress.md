@@ -58,3 +58,27 @@
 - Unit 3 synchronization and Mongo persistence implementation/tests are included in the current worktree.
 - No Units 4/5, routes, streaming, comments, secrets, or real Mongo data were touched.
 - Worktree remains uncommitted.
+
+# Unit 4 Apply Progress
+
+## TDD Cycle Evidence
+
+| Task | RED | GREEN | REFACTOR |
+|---|---|---|---|
+| 4.1 | Added explicit route tests for pre-aborted request, transport cancellation with late progress, and post-terminal callback/double close; RED reproduced output from an already-aborted request | Focused route suite passed: 7 tests | Delivery state now distinguishes detached transport from terminal completion; finish remains idempotent and closes an otherwise open cancelled request |
+| 4.2 | Route tests exercised V2 runtime composition and guarded delivery paths | Route implementation passed the focused suite | `composition.ts` remains V2-only; abort detaches delivery without cancelling application synchronization |
+| 4.3 | Existing UI tests cover monotonic progress across group changes and reconnect snapshots | Focused UI suite passed as part of the Unit 4 validation | Progress merging remains cumulative and current-group context remains separate |
+| 4.4 | UI assertions cover persisted totals/counts and contextual group rendering | Focused UI suite passed | UI consumes V2 progress contracts without provider-specific rendering decisions |
+
+## Validation
+
+- `npx vitest run app/api/admin/import/route.test.ts`: PASS, 1 file / 7 tests.
+- `npx vitest run app/api/admin/import/route.test.ts app/admin/import/provider-import-screen.test.tsx application/catalog-global/synchronize-global-connection.test.ts`: PASS, 3 files / 17 tests.
+- `npx eslint app/api/admin/import/route.test.ts app/api/admin/import/route.ts app/api/admin/import/composition.ts app/admin/import/provider-import-screen.test.tsx app/admin/import/provider-import-screen.tsx application/catalog-global/synchronize-global-connection.ts`: PASS.
+- `git diff --check`: PASS; Git reported only existing LF-to-CRLF working-copy warnings.
+- `npm run typecheck`: BLOCKED by pre-existing malformed `.next/dev/types/routes.d.ts` generated declarations (TS1434, TS1005, TS1128).
+
+## Scope
+
+- Unit 4 route, composition, and import UI only; no Unit 5 changes.
+- Worktree remains uncommitted.
