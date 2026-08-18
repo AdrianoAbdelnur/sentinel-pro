@@ -1,11 +1,12 @@
 import type { ObjectId } from "mongodb";
+import { normalizeGroupLabel } from "@/domain/catalog";
 import type { CatalogReview, CatalogVehicle, ProviderConnection, ProviderContribution, Provider, ProviderFleetMembership, OrganizationVehicleAccess, CatalogGroup, GroupEvidenceBinding } from "@/domain/catalog";
 import type { CapabilitySourceStatus } from "@/domain/catalog/capabilities";
 import type { CatalogSyncRun } from "@/application/catalog/synchronize-connection";
 
 type Timestamps = { createdAt: Date; updatedAt: Date };
 export type CatalogVehicleDocument = { _id?: ObjectId; schemaVersion: number; id: string; normalizedPlate: string; plate: string; placementFleetId: string; placement?: CatalogVehicle["placement"] } & Timestamps;
-export type CatalogGroupDocument = { _id?: ObjectId; schemaVersion: number; id: string; label: string } & Timestamps;
+export type CatalogGroupDocument = { _id?: ObjectId; schemaVersion: number; id: string; label: string; normalizedLabel: string } & Timestamps;
 export type GroupEvidenceBindingDocument = { _id?: ObjectId; schemaVersion: number; id: string; groupId: string; evidence: GroupEvidenceBinding["evidence"] } & Timestamps;
 export type ProviderDocument = { _id?: ObjectId; schemaVersion: number; id: string; adapterKey: string; capabilities: string[] } & Timestamps;
 export type ProviderConnectionDocument = { _id?: ObjectId; schemaVersion: number; id: string; providerId: string; credentialRef: string; enabled: boolean; cadenceMinutes: number } & Timestamps;
@@ -19,7 +20,7 @@ export type CatalogSyncLeaseDocument = { _id?: ObjectId; schemaVersion: number; 
 export function toCatalogVehicleDomain(document: CatalogVehicleDocument): CatalogVehicle { return { id: document.id, normalizedPlate: document.normalizedPlate, plate: document.plate, placementFleetId: document.placementFleetId, ...(document.placement ? { placement: { ...document.placement, assignedAt: new Date(document.placement.assignedAt) } } : {}) }; }
 export function toCatalogVehicleDocument(value: CatalogVehicle, now: Date, existing?: CatalogVehicleDocument): CatalogVehicleDocument { return { schemaVersion: 1, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
 export function toCatalogGroupDomain(document: CatalogGroupDocument): CatalogGroup { return { id: document.id, label: document.label }; }
-export function toCatalogGroupDocument(value: CatalogGroup, now: Date, existing?: CatalogGroupDocument): CatalogGroupDocument { return { schemaVersion: 1, ...value, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
+export function toCatalogGroupDocument(value: CatalogGroup, now: Date, existing?: CatalogGroupDocument): CatalogGroupDocument { return { schemaVersion: 1, ...value, normalizedLabel: normalizeGroupLabel(value.label), createdAt: existing?.createdAt ?? now, updatedAt: now }; }
 export function toGroupEvidenceBindingDomain(document: GroupEvidenceBindingDocument): GroupEvidenceBinding { return { id: document.id, groupId: document.groupId, evidence: { ...document.evidence } }; }
 export function toGroupEvidenceBindingDocument(value: GroupEvidenceBinding, now: Date, existing?: GroupEvidenceBindingDocument): GroupEvidenceBindingDocument { return { schemaVersion: 1, ...value, evidence: { ...value.evidence }, createdAt: existing?.createdAt ?? now, updatedAt: now }; }
 export function toProviderDomain(document: ProviderDocument): Provider { return { id: document.id, adapterKey: document.adapterKey, capabilities: [...document.capabilities] }; }

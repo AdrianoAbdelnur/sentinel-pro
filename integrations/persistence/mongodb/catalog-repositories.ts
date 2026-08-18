@@ -1,6 +1,6 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
 import type { CatalogRepositories } from "@/application/catalog/ports";
-import { createCapabilityPolicy, type CapabilityPolicy, type CatalogVehicle, type CatalogGroup } from "@/domain/catalog";
+import { createCapabilityPolicy, normalizeGroupLabel, type CapabilityPolicy, type CatalogVehicle, type CatalogGroup } from "@/domain/catalog";
 import {
   toCatalogReviewDocument, toCatalogReviewDomain, toCatalogVehicleDocument, toCatalogVehicleDomain,
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
@@ -55,7 +55,7 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
     groups: {
       async list() { return (await groups.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
       async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toCatalogGroupDomain(document) : undefined; },
-      async findByLabel(label) { return (await groups.find({ label }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
+      async findByLabel(label) { return (await groups.find({ normalizedLabel: normalizeGroupLabel(label) }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
       async save(group) { await atomicSave(groups, { id: group.id }, toCatalogGroupDocument(group, now()), session); },
     },
     evidenceBindings: {

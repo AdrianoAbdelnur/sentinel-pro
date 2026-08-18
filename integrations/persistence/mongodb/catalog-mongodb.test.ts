@@ -167,6 +167,21 @@ describe("catalog Mongo persistence", () => {
     expect((await db.collection("group_evidence_bindings").indexes()).some((index) => index.name === "group_evidence_bindings_evidence_unique")).toBe(true);
   });
 
+  it("resolves groups by normalized label so equivalent spellings reach the ambiguity review", async () => {
+    const db = client.db(`catalog_group_label_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.groups.save({ id: "group-1", label: "North Hub" });
+    await repos.groups.save({ id: "group-2", label: "north-hub" });
+    await repos.groups.save({ id: "group-3", label: "South Hub" });
+
+    await expect(repos.groups.findByLabel("  NÓRTH  HUB ")).resolves.toEqual([
+      { id: "group-1", label: "North Hub" },
+      { id: "group-2", label: "north-hub" },
+    ]);
+    await expect(repos.groups.findByLabel("South Hub")).resolves.toEqual([{ id: "group-3", label: "South Hub" }]);
+    expect((await db.collection("catalog_groups").indexes()).some((index) => index.name === "catalog_groups_normalized_label_lookup")).toBe(true);
+  });
+
   it("persists ambiguity reviews with evidence and candidate groups", async () => {
     const db = client.db(`catalog_review_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);

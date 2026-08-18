@@ -5,7 +5,7 @@ export const catalogCollectionNames = Object.keys(catalogValidators);
 const unique = (key: Record<string, 1 | -1>, name: string) => ({ key, options: { unique: true, name } });
 export const catalogIndexes = {
   catalog_vehicles: [unique({ id: 1 }, "catalog_vehicles_id_unique"), unique({ normalizedPlate: 1 }, "catalog_vehicles_plate_unique")],
-  catalog_groups: [unique({ id: 1 }, "catalog_groups_id_unique")],
+  catalog_groups: [unique({ id: 1 }, "catalog_groups_id_unique"), { key: { normalizedLabel: 1 }, options: { name: "catalog_groups_normalized_label_lookup" } }],
   group_evidence_bindings: [unique({ id: 1 }, "group_evidence_bindings_id_unique"), unique({ "evidence.connectionId": 1, "evidence.kind": 1, "evidence.externalKey": 1 }, "group_evidence_bindings_evidence_unique"), { key: { groupId: 1 }, options: { name: "group_evidence_bindings_group_lookup" } }],
   providers: [unique({ id: 1 }, "providers_id_unique"), unique({ adapterKey: 1 }, "providers_adapter_unique")],
   provider_connections: [unique({ id: 1 }, "provider_connections_id_unique"), { key: { providerId: 1, enabled: 1 }, options: { name: "provider_connections_enabled_lookup" } }, { key: { providerId: 1 }, options: { unique: true, partialFilterExpression: { enabled: true }, name: "provider_connections_one_enabled_unique" } }],

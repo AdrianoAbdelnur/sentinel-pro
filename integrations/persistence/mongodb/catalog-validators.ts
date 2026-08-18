@@ -10,7 +10,7 @@ const schema = (required: string[], properties: Document): Document => ({ $jsonS
 
 export const catalogValidators: Record<string, Document> = {
   catalog_vehicles: schema(["id", "normalizedPlate", "plate", "placementFleetId"], { id: text, normalizedPlate: text, plate: text, placementFleetId: text, placement: { bsonType: "object", required: ["groupId", "authority", "assignedAt"], properties: { groupId: text, authority: { enum: ["authoritative", "fallback"] }, evidenceBindingId: text, assignedAt: date } } }),
-  catalog_groups: schema(["id", "label"], { id: text, label: text }),
+  catalog_groups: schema(["id", "label", "normalizedLabel"], { id: text, label: text, normalizedLabel: text }),
   group_evidence_bindings: schema(["id", "groupId", "evidence"], { id: text, groupId: text, evidence: { bsonType: "object", required: ["connectionId", "kind", "externalKey", "label", "authority"], properties: { connectionId: text, kind: { enum: ["company-label", "fleet-membership"] }, externalKey: text, label: text, authority: { enum: ["authoritative", "fallback"] } } } }),
   providers: schema(["id", "adapterKey", "capabilities"], { id: text, adapterKey: text, capabilities: { bsonType: "array", uniqueItems: true, items: text } }),
   provider_connections: schema(["id", "providerId", "credentialRef", "enabled", "cadenceMinutes"], { id: text, providerId: text, credentialRef: text, enabled: { bsonType: "bool" }, cadenceMinutes: { bsonType: "int", minimum: 1 } }),
