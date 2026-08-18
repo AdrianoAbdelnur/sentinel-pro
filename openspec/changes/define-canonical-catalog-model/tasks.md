@@ -53,5 +53,5 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Validate
 
-- [ ] 5.1 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`.
-- [ ] 5.2 Run strict OpenSpec validation; inspect `git diff --stat` and report logical edits separately from rename/deletion churn.
+- [x] 5.1 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`.
+- [x] 5.2 Run strict OpenSpec validation; inspect `git diff --stat` and report logical edits separately from rename/deletion churn.
