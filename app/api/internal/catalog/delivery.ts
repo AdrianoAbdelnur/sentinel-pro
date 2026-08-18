@@ -26,5 +26,5 @@ export function toCatalogSyncResponse(outcome: CatalogSyncOutcome) {
 
 export function projectCatalogSyncRun(run: CatalogSyncRun | undefined) {
   if (!run) return undefined;
-  return { status: run.status, trigger: run.trigger, startedAt: run.startedAt, completedAt: run.completedAt, checkpoint: run.checkpoint, counts: run.counts, snapshot: run.snapshot, ...(run.failure ? { failure: { category: run.failure.category, httpStatus: run.failure.httpStatus } } : {}) };
+  return { id: run.id, lineageId: run.lineageId, attempt: run.attempt, status: run.status, trigger: run.trigger, startedAt: run.startedAt, completedAt: run.completedAt, checkpoint: run.checkpoint, counts: run.counts, snapshot: run.snapshot, ...(run.failure ? { failure: { category: run.failure.category, httpStatus: run.failure.httpStatus } } : {}) };
 }

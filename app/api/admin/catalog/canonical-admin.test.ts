@@ -84,6 +84,32 @@ describe("canonical catalog administration", () => {
     expect(runtime.getStatus).toHaveBeenCalledWith("connection-1");
   });
 
+  it("discloses run identity, lineage, and attempt so retries stay distinguishable", async () => {
+    runtime.getStatus.mockResolvedValue({ kind: "found", status: {
+      connectionId: "connection-1",
+      isDue: false,
+      lastSuccessAt: new Date("2026-08-17T10:05:00.000Z"),
+      latestRun: {
+        id: "run-9",
+        lineageId: "lineage-3",
+        attempt: 2,
+        connectionId: "connection-1",
+        trigger: "scheduler",
+        status: "succeeded",
+        startedAt: new Date("2026-08-17T10:00:00.000Z"),
+        completedAt: new Date("2026-08-17T10:05:00.000Z"),
+        checkpoint: "external-7",
+        total: 12,
+        counts: { processed: 12, created: 3, linked: 5, reviewed: 1, rejected: 0, absent: 3 },
+        snapshot: { status: "complete" },
+      },
+    } });
+
+    const response = await getStatus(new Request("https://sentinel.test/api/admin/catalog/connections/connection-1/status", { headers }), { params: Promise.resolve({ connectionId: "connection-1" }) });
+
+    expect((await response.json()).status.latestRun).toMatchObject({ id: "run-9", lineageId: "lineage-3", attempt: 2 });
+  });
+
   it("starts manual synchronization through the canonical provider registry", async () => {
     runtime.connections.findById.mockResolvedValue({ id: "connection-1", providerId: "provider-1" });
     runtime.providers.findById.mockResolvedValue({ id: "provider-1", adapterKey: "howen", capabilities: ["video"] });
