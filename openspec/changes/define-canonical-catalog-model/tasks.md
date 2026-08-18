@@ -40,8 +40,8 @@ Chain strategy: feature-branch-chain
 
 ## Phase 3: Remove the Parallel Organizational Slice
 
-- [ ] 3.1 Delete displaced `domain/catalog/**`, `application/catalog/**`, and Mongo repositories that implement organization-owned `Company/Fleet/Vehicle`, company binding, or `Unassigned` placement.
-- [ ] 3.2 Delete their routes, admin components, compatibility loader, conversion/backfill modules, unused import-item contracts, and tests that assert only removed behavior.
+- [x] 3.1 Delete displaced `domain/catalog/**`, `application/catalog/**`, and Mongo repositories that implement organization-owned `Company/Fleet/Vehicle`, company binding, or `Unassigned` placement.
+- [x] 3.2 Delete their routes, admin components, compatibility loader, conversion/backfill modules, unused import-item contracts, and tests that assert only removed behavior.
 - [ ] 3.3 Search the repository for imports of removed modules and run focused tests before any surviving-file rename.
 
 ## Phase 4: Apply Definitive Names

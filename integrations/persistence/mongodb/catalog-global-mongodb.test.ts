@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
 import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
-import { backfillLegacyUnverifiedPlacements, createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
+import { createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
 
 let replSet: MongoMemoryReplSet;
 let client: MongoClient;
@@ -175,21 +175,6 @@ describe("global catalog v2 Mongo persistence", () => {
     expect(await repos.groups.findById("group-1")).toEqual({ id: "group-1", label: "North" });
     expect((await repos.evidenceBindings.findByGroupId("group-1"))[0].evidence.externalKey).toBe("north");
     expect((await db.collection("group_evidence_bindings_v2").indexes()).some((index) => index.name === "group_evidence_bindings_v2_evidence_unique")).toBe(true);
-  });
-
-  it("backfills an unverified placement only when its legacy fleet exists", async () => {
-    const db = client.db(`global_catalog_backfill_${Date.now()}`); await migrateGlobalCatalogDatabase(db);
-    const now = new Date("2026-08-17T12:00:00.000Z");
-    await db.collection("global_vehicles_v2").insertMany([
-      { schemaVersion: 2, id: "known", normalizedPlate: "KNOWN1", plate: "KNOWN1", placementFleetId: "fleet-known", createdAt: now, updatedAt: now },
-      { schemaVersion: 2, id: "unknown", normalizedPlate: "UNKNOWN1", plate: "UNKNOWN1", placementFleetId: "fleet-unknown", createdAt: now, updatedAt: now },
-    ]);
-    await db.collection("sentinel_fleets_v2").insertOne({ schemaVersion: 2, id: "fleet-known", label: "North", createdAt: now, updatedAt: now });
-
-    await expect(backfillLegacyUnverifiedPlacements(db, now)).resolves.toEqual({ migrated: 1, reviewed: 1 });
-    await expect(db.collection("global_vehicles_v2").findOne({ id: "known" })).resolves.toEqual(expect.objectContaining({ placement: expect.objectContaining({ groupId: "fleet-known", authority: "legacy-unverified" }) }));
-    await expect(db.collection("global_vehicles_v2").findOne({ id: "unknown" })).resolves.toEqual(expect.not.objectContaining({ placement: expect.anything() }));
-    await expect(db.collection("catalog_reviews_v2").findOne({ id: "legacy-placement:unknown" })).resolves.toEqual(expect.objectContaining({ reason: "missing-placement", candidateVehicleIds: ["unknown"], status: "pending" }));
   });
 
   it("persists ambiguity reviews with evidence and candidate groups", async () => {

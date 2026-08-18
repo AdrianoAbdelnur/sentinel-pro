@@ -1,4 +1,4 @@
-export type PlacementAuthority = "authoritative" | "fallback" | "legacy-unverified";
+export type PlacementAuthority = "authoritative" | "fallback";
 export type GroupEvidenceKind = "company-label" | "fleet-membership";
 export type GroupEvidence = Readonly<{ connectionId: string; kind: GroupEvidenceKind; externalKey: string; label: string; authority: "authoritative" | "fallback" }>;
 export type SentinelGroup = Readonly<{ id: string; label: string }>;

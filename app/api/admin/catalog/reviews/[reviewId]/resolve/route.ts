@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
 import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/v2/composition";
 
-import { toCanonicalReviewSummary } from "../../../canonical-delivery";
-import { alreadyResolved, badRequest, catalogForbidden } from "../../../delivery";
+import { alreadyResolved, toCanonicalReviewSummary } from "../../../canonical-delivery";
+import { badRequest, forbidden } from "@/app/api/internal/catalog/v2/delivery";
 
 type Context = { params: Promise<{ reviewId: string }> };
 
@@ -19,7 +19,7 @@ export async function POST(request: Request, { params }: Context) {
   switch (result.kind) {
     case "resolved": return NextResponse.json({ review: toCanonicalReviewSummary(result.review) });
     case "already-resolved": return alreadyResolved();
-    case "not-found": return catalogForbidden();
+    case "not-found": return forbidden();
     default: { const neverResult: never = result; return neverResult; }
   }
 }
