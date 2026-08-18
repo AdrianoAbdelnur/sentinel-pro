@@ -1,5 +1,5 @@
 import { matchAndApplyProviderCandidate, type ProviderCandidate } from "./match-and-apply-provider-candidate";
-import type { GlobalCatalogRepositories } from "./ports";
+import type { CatalogRepositories } from "./ports";
 import type { ProviderConnection, ProviderDefinition } from "@/domain/catalog";
 
 export type GlobalSyncTrigger = "initial" | "manual" | "internal" | "scheduler";
@@ -21,10 +21,10 @@ export type GlobalSyncOutcome =
   | { kind: "misconfigured" };
 export type GlobalSyncStatus = { connectionId: string; latestRun?: GlobalSyncRun; lastSuccessAt?: Date; isDue: boolean };
 
-export type GlobalSyncPorts = GlobalCatalogRepositories & {
+export type GlobalSyncPorts = CatalogRepositories & {
   clock: { now(): Date };
   ids: { create(): string };
-  connections: GlobalCatalogRepositories["connections"];
+  connections: CatalogRepositories["connections"];
   providers: { findById(id: string): Promise<ProviderDefinition | undefined> };
   runs: {
     findLatest(connectionId: string): Promise<GlobalSyncRun | undefined>;
@@ -39,7 +39,7 @@ export type GlobalSyncPorts = GlobalCatalogRepositories & {
     release(connectionId: string, runId: string): Promise<void>;
   };
   transactions: {
-    run<T>(work: (repositories: GlobalCatalogRepositories) => Promise<T>): Promise<T>;
+    run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T>;
     isConflict(error: unknown): boolean;
   };
 };

@@ -4,12 +4,12 @@ import {
   type OperationalSource,
 } from "@/application/live";
 import { getMongoDatabase } from "@/integrations/persistence/mongodb/client";
-import { createGlobalCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-global-repositories";
+import { createCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-repositories";
 import { loadGlobalLiveSnapshots } from "@/integrations/catalog/global-live-snapshot-adapters";
 
 async function loadCatalog(organizationId: string): Promise<GlobalCatalogLiveInput> {
   const database = await getMongoDatabase();
-  const repositories = createGlobalCatalogRepositories(database);
+  const repositories = createCatalogRepositories(database);
   const [fleets, vehicles, connections, grants, policies, providers] = await Promise.all([
     repositories.groups.list(),
     repositories.vehicles.list(),

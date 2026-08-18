@@ -1,17 +1,17 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
-import type { GlobalCatalogRepositories } from "@/application/catalog/ports";
+import type { CatalogRepositories } from "@/application/catalog/ports";
 import { createGlobalCapabilityPolicy, type GlobalCapabilityPolicy, type GlobalVehicle, type SentinelGroup } from "@/domain/catalog";
 import {
-  toGlobalCatalogReviewDocument, toGlobalCatalogReviewDomain, toGlobalVehicleDocument, toGlobalVehicleDomain,
+  toCatalogReviewDocument, toCatalogReviewDomain, toCatalogVehicleDocument, toCatalogVehicleDomain,
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
   toProviderDefinitionDocument, toProviderDefinitionDomain, toProviderFleetMembershipDocument, toProviderFleetMembershipDomain,
-  toTenantVehicleGrantDocument, toTenantVehicleGrantDomain,
-  toSentinelGroupDocument, toSentinelGroupDomain, toGroupEvidenceBindingDocument, toGroupEvidenceBindingDomain,
-  type GlobalCatalogReviewDocument, type GlobalVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
-  type ProviderDefinitionDocument, type ProviderFleetMembershipDocument, type TenantVehicleGrantDocument,
-  type SentinelGroupDocument, type GroupEvidenceBindingDocument,
-} from "./catalog-global-documents";
-import { createGlobalSyncRepositories } from "./catalog-global-sync-repositories";
+  toOrganizationVehicleAccessDocument, toOrganizationVehicleAccessDomain,
+  toCatalogGroupDocument, toCatalogGroupDomain, toGroupEvidenceBindingDocument, toGroupEvidenceBindingDomain,
+  type CatalogReviewDocument, type CatalogVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
+  type ProviderDefinitionDocument, type ProviderFleetMembershipDocument, type OrganizationVehicleAccessDocument,
+  type CatalogGroupDocument, type GroupEvidenceBindingDocument,
+} from "./catalog-documents";
+import { createCatalogSyncRepositories } from "./catalog-sync-repositories";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
@@ -20,9 +20,9 @@ const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; up
   await collection.updateOne(filter, { $set: mutable, $setOnInsert: { schemaVersion, createdAt } } as UpdateFilter<T>, { upsert: true, ...options(session) });
 };
 
-type GlobalCatalogLiveReadRepositories = {
-  groups: GlobalCatalogRepositories["groups"] & { list(): Promise<SentinelGroup[]> };
-  vehicles: GlobalCatalogRepositories["vehicles"] & { list(): Promise<GlobalVehicle[]> };
+type CatalogLiveReadRepositories = {
+  groups: CatalogRepositories["groups"] & { list(): Promise<SentinelGroup[]> };
+  vehicles: CatalogRepositories["vehicles"] & { list(): Promise<GlobalVehicle[]> };
   policies: { list(): Promise<GlobalCapabilityPolicy[]> };
 };
 
@@ -32,20 +32,20 @@ type CapabilityPolicyDocument = {
   sourceOrder: string[];
 };
 
-export function createGlobalCatalogRepositories(db: Db, session?: ClientSession): GlobalCatalogRepositories & GlobalCatalogLiveReadRepositories & ReturnType<typeof createGlobalSyncRepositories> {
-  const vehicles = db.collection<GlobalVehicleDocument>("global_vehicles_v2");
-  const providers = db.collection<ProviderDefinitionDocument>("provider_definitions_v2");
-  const connections = db.collection<ProviderConnectionDocument>("provider_connections_v2");
-  const contributions = db.collection<ProviderContributionDocument>("provider_contributions_v2");
-  const memberships = db.collection<ProviderFleetMembershipDocument>("provider_fleet_memberships_v2");
-  const grants = db.collection<TenantVehicleGrantDocument>("tenant_vehicle_grants_v2");
-  const reviews = db.collection<GlobalCatalogReviewDocument>("catalog_reviews_v2");
-  const groups = db.collection<SentinelGroupDocument>("sentinel_groups_v2");
-  const evidenceBindings = db.collection<GroupEvidenceBindingDocument>("group_evidence_bindings_v2");
-  const policies = db.collection<CapabilityPolicyDocument>("capability_policies_v2");
+export function createCatalogRepositories(db: Db, session?: ClientSession): CatalogRepositories & CatalogLiveReadRepositories & ReturnType<typeof createCatalogSyncRepositories> {
+  const vehicles = db.collection<CatalogVehicleDocument>("catalog_vehicles");
+  const providers = db.collection<ProviderDefinitionDocument>("providers");
+  const connections = db.collection<ProviderConnectionDocument>("provider_connections");
+  const contributions = db.collection<ProviderContributionDocument>("provider_contributions");
+  const memberships = db.collection<ProviderFleetMembershipDocument>("provider_fleet_memberships");
+  const grants = db.collection<OrganizationVehicleAccessDocument>("organization_vehicle_access");
+  const reviews = db.collection<CatalogReviewDocument>("catalog_reviews");
+  const groups = db.collection<CatalogGroupDocument>("catalog_groups");
+  const evidenceBindings = db.collection<GroupEvidenceBindingDocument>("group_evidence_bindings");
+  const policies = db.collection<CapabilityPolicyDocument>("capability_policies");
 
   return {
-    ...createGlobalSyncRepositories(db, session),
+    ...createCatalogSyncRepositories(db, session),
     policies: {
       async list() {
         return (await policies.find({}, options(session)).sort({ id: 1 }).toArray())
@@ -53,10 +53,10 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
       },
     },
     groups: {
-      async list() { return (await groups.find({}, options(session)).sort({ id: 1 }).toArray()).map(toSentinelGroupDomain); },
-      async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toSentinelGroupDomain(document) : undefined; },
-      async findByLabel(label) { return (await groups.find({ label }, options(session)).sort({ id: 1 }).toArray()).map(toSentinelGroupDomain); },
-      async save(group) { await atomicSave(groups, { id: group.id }, toSentinelGroupDocument(group, now()), session); },
+      async list() { return (await groups.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
+      async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toCatalogGroupDomain(document) : undefined; },
+      async findByLabel(label) { return (await groups.find({ label }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
+      async save(group) { await atomicSave(groups, { id: group.id }, toCatalogGroupDocument(group, now()), session); },
     },
     evidenceBindings: {
       async findById(id) { const document = await evidenceBindings.findOne({ id }, options(session)); return document ? toGroupEvidenceBindingDomain(document) : undefined; },
@@ -65,10 +65,10 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
       async save(binding) { await atomicSave(evidenceBindings, { id: binding.id }, toGroupEvidenceBindingDocument(binding, now()), session); },
     },
     vehicles: {
-      async list() { return (await vehicles.find({}, options(session)).sort({ id: 1 }).toArray()).map(toGlobalVehicleDomain); },
-      async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
-      async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
-      async save(vehicle) { await atomicSave(vehicles, { id: vehicle.id }, toGlobalVehicleDocument(vehicle, now()), session); },
+      async list() { return (await vehicles.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogVehicleDomain); },
+      async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },
+      async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },
+      async save(vehicle) { await atomicSave(vehicles, { id: vehicle.id }, toCatalogVehicleDocument(vehicle, now()), session); },
     },
     providers: {
       async findById(id) { const document = await providers.findOne({ id }, options(session)); return document ? toProviderDefinitionDomain(document) : undefined; },
@@ -94,15 +94,15 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
       async save(membership) { await atomicSave(memberships, { connectionId: membership.connectionId, externalFleetId: membership.externalFleetId, vehicleId: membership.vehicleId }, toProviderFleetMembershipDocument(membership, now()), session); },
     },
     grants: {
-      async listByOrganizationId(organizationId) { return (await grants.find({ organizationId }, options(session)).sort({ vehicleId: 1 }).toArray()).map(toTenantVehicleGrantDomain); },
-      async find(organizationId, vehicleId) { const document = await grants.findOne({ organizationId, vehicleId }, options(session)); return document ? toTenantVehicleGrantDomain(document) : undefined; },
-      async save(grant) { await atomicSave(grants, { organizationId: grant.organizationId, vehicleId: grant.vehicleId }, toTenantVehicleGrantDocument(grant, now()), session); },
+      async listByOrganizationId(organizationId) { return (await grants.find({ organizationId }, options(session)).sort({ vehicleId: 1 }).toArray()).map(toOrganizationVehicleAccessDomain); },
+      async find(organizationId, vehicleId) { const document = await grants.findOne({ organizationId, vehicleId }, options(session)); return document ? toOrganizationVehicleAccessDomain(document) : undefined; },
+      async save(grant) { await atomicSave(grants, { organizationId: grant.organizationId, vehicleId: grant.vehicleId }, toOrganizationVehicleAccessDocument(grant, now()), session); },
     },
     reviews: {
-      async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toGlobalCatalogReviewDomain(document) : undefined; },
-      async findByConnectionAndExternalId(connectionId, externalId) { const document = await reviews.findOne({ connectionId, externalId, status: "pending" }, options(session)); return document ? toGlobalCatalogReviewDomain(document) : undefined; },
-      async listPending() { return (await reviews.find({ status: "pending" }, options(session)).sort({ id: 1 }).toArray()).map(toGlobalCatalogReviewDomain); },
-      async save(review) { await atomicSave(reviews, { id: review.id }, toGlobalCatalogReviewDocument(review, now()), session); },
+      async findById(id) { const document = await reviews.findOne({ id }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
+      async findByConnectionAndExternalId(connectionId, externalId) { const document = await reviews.findOne({ connectionId, externalId, status: "pending" }, options(session)); return document ? toCatalogReviewDomain(document) : undefined; },
+      async listPending() { return (await reviews.find({ status: "pending" }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogReviewDomain); },
+      async save(review) { await atomicSave(reviews, { id: review.id }, toCatalogReviewDocument(review, now()), session); },
     },
   };
 }

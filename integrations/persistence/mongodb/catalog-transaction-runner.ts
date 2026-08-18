@@ -1,15 +1,15 @@
 import type { Db, MongoClient } from "mongodb";
-import type { GlobalCatalogRepositories } from "@/application/catalog/ports";
-import { createGlobalCatalogRepositories } from "./catalog-global-repositories";
+import type { CatalogRepositories } from "@/application/catalog/ports";
+import { createCatalogRepositories } from "./catalog-repositories";
 
-export class MongoGlobalCatalogTransactionRunner {
+export class MongoCatalogTransactionRunner {
   constructor(private readonly client: MongoClient, private readonly db: Db) {}
 
-  async run<T>(work: (repositories: GlobalCatalogRepositories) => Promise<T>): Promise<T> {
+  async run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T> {
     const session = this.client.startSession();
     try {
       let result!: T;
-      await session.withTransaction(async () => { result = await work(createGlobalCatalogRepositories(this.db, session)); });
+      await session.withTransaction(async () => { result = await work(createCatalogRepositories(this.db, session)); });
       return result;
     } finally { await session.endSession(); }
   }

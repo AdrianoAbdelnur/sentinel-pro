@@ -1,12 +1,12 @@
 import type { ClientSession, Db, Filter } from "mongodb";
-import type { GlobalSyncLeaseDocument, GlobalSyncRunDocument } from "./catalog-global-documents";
+import type { CatalogSyncLeaseDocument, CatalogSyncRunDocument } from "./catalog-documents";
 import type { GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const isDuplicate = (error: unknown) => typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000;
 const now = () => new Date();
 
-function toDocument(run: GlobalSyncRun, existing?: GlobalSyncRunDocument): GlobalSyncRunDocument {
+function toDocument(run: GlobalSyncRun, existing?: CatalogSyncRunDocument): CatalogSyncRunDocument {
   return {
     schemaVersion: 2,
     id: run.id,
@@ -27,10 +27,10 @@ function toDocument(run: GlobalSyncRun, existing?: GlobalSyncRunDocument): Globa
   };
 }
 
-export function createGlobalSyncRepositories(db: Db, session?: ClientSession) {
-  const runs = db.collection<GlobalSyncRunDocument>("catalog_runs_v2");
-  const leases = db.collection<GlobalSyncLeaseDocument>("catalog_leases_v2");
-  const findRun = async (filter: Filter<GlobalSyncRunDocument>) => runs.findOne(filter, options(session)) as Promise<GlobalSyncRunDocument | null>;
+export function createCatalogSyncRepositories(db: Db, session?: ClientSession) {
+  const runs = db.collection<CatalogSyncRunDocument>("catalog_runs");
+  const leases = db.collection<CatalogSyncLeaseDocument>("catalog_leases");
+  const findRun = async (filter: Filter<CatalogSyncRunDocument>) => runs.findOne(filter, options(session)) as Promise<CatalogSyncRunDocument | null>;
   const syncRuns = {
       async findLatest(connectionId: string) { return (await runs.find({ connectionId }, options(session)).sort({ startedAt: -1, attempt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },
       async findLastSuccess(connectionId: string) { return (await runs.find({ connectionId, status: "succeeded" }, options(session)).sort({ completedAt: -1 }).limit(1).next()) as GlobalSyncRun | undefined; },

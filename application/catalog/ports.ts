@@ -59,7 +59,7 @@ export type GlobalCatalogReviewRepository = {
   save(review: GlobalCatalogReview): Promise<void>;
 };
 
-export type GlobalCatalogRepositories = {
+export type CatalogRepositories = {
   vehicles: GlobalVehicleRepository;
   providers: ProviderDefinitionRepository;
   connections: ProviderConnectionRepository;
@@ -72,5 +72,5 @@ export type GlobalCatalogRepositories = {
 };
 
 export type GlobalCatalogTransactionRunner = {
-  run<T>(work: (repositories: GlobalCatalogRepositories) => Promise<T>): Promise<T>;
+  run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T>;
 };
