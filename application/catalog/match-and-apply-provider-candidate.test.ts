@@ -171,6 +171,37 @@ describe("matchAndApplyProviderCandidate", () => {
     expect(fixture.vehicles).toHaveLength(0);
   });
 
+  it("updates the stored evidence label upstream without creating a second group", async () => {
+    const fixture = createFixture();
+    const groups = new Map<string, CatalogGroup>();
+    const bindings = new Map<string, GroupEvidenceBinding>();
+    const repositories = {
+      ...fixture.dependencies,
+      groups: {
+        findById: async (id: string) => groups.get(id),
+        findByLabel: async (label: string) => [...groups.values()].filter((group) => normalizeGroupLabel(group.label) === normalizeGroupLabel(label)),
+        save: async (group: CatalogGroup) => { groups.set(group.id, group); },
+      },
+      evidenceBindings: {
+        findById: async (id: string) => bindings.get(id),
+        findByGroupId: async (groupId: string) => [...bindings.values()].filter((binding) => binding.groupId === groupId),
+        findByEvidence: async (connectionId: string, kind: string, externalKey: string) => [...bindings.values()].filter((binding) => binding.evidence.connectionId === connectionId && binding.evidence.kind === kind && binding.evidence.externalKey === externalKey),
+        save: async (binding: GroupEvidenceBinding) => { bindings.set(binding.id, binding); },
+      },
+    };
+    repositories.transactions.run = async (work) => work(repositories);
+    const evidence = (label: string) => ({ connectionId: "howen", kind: "fleet-membership" as const, externalKey: "north", label, authority: "fallback" as const });
+
+    await matchAndApplyProviderCandidate({ ...repositories, candidate: candidate({ groupEvidence: evidence("North Hub") }) });
+    const stableGroupId = [...groups.keys()][0];
+    await matchAndApplyProviderCandidate({ ...repositories, candidate: candidate({ externalId: "external-2", plate: "XYZ 789", normalizedPlate: "XYZ789", groupEvidence: evidence("North Hub Renamed") }) });
+
+    expect([...groups.values()]).toHaveLength(1);
+    expect([...bindings.values()]).toHaveLength(1);
+    expect([...bindings.values()][0]).toMatchObject({ groupId: stableGroupId, evidence: { label: "North Hub Renamed", externalKey: "north" } });
+    expect([...fixture.vehicles.values()].map((vehicle) => vehicle.placementFleetId)).toEqual([stableGroupId, stableGroupId]);
+  });
+
   it("reuses an existing external identity before evaluating plate evidence", async () => {
     const fixture = createFixture();
     const vehicle = createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "OTHER1", plate: "OTHER 1", placementFleetId: "fleet-1" });

@@ -82,6 +82,35 @@ describe("synchronize catalog connection", () => {
     expect(contributions.find((item) => item.externalId === "missing")?.presence).toBe("present");
   });
 
+  it("marks a contribution absent once a later complete snapshot omits it", async () => {
+    const { ports, contributions, setNow } = fixture();
+    const application = createSynchronizeConnectionApplication(ports);
+    const other = { ...candidate, externalId: "external-2", plate: "XYZ 789", normalizedPlate: "XYZ789" };
+    await application.synchronize({ connectionId: connection.id, trigger: "manual", source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate], evidence })) } });
+    expect(contributions).toMatchObject([{ externalId: "external-1", presence: "present" }]);
+
+    setNow("2026-08-16T14:00:00Z");
+    const result = await application.synchronize({ connectionId: connection.id, trigger: "scheduler", source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [other], evidence })) } });
+
+    expect(result).toMatchObject({ kind: "succeeded", run: { counts: { absent: 1 } } });
+    expect(contributions.find((item) => item.externalId === "external-1")).toMatchObject({ presence: "absent" });
+    expect(contributions.find((item) => item.externalId === "external-2")).toMatchObject({ presence: "present" });
+  });
+
+  it("stops processing when the lease renewal is lost but keeps the committed checkpoint", async () => {
+    const { ports, contributions } = fixture();
+    ports.leases.renew = vi.fn()
+      .mockResolvedValueOnce({ outcome: "renewed" as const })
+      .mockResolvedValueOnce({ outcome: "held" as const });
+    const other = { ...candidate, externalId: "external-2", plate: "XYZ 789", normalizedPlate: "XYZ789" };
+
+    const result = await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, other], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) } });
+
+    expect(result).toMatchObject({ kind: "failed", retryable: true, run: { checkpoint: "external-1" } });
+    expect(contributions).toMatchObject([{ externalId: "external-1" }]);
+    expect(ports.leases.release).toHaveBeenCalledWith(connection.id, expect.any(String));
+  });
+
   it("classifies authentication and connectivity failures without retrying permanent authentication errors", async () => {
     const authentication = fixture();
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "failed" as const, failure: { category: "authentication" as const } })) };
