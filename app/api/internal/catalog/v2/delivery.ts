@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 
 import type { GlobalSyncOutcome, GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
 
+export function readBearerToken(request: Request) {
+  const authorization = request.headers.get("authorization") ?? "";
+  return authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
+}
+
 export function unauthorized() { return NextResponse.json({ error: "Unauthorized." }, { status: 401 }); }
 export function forbidden() { return NextResponse.json({ error: "Forbidden." }, { status: 403 }); }
 export function badRequest() { return NextResponse.json({ error: "Invalid request." }, { status: 400 }); }

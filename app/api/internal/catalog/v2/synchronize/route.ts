@@ -1,8 +1,7 @@
 import { isValidInternalSecret } from "@/integrations/security/authorize-internal-secret";
 
 import { getGlobalCatalogSyncRuntime } from "../composition";
-import { readBearerToken } from "../../synchronize/delivery";
-import { unauthorized } from "../delivery";
+import { readBearerToken, unauthorized } from "../delivery";
 
 export const runtime = "nodejs";
 

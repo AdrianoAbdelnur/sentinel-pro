@@ -7,6 +7,10 @@ const runtime = {
   listPendingReviews: vi.fn(),
   resolveReview: vi.fn(),
   getStatus: vi.fn(),
+  synchronize: vi.fn(),
+  connections: { findById: vi.fn() },
+  providers: { findById: vi.fn() },
+  sources: { resolve: vi.fn() },
 };
 vi.mock("@/app/api/internal/catalog/v2/composition", () => ({ getGlobalCatalogSyncRuntime: async () => runtime }));
 vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => { throw new Error("organizational catalog used"); } }));
@@ -14,6 +18,7 @@ vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => { throw ne
 import { GET as listReviews } from "./reviews/route";
 import { POST as resolveReview } from "./reviews/[reviewId]/resolve/route";
 import { GET as getStatus } from "./connections/[connectionId]/status/route";
+import { POST as synchronizeConnection } from "./connections/[connectionId]/sync/route";
 
 const headers = { origin: "https://sentinel.test", cookie: "__Host-sentinel_session=opaque-token", "content-type": "application/json" };
 
@@ -77,5 +82,19 @@ describe("canonical catalog administration", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: { connectionId: "connection-1", isDue: true } });
     expect(runtime.getStatus).toHaveBeenCalledWith("connection-1");
+  });
+
+  it("starts manual synchronization through the canonical provider registry", async () => {
+    runtime.connections.findById.mockResolvedValue({ id: "connection-1", providerId: "provider-1" });
+    runtime.providers.findById.mockResolvedValue({ id: "provider-1", adapterKey: "howen", capabilities: ["video"] });
+    runtime.sources.resolve.mockReturnValue({ loadSnapshot: vi.fn() });
+    runtime.synchronize.mockResolvedValue({ kind: "succeeded", run: { counts: { processed: 1 } } });
+    const request = new Request("https://sentinel.test/api/admin/catalog/connections/connection-1/sync", { method: "POST", headers });
+
+    const response = await synchronizeConnection(request, { params: Promise.resolve({ connectionId: "connection-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(runtime.synchronize).toHaveBeenCalledWith({ connectionId: "connection-1", trigger: "manual", source: expect.anything() });
+    expect(await response.json()).toEqual({ status: "succeeded", counts: { processed: 1 } });
   });
 });

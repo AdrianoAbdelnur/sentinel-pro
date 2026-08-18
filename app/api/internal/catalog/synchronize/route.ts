@@ -1,19 +1,19 @@
 import { isValidInternalSecret } from "@/integrations/security/authorize-internal-secret";
 
-import { buildDueCandidates, getCatalogSyncRuntime, type ConnectionSourceFactories } from "./composition";
-import { readBearerToken, toSynchronizeResponse, unauthorized } from "./delivery";
+import { getGlobalCatalogSyncRuntime } from "../v2/composition";
+import { readBearerToken, unauthorized } from "../v2/delivery";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const secret = process.env.SENTINEL_CATALOG_SYNC_SECRET;
-  if (!secret || !isValidInternalSecret(readBearerToken(request), secret)) return unauthorized();
-
-  const runtime = await getCatalogSyncRuntime();
-  const { connections, synchronizeDueCatalogConnections } = runtime;
-  const registry = "registry" in runtime ? runtime.registry : (runtime as { factories: ConnectionSourceFactories }).factories;
-  const { candidates, unsupported, missingCompanyAssignment, misconfigured } = await buildDueCandidates(connections, registry);
-  const { results } = await synchronizeDueCatalogConnections({ candidates });
-
-  return toSynchronizeResponse(results, unsupported, missingCompanyAssignment, misconfigured);
+  const expected = process.env.SENTINEL_CATALOG_SYNC_SECRET;
+  if (!expected || !isValidInternalSecret(readBearerToken(request), expected)) return unauthorized();
+  const catalog = await getGlobalCatalogSyncRuntime();
+  const results = [];
+  for (const connection of await catalog.listDueConnections()) {
+    const provider = await catalog.providers.findById(connection.providerId);
+    const source = provider ? catalog.sources.resolve(connection, provider) : undefined;
+    results.push(source ? await catalog.synchronize({ connectionId: connection.id, trigger: "scheduler", source }) : { kind: "misconfigured" as const });
+  }
+  return Response.json({ results: results.map((outcome) => outcome.kind === "failed" ? { kind: outcome.kind, retryable: outcome.retryable, failureCategory: outcome.failure.category } : { kind: outcome.kind }) });
 }
