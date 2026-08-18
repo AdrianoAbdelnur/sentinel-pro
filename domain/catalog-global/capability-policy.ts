@@ -18,7 +18,7 @@ export function createGlobalCapabilityPolicy(input: GlobalCapabilityPolicyInput)
 }
 
 export const DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER: Readonly<Record<string, GlobalCapabilitySourceOrder>> = Object.freeze({
-  gps: Object.freeze(["cybermapa"]),
+  gps: Object.freeze(["cybermapa", "howen"]),
   operationalAlerts: Object.freeze(["cybermapa"]),
   video: Object.freeze(["howen"]),
   videoAlerts: Object.freeze(["howen"]),

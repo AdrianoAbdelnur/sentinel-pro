@@ -56,7 +56,7 @@ describe("seedHowenCatalog", () => {
 
     expect(result.outcomes).toMatchObject([{ kind: "matched", vehicleId: "cybermapa-vehicle" }]);
     expect(fixture.vehicles.get("cybermapa-vehicle")?.placementFleetId).toBe("sentinel-cybermapa");
-    expect([...fixture.contributions.values()]).toEqual([{ id: "id-1", connectionId: "howen-connection", externalId: "howen-device-1", vehicleId: "cybermapa-vehicle", capabilities: { video: "eligible", videoAlerts: "eligible" }, presence: "present" }]);
+    expect([...fixture.contributions.values()]).toEqual([{ id: "id-1", connectionId: "howen-connection", externalId: "howen-device-1", vehicleId: "cybermapa-vehicle", capabilities: { gps: "eligible", video: "eligible", videoAlerts: "eligible" }, presence: "present" }]);
     expect([...fixture.memberships.values()]).toEqual([{ connectionId: "howen-connection", externalFleetId: "howen-fleet-1", vehicleId: "cybermapa-vehicle", label: "Howen North" }]);
   });
 

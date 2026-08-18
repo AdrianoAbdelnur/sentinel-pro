@@ -10,8 +10,14 @@ const sourceComposition = vi.hoisted(() => ({
   create: vi.fn(),
 }));
 
+const catalogComposition = vi.hoisted(() => ({ create: vi.fn() }));
+
 vi.mock("./create-operational-sources", () => ({
   createOperationalSources: sourceComposition.create,
+}));
+
+vi.mock("./create-global-catalog-source", () => ({
+  createGlobalCatalogSource: catalogComposition.create,
 }));
 
 vi.mock("./live-logout-button", () => ({
@@ -83,6 +89,20 @@ describe("LivePage operational composition", () => {
     vi.unstubAllEnvs();
     sourceComposition.sources = [];
     sourceComposition.create.mockReset();
+    catalogComposition.create.mockReset();
+  });
+
+  it("uses the organization-scoped canonical catalog as the only production source", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const catalog = source("canonical-catalog", "Catálogo", { kind: "success", state: howenState });
+    catalogComposition.create.mockReturnValue(catalog);
+    sourceComposition.create.mockImplementation((_config, dependencies) => [dependencies.catalogSource]);
+
+    render(await LivePage());
+
+    expect(catalogComposition.create).toHaveBeenCalledWith("o");
+    expect(sourceComposition.create).toHaveBeenCalledWith(expect.objectContaining({ includeDevelopmentFixtures: false }), { catalogSource: catalog });
+    expect(catalog.loadSnapshot).toHaveBeenCalledOnce();
   });
 
   it("aggregates configured sources once and retains successful Howen data beside a warning", async () => {

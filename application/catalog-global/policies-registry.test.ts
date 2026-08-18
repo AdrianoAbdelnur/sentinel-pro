@@ -6,7 +6,7 @@ import type { GlobalCapabilityPolicy } from "@/domain/catalog-global";
 describe("global capability policies", () => {
   it("resolves the default GPS and video sources", async () => {
     const app = createGlobalCapabilityPolicyApplication({ policies: { find: async () => undefined, save: async () => undefined } });
-    await expect(app.resolve("gps")).resolves.toEqual(["cybermapa"]);
+    await expect(app.resolve("gps")).resolves.toEqual(["cybermapa", "howen"]);
     await expect(app.resolve("video")).resolves.toEqual(["howen"]);
   });
 
@@ -14,7 +14,7 @@ describe("global capability policies", () => {
     let policy: GlobalCapabilityPolicy | undefined;
     const app = createGlobalCapabilityPolicyApplication({ policies: { find: async () => policy, save: async (value) => { policy = value; } } });
     await app.overrideDirectGps("direct-gps");
-    await expect(app.resolve("gps")).resolves.toEqual(["direct-gps", "cybermapa"]);
+    await expect(app.resolve("gps")).resolves.toEqual(["direct-gps", "cybermapa", "howen"]);
   });
 });
 

@@ -8,7 +8,7 @@ import type {
 } from "@/domain/catalog-global";
 import type { Device, DeviceTelemetry } from "@/domain/live";
 
-import type { LiveState, LiveVehicleState } from "./contracts";
+import type { LiveState, LiveVehicleState, OperationalSource } from "./contracts";
 
 export type GlobalCatalogFleet = {
   id: string;
@@ -55,13 +55,20 @@ function resolveSource(
   contributions: readonly ProviderContribution[],
   providers: Map<string, string>,
   policies: readonly GlobalCapabilityPolicy[],
+  snapshots: GlobalCatalogLiveInput["sourceSnapshots"],
 ): ResolvedCapabilitySource | undefined {
   const eligible = new Map<string, ProviderContribution>();
   for (const contribution of contributions) {
     const provider = providers.get(contribution.connectionId);
     const status = contribution.capabilities[capability];
     if (!provider || contribution.presence !== "present" || !status) continue;
-    if (status === "eligible") eligible.set(provider, contribution);
+    const snapshot = snapshots[contribution.connectionId]?.[contribution.externalId];
+    const hasOperationalData = capability === "gps"
+      ? snapshot?.telemetry !== undefined
+      : capability === "video"
+        ? snapshot?.device !== undefined
+        : true;
+    if (status === "eligible" && hasOperationalData) eligible.set(provider, contribution);
   }
   for (const source of sourceOrder(capability, policies)) {
     const contribution = eligible.get(source);
@@ -79,10 +86,10 @@ function snapshotFor(
 
 function projectVehicle(vehicle: GlobalVehicle, input: GlobalCatalogLiveInput, providers: Map<string, string>): LiveVehicleState {
   const contributions = input.contributions.filter((contribution) => contribution.vehicleId === vehicle.id);
-  const gpsSource = resolveSource("gps", contributions, providers, input.policies);
-  const videoSource = resolveSource("video", contributions, providers, input.policies);
-  const operationalAlertsSource = resolveSource("operationalAlerts", contributions, providers, input.policies);
-  const videoAlertsSource = resolveSource("videoAlerts", contributions, providers, input.policies);
+  const gpsSource = resolveSource("gps", contributions, providers, input.policies, input.sourceSnapshots);
+  const videoSource = resolveSource("video", contributions, providers, input.policies, input.sourceSnapshots);
+  const operationalAlertsSource = resolveSource("operationalAlerts", contributions, providers, input.policies, input.sourceSnapshots);
+  const videoAlertsSource = resolveSource("videoAlerts", contributions, providers, input.policies, input.sourceSnapshots);
   const gps = snapshotFor(gpsSource, input.sourceSnapshots);
   const video = snapshotFor(videoSource, input.sourceSnapshots);
 
@@ -118,5 +125,22 @@ export function createGlobalCatalogLiveProjector() {
       .filter((fleet) => fleet.vehicleIds.length > 0);
 
     return { fleets, liveVehicles };
+  };
+}
+
+export function createGlobalCatalogOperationalSource(
+  loadInput: () => Promise<GlobalCatalogLiveInput>,
+): OperationalSource {
+  const project = createGlobalCatalogLiveProjector();
+
+  return {
+    identity: { id: "canonical-catalog", label: "Catálogo" },
+    async loadSnapshot() {
+      try {
+        return { kind: "success", state: project(await loadInput()) };
+      } catch {
+        return { kind: "failure", code: "unavailable" };
+      }
+    },
   };
 }

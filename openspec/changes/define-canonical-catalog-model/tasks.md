@@ -35,7 +35,7 @@ Chain strategy: feature-branch-chain
 
 - [x] 2.1 Retarget `app/api/admin/catalog/**` and `app/admin/catalog/**` review/status consumers to `application/catalog-global/**`; preserve existing authorization and review decisions.
 - [x] 2.2 Retarget `app/api/internal/catalog/synchronize/**` and `integrations/catalog/**` adapters to the same synchronization contracts; preserve provider mapping, matching, checkpoint, and lease behavior.
-- [ ] 2.3 Wire `application/live/project-global-catalog-live.ts` into `app/live/**` as the production catalog source; preserve organization-grant filtering and the provider-neutral Live output.
+- [x] 2.3 Wire `application/live/project-global-catalog-live.ts` into `app/live/**` as the production catalog source; preserve organization-grant filtering and the provider-neutral Live output.
 - [ ] 2.4 Run focused route, adapter, synchronization, review, import, and Live regression tests; prove the organizational slice has no remaining production consumers.
 
 ## Phase 3: Remove the Parallel Organizational Slice

@@ -1,5 +1,6 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
 import type { GlobalCatalogRepositories } from "@/application/catalog-global/ports";
+import { createGlobalCapabilityPolicy, type GlobalCapabilityPolicy, type GlobalVehicle, type SentinelGroup } from "@/domain/catalog-global";
 import {
   toGlobalCatalogReviewDocument, toGlobalCatalogReviewDomain, toGlobalVehicleDocument, toGlobalVehicleDomain,
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
@@ -19,7 +20,19 @@ const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; up
   await collection.updateOne(filter, { $set: mutable, $setOnInsert: { schemaVersion, createdAt } } as UpdateFilter<T>, { upsert: true, ...options(session) });
 };
 
-export function createGlobalCatalogRepositories(db: Db, session?: ClientSession): GlobalCatalogRepositories & ReturnType<typeof createGlobalSyncRepositories> {
+type GlobalCatalogLiveReadRepositories = {
+  groups: GlobalCatalogRepositories["groups"] & { list(): Promise<SentinelGroup[]> };
+  vehicles: GlobalCatalogRepositories["vehicles"] & { list(): Promise<GlobalVehicle[]> };
+  policies: { list(): Promise<GlobalCapabilityPolicy[]> };
+};
+
+type CapabilityPolicyDocument = {
+  id: string;
+  capability: string;
+  sourceOrder: string[];
+};
+
+export function createGlobalCatalogRepositories(db: Db, session?: ClientSession): GlobalCatalogRepositories & GlobalCatalogLiveReadRepositories & ReturnType<typeof createGlobalSyncRepositories> {
   const vehicles = db.collection<GlobalVehicleDocument>("global_vehicles_v2");
   const providers = db.collection<ProviderDefinitionDocument>("provider_definitions_v2");
   const connections = db.collection<ProviderConnectionDocument>("provider_connections_v2");
@@ -29,10 +42,18 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
   const reviews = db.collection<GlobalCatalogReviewDocument>("catalog_reviews_v2");
   const groups = db.collection<SentinelGroupDocument>("sentinel_groups_v2");
   const evidenceBindings = db.collection<GroupEvidenceBindingDocument>("group_evidence_bindings_v2");
+  const policies = db.collection<CapabilityPolicyDocument>("capability_policies_v2");
 
   return {
     ...createGlobalSyncRepositories(db, session),
+    policies: {
+      async list() {
+        return (await policies.find({}, options(session)).sort({ id: 1 }).toArray())
+          .map(({ id, capability, sourceOrder }) => createGlobalCapabilityPolicy({ id, capability, sourceOrder }));
+      },
+    },
     groups: {
+      async list() { return (await groups.find({}, options(session)).sort({ id: 1 }).toArray()).map(toSentinelGroupDomain); },
       async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toSentinelGroupDomain(document) : undefined; },
       async findByLabel(label) { return (await groups.find({ label }, options(session)).sort({ id: 1 }).toArray()).map(toSentinelGroupDomain); },
       async save(group) { await atomicSave(groups, { id: group.id }, toSentinelGroupDocument(group, now()), session); },
@@ -44,6 +65,7 @@ export function createGlobalCatalogRepositories(db: Db, session?: ClientSession)
       async save(binding) { await atomicSave(evidenceBindings, { id: binding.id }, toGroupEvidenceBindingDocument(binding, now()), session); },
     },
     vehicles: {
+      async list() { return (await vehicles.find({}, options(session)).sort({ id: 1 }).toArray()).map(toGlobalVehicleDomain); },
       async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
       async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toGlobalVehicleDomain(document) : undefined; },
       async save(vehicle) { await atomicSave(vehicles, { id: vehicle.id }, toGlobalVehicleDocument(vehicle, now()), session); },

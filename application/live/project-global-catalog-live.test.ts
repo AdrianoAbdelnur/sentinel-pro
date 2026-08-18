@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createGlobalCatalogOperationalSource,
   createGlobalCatalogLiveProjector,
   type GlobalCatalogLiveInput,
 } from "./project-global-catalog-live";
+
+it("exposes the canonical projection through the provider-neutral operational source contract", async () => {
+  const source = createGlobalCatalogOperationalSource(async () => input);
+
+  await expect(source.loadSnapshot()).resolves.toEqual({ kind: "success", state: createGlobalCatalogLiveProjector()(input) });
+  expect(source.identity).toEqual({ id: "canonical-catalog", label: "Catálogo" });
+});
+
+it("translates catalog loading failures to the provider-neutral unavailable result", async () => {
+  const source = createGlobalCatalogOperationalSource(async () => {
+    throw new Error("mongodb secret failure");
+  });
+
+  await expect(source.loadSnapshot()).resolves.toEqual({ kind: "failure", code: "unavailable" });
+});
 
 const input: GlobalCatalogLiveInput = {
   organizationId: "org-1",
@@ -31,6 +47,64 @@ const input: GlobalCatalogLiveInput = {
 };
 
 describe("projectGlobalCatalogLive", () => {
+  it("falls back to eligible Howen telemetry when no preferred Cybermapa contribution exists", () => {
+    const state = createGlobalCatalogLiveProjector()({
+      ...input,
+      contributions: [{
+        id: "contribution-howen",
+        connectionId: "connection-howen",
+        externalId: "howen-1",
+        vehicleId: "vehicle-assigned",
+        capabilities: { gps: "eligible", video: "eligible" },
+        presence: "present",
+      }],
+      connections: [{ id: "connection-howen", providerId: "howen", credentialRef: "ref", enabled: true, cadenceMinutes: 60 }],
+      sourceSnapshots: {
+        "connection-howen": {
+          "howen-1": {
+            device: { id: "device-howen", vehicleId: "vehicle-assigned", provider: "HOWEN", origin: "howen", kind: "mdvr", isActive: true },
+            telemetry: { deviceId: "device-howen", online: true, latitude: -34.6, longitude: -58.4 },
+          },
+        },
+      },
+    });
+
+    expect(state.liveVehicles[0]).toMatchObject({
+      device: { id: "device-howen" },
+      telemetry: { deviceId: "device-howen", latitude: -34.6, longitude: -58.4 },
+    });
+  });
+
+  it("falls back to Howen telemetry when the preferred Cybermapa contribution has no live snapshot", () => {
+    const state = createGlobalCatalogLiveProjector()({
+      ...input,
+      contributions: [
+        ...input.contributions,
+        {
+          id: "contribution-howen",
+          connectionId: "connection-howen",
+          externalId: "howen-1",
+          vehicleId: "vehicle-assigned",
+          capabilities: { gps: "eligible", video: "eligible" },
+          presence: "present",
+        },
+      ],
+      connections: [
+        ...input.connections,
+        { id: "connection-howen", providerId: "howen", credentialRef: "ref", enabled: true, cadenceMinutes: 60 },
+      ],
+      sourceSnapshots: {
+        "connection-howen": {
+          "howen-1": {
+            telemetry: { deviceId: "device-howen", online: true, latitude: -34.6, longitude: -58.4 },
+          },
+        },
+      },
+    });
+
+    expect(state.liveVehicles[0].telemetry).toMatchObject({ deviceId: "device-howen", latitude: -34.6 });
+  });
+
   it("discloses only vehicles assigned to the requesting organization", () => {
     const state = createGlobalCatalogLiveProjector()(input);
 

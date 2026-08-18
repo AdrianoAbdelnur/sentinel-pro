@@ -12,6 +12,25 @@ afterAll(async () => { await client?.close(); await replSet?.stop(); });
 const vehicle = (id: string, plate = "ABC123") => ({ id, normalizedPlate: plate, plate, placementFleetId: `fleet-${id}` });
 
 describe("global catalog v2 Mongo persistence", () => {
+  it("lists the canonical records required by the Live projection", async () => {
+    const db = client.db(`global_catalog_live_${Date.now()}`);
+    await migrateGlobalCatalogDatabase(db);
+    const repos = createGlobalCatalogRepositories(db);
+    await repos.groups.save({ id: "group-1", label: "North" });
+    await repos.vehicles.save(vehicle("vehicle-1"));
+    await repos.connections.save({ id: "connection-1", providerId: "provider-1", credentialRef: "vault:provider", enabled: true, cadenceMinutes: 60 });
+    await repos.contributions.save({ id: "contribution-1", connectionId: "connection-1", externalId: "external-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
+    await repos.grants.save({ organizationId: "organization-1", vehicleId: "vehicle-1" });
+    const now = new Date();
+    await db.collection("capability_policies_v2").insertOne({ schemaVersion: 2, id: "global:gps", scope: "organization", scopeId: "platform", capability: "gps", sourceOrder: ["provider-1"], createdAt: now, updatedAt: now });
+
+    await expect(repos.groups.list()).resolves.toEqual([{ id: "group-1", label: "North" }]);
+    await expect(repos.vehicles.list()).resolves.toEqual([vehicle("vehicle-1")]);
+    await expect(repos.connections.listEnabled()).resolves.toHaveLength(1);
+    await expect(repos.contributions.listByConnectionId("connection-1")).resolves.toHaveLength(1);
+    await expect(repos.grants.listByOrganizationId("organization-1")).resolves.toEqual([{ organizationId: "organization-1", vehicleId: "vehicle-1" }]);
+    await expect(repos.policies.list()).resolves.toEqual([{ id: "global:gps", capability: "gps", sourceOrder: ["provider-1"] }]);
+  });
   it("creates strict v2 validators and unique indexes idempotently", async () => {
     const db = client.db(`global_catalog_${Date.now()}`);
     await migrateGlobalCatalogDatabase(db);
