@@ -1,9 +1,7 @@
-import type { CatalogReviewSubject, CatalogSyncCounts, CatalogSyncRunStatus, CatalogSyncTrigger } from "@/domain/catalog";
+import type { GlobalSyncCounts, GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
 
-export const RUN_STATUS_LABELS: Record<CatalogSyncRunStatus, string> = { active: "En curso", succeeded: "Exitosa", failed: "Fallida" };
+export const RUN_STATUS_LABELS: Record<GlobalSyncRun["status"], string> = { active: "En curso", succeeded: "Exitosa", failed: "Fallida" };
 
-export const RUN_TRIGGER_LABELS: Record<CatalogSyncTrigger, string> = { initial: "Inicial", scheduled: "Programada", manual: "Manual" };
+export const RUN_TRIGGER_LABELS: Record<GlobalSyncRun["trigger"], string> = { initial: "Inicial", manual: "Manual", internal: "Interna", scheduler: "Programada" };
 
-export const COUNT_LABELS: Record<keyof CatalogSyncCounts, string> = { processed: "Procesados", created: "Creados", linked: "Vinculados", reviewed: "En revisión", rejected: "Rechazados", absent: "Ausentes" };
-
-export const REVIEW_SUBJECT_LABELS: Record<CatalogReviewSubject, string> = { "fleet-binding": "Vinculación de flota", "vehicle-match": "Coincidencia de vehículo" };
+export const COUNT_LABELS: Record<keyof GlobalSyncCounts, string> = { processed: "Procesados", created: "Creados", linked: "Vinculados", reviewed: "En revisión", rejected: "Rechazados", absent: "Ausentes" };

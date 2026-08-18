@@ -4,11 +4,17 @@ import { useState } from "react";
 
 import { requestCatalogApi } from "./catalog-client";
 import { COUNT_LABELS, RUN_STATUS_LABELS, RUN_TRIGGER_LABELS } from "./catalog-copy";
-import { formatSyncDateTime, translateSyncFailureSummary } from "./format-sync-status";
+import { formatSyncDateTime } from "./format-sync-status";
 
 type SyncCounts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
-type LatestRun = { status: "active" | "succeeded" | "failed"; trigger: "initial" | "scheduled" | "manual"; startedAt: string; completedAt?: string; counts: SyncCounts; failureSummary?: string };
+type LatestRun = { status: "active" | "succeeded" | "failed"; trigger: "initial" | "manual" | "internal" | "scheduler"; startedAt: string; completedAt?: string; counts: SyncCounts; failure?: { category: string; httpStatus?: number } };
 type SyncStatus = { connectionId: string; latestRun?: LatestRun; lastSuccessAt?: string; isDue: boolean };
+
+function failureMessage(failure: LatestRun["failure"]) {
+  if (!failure) return undefined;
+  const labels: Record<string, string> = { authentication: "Falló la autenticación", connectivity: "Falló la conexión", "invalid-response": "El proveedor respondió datos inválidos", timeout: "La solicitud agotó el tiempo", "rate-limited": "El proveedor limitó las solicitudes", internal: "Ocurrió un error interno" };
+  return `${labels[failure.category] ?? "Falló la sincronización"}${failure.httpStatus ? ` - HTTP ${failure.httpStatus}` : ""}`;
+}
 
 export function ConnectionSyncPanel() {
   const [connectionId, setConnectionId] = useState("");
@@ -67,7 +73,7 @@ export function ConnectionSyncPanel() {
               <p>Inicio: {formatSyncDateTime(latestRun.startedAt)}</p>
               <p>Fin: {formatSyncDateTime(latestRun.completedAt)}</p>
               <ul>{(Object.keys(COUNT_LABELS) as (keyof SyncCounts)[]).map((key) => <li key={key}>{COUNT_LABELS[key]}: {latestRun.counts[key]}</li>)}</ul>
-              {latestRun.failureSummary ? <p role="alert">{translateSyncFailureSummary(latestRun.failureSummary)}</p> : null}
+              {latestRun.failure ? <p role="alert">{failureMessage(latestRun.failure)}</p> : null}
             </>
           ) : <p>Todavía no hay sincronizaciones registradas.</p>}
         </section>

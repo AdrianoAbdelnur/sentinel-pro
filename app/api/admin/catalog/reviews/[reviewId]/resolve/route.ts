@@ -1,27 +1,25 @@
 import { NextResponse } from "next/server";
 
-import { authorizeAdminRequest, readJson } from "@/app/api/admin/users/delivery";
+import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
+import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/v2/composition";
 
-import { getCatalogAdminRuntime } from "../../../composition";
-import { alreadyResolved, badRequest, catalogForbidden, parseReviewTarget, reviewIdentityConflict, toReviewSummary, unsupportedResolution } from "../../../delivery";
+import { toCanonicalReviewSummary } from "../../../canonical-delivery";
+import { alreadyResolved, badRequest, catalogForbidden } from "../../../delivery";
 
 type Context = { params: Promise<{ reviewId: string }> };
 
 export async function POST(request: Request, { params }: Context) {
-  const actor = await authorizeAdminRequest(request);
+  const actor = await authorizePlatformRequest(request);
   if (actor instanceof NextResponse) return actor;
   const { reviewId } = await params;
   const body = await readJson(request);
-  const target = body && parseReviewTarget(body);
-  if (!reviewId.trim() || !target) return badRequest();
-  const { resolveCatalogReview } = await getCatalogAdminRuntime();
-  const result = await resolveCatalogReview({ actor, reviewId, target });
+  const targetId = typeof body?.targetId === "string" ? body.targetId.trim() : "";
+  if (!reviewId.trim() || !targetId) return badRequest();
+  const result = await (await getGlobalCatalogSyncRuntime()).resolveReview(reviewId, targetId);
   switch (result.kind) {
-    case "resolved": return NextResponse.json({ review: toReviewSummary(result.review) });
+    case "resolved": return NextResponse.json({ review: toCanonicalReviewSummary(result.review) });
     case "already-resolved": return alreadyResolved();
-    case "conflict": return reviewIdentityConflict();
-    case "not-found": case "forbidden": return catalogForbidden();
-    case "unsupported": return unsupportedResolution();
+    case "not-found": return catalogForbidden();
     default: { const neverResult: never = result; return neverResult; }
   }
 }

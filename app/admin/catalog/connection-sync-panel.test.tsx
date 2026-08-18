@@ -36,7 +36,7 @@ describe("ConnectionSyncPanel", () => {
   });
 
   it("muestra el resumen de una falla sanitizado y traducido al español", async () => {
-    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: { connectionId: "conn-1", latestRun: { status: "failed", trigger: "scheduled", startedAt: "2026-08-09T10:00:00.000Z", completedAt: "2026-08-09T10:01:00.000Z", counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, failureSummary: "Authentication failed - HTTP 401" }, isDue: true } });
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ status: { connectionId: "conn-1", latestRun: { status: "failed", trigger: "scheduler", startedAt: "2026-08-09T10:00:00.000Z", completedAt: "2026-08-09T10:01:00.000Z", counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, failure: { category: "authentication", httpStatus: 401 } }, isDue: true } });
     render(<ConnectionSyncPanel />);
     await fillConnectionId();
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));

@@ -6,70 +6,45 @@ vi.mock("./catalog-client", () => ({ requestCatalogApi }));
 
 import { ReviewItem } from "./review-item";
 
-const FLEET_REVIEW = { id: "review-1", externalId: "ext-1", subject: "fleet-binding" as const, status: "pending" as const, candidateFleetIds: ["fleet-a", "fleet-b"] };
-const VEHICLE_REVIEW = { id: "review-2", externalId: "ext-2", subject: "vehicle-match" as const, status: "pending" as const, candidateVehicleIds: [] };
+const REVIEW = {
+  id: "review-1",
+  externalId: "external-1",
+  subject: "vehicle-identity" as const,
+  reason: "ambiguous-match" as const,
+  status: "pending" as const,
+  candidateVehicleIds: ["vehicle-1", "vehicle-2"],
+};
 
 describe("ReviewItem", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("muestra una revisión de vinculación de flota en español, sin la opción de Vehículo nuevo", () => {
-    render(<ReviewItem onResolved={vi.fn()} review={FLEET_REVIEW} />);
-    expect(screen.getByText("Vinculación de flota — Pendiente")).toBeInTheDocument();
-    expect(screen.getByText("Candidatos (IDs): fleet-a, fleet-b")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Resolver a Vehículo nuevo" })).not.toBeInTheDocument();
-    expect(screen.getByText(/solo pueden resolverse a una Fleet existente/)).toBeInTheDocument();
+  it("shows canonical vehicle candidates without legacy creation or fleet actions", () => {
+    render(<ReviewItem onResolved={vi.fn()} review={REVIEW} />);
+
+    expect(screen.getByText("Identidad de vehículo — Pendiente")).toBeInTheDocument();
+    expect(screen.getByText("Candidatos (IDs): vehicle-1, vehicle-2")).toBeInTheDocument();
+    expect(screen.getByLabelText("ID del vehículo existente")).toBeInTheDocument();
+    expect(screen.queryByText(/Company|Fleet|nuevo/i)).not.toBeInTheDocument();
   });
 
-  it("muestra 'Sin candidatos.' cuando no hay candidatos y ofrece resolver a Vehículo nuevo", () => {
-    render(<ReviewItem onResolved={vi.fn()} review={VEHICLE_REVIEW} />);
-    expect(screen.getByText("Candidatos (IDs): Sin candidatos.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Resolver a Vehículo nuevo" })).toBeInTheDocument();
-    expect(screen.queryByText(/solo pueden resolverse a una Fleet existente/)).not.toBeInTheDocument();
-  });
-
-  it("respeta el estado deshabilitado, resuelve a un destino existente y reporta un rechazo sin notificar", async () => {
+  it("resolves to an existing canonical vehicle and reports server rejection", async () => {
     const onResolved = vi.fn();
-    render(<ReviewItem onResolved={onResolved} review={FLEET_REVIEW} />);
-    const resolveButton = screen.getByRole("button", { name: "Resolver a existente" });
-    expect(resolveButton).toBeDisabled();
-    const input = screen.getByLabelText("ID de la Fleet existente");
-    fireEvent.change(input, { target: { value: "fleet-a" } });
-    expect(resolveButton).toBeEnabled();
-    let resolve!: (value: { review: { id: string } }) => void;
-    vi.mocked(requestCatalogApi).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    fireEvent.click(resolveButton);
-    expect(resolveButton).toBeDisabled();
-    resolve({ review: { id: "review-1" } });
+    render(<ReviewItem onResolved={onResolved} review={REVIEW} />);
+    const input = screen.getByLabelText("ID del vehículo existente");
+    const button = screen.getByRole("button", { name: "Resolver a vehículo" });
+    expect(button).toBeDisabled();
+
+    fireEvent.change(input, { target: { value: "  vehicle-1  " } });
+    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ review: { id: "review-1" } });
+    fireEvent.click(button);
+
     await waitFor(() => expect(onResolved).toHaveBeenCalledWith("review-1"));
-    expect(requestCatalogApi).toHaveBeenCalledWith("/api/admin/catalog/reviews/review-1/resolve", { method: "POST", body: JSON.stringify({ targetId: "fleet-a" }) });
-    fireEvent.change(input, { target: { value: "fleet-b" } });
+    expect(requestCatalogApi).toHaveBeenCalledWith("/api/admin/catalog/reviews/review-1/resolve", { method: "POST", body: JSON.stringify({ targetId: "vehicle-1" }) });
+
+    fireEvent.change(input, { target: { value: "vehicle-2" } });
     vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "Esta revisión ya fue resuelta." });
-    fireEvent.click(screen.getByRole("button", { name: "Resolver a existente" }));
+    fireEvent.click(button);
     expect(await screen.findByRole("alert")).toHaveTextContent("Esta revisión ya fue resuelta.");
     expect(onResolved).toHaveBeenCalledTimes(1);
-  });
-
-  it("recorta espacios del ID de destino antes de enviarlo al servidor", async () => {
-    const onResolved = vi.fn();
-    render(<ReviewItem onResolved={onResolved} review={FLEET_REVIEW} />);
-    fireEvent.change(screen.getByLabelText("ID de la Fleet existente"), { target: { value: "  fleet-a  " } });
-    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ review: { id: "review-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Resolver a existente" }));
-    await waitFor(() => expect(onResolved).toHaveBeenCalledWith("review-1"));
-    expect(requestCatalogApi).toHaveBeenCalledWith("/api/admin/catalog/reviews/review-1/resolve", { method: "POST", body: JSON.stringify({ targetId: "fleet-a" }) });
-  });
-
-  it("resuelve una coincidencia de vehículo a un Vehículo nuevo y usa la etiqueta de destino correcta", async () => {
-    const onResolved = vi.fn();
-    render(<ReviewItem onResolved={onResolved} review={VEHICLE_REVIEW} />);
-    expect(screen.getByLabelText("ID del Vehículo existente")).toBeInTheDocument();
-    let resolve!: (value: { review: { id: string } }) => void;
-    vi.mocked(requestCatalogApi).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
-    const newButton = screen.getByRole("button", { name: "Resolver a Vehículo nuevo" });
-    fireEvent.click(newButton);
-    expect(newButton).toBeDisabled();
-    resolve({ review: { id: "review-2" } });
-    await waitFor(() => expect(onResolved).toHaveBeenCalledWith("review-2"));
-    expect(requestCatalogApi).toHaveBeenCalledWith("/api/admin/catalog/reviews/review-2/resolve", { method: "POST", body: JSON.stringify({ new: true }) });
   });
 });
