@@ -8,7 +8,7 @@ import {
 } from "@/integrations/live/in-memory/in-memory-live-data-source";
 
 import { createOperationalSources } from "./create-operational-sources";
-import { createGlobalCatalogSource } from "./create-global-catalog-source";
+import { createGlobalCatalogSource } from "./create-catalog-source";
 import { readLiveRuntimeConfig } from "./live-runtime-config";
 import { requirePageAuthorization } from "../require-page-authorization";
 

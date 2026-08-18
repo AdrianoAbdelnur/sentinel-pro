@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizePlatformRequest } from "@/app/api/admin/users/delivery";
-import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/v2/composition";
+import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/composition";
 
 import { toCanonicalReviewSummary } from "../canonical-delivery";
 

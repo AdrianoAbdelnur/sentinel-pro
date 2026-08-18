@@ -5,4 +5,4 @@ export * from "./build-live-page-view-model";
 export * from "./build-live-sidebar-view-model";
 export * from "./contracts";
 export * from "./open-vehicle-live";
-export * from "./project-global-catalog-live";
+export * from "./project-catalog-live";

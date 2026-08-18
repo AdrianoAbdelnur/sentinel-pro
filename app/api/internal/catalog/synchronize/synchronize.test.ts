@@ -6,7 +6,7 @@ const runtime = {
   providers: { findById: vi.fn() },
   sources: { resolve: vi.fn() },
 };
-vi.mock("../v2/composition", () => ({ getGlobalCatalogSyncRuntime: async () => runtime }));
+vi.mock("../composition", () => ({ getGlobalCatalogSyncRuntime: async () => runtime }));
 
 import { POST } from "./route";
 

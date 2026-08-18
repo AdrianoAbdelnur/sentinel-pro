@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog/synchronize-global-connection";
-import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/global-sync-source-adapters";
+import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/sync-source-adapters";
 import { createCatalogRepositories, getMongoClient, getMongoDatabase, MongoCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
 
 async function createRuntime() {

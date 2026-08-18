@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createGlobalCatalogReviewApplication } from "@/application/catalog/reviews";
 import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog/synchronize-global-connection";
 import { createCatalogRepositories, getMongoClient, getMongoDatabase, MongoCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
-import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/global-sync-source-adapters";
+import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/sync-source-adapters";
 
 async function createRuntime() {
   const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);

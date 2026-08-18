@@ -4,7 +4,7 @@ import {
   createGlobalCatalogOperationalSource,
   createGlobalCatalogLiveProjector,
   type GlobalCatalogLiveInput,
-} from "./project-global-catalog-live";
+} from "./project-catalog-live";
 
 it("exposes the canonical projection through the provider-neutral operational source contract", async () => {
   const source = createGlobalCatalogOperationalSource(async () => input);

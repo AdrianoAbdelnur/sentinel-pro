@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { authorizePlatformRequest } from "@/app/api/admin/users/delivery";
-import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/v2/composition";
-import { badRequest, forbidden, toGlobalSyncResponse, unavailable } from "@/app/api/internal/catalog/v2/delivery";
+import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/composition";
+import { badRequest, forbidden, toGlobalSyncResponse, unavailable } from "@/app/api/internal/catalog/delivery";
 
 type Context = { params: Promise<{ connectionId: string }> };
 

@@ -5,7 +5,7 @@ import {
 } from "@/application/live";
 import { getMongoDatabase } from "@/integrations/persistence/mongodb/client";
 import { createCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-repositories";
-import { loadGlobalLiveSnapshots } from "@/integrations/catalog/global-live-snapshot-adapters";
+import { loadGlobalLiveSnapshots } from "@/integrations/catalog/live-snapshot-adapters";
 
 async function loadCatalog(organizationId: string): Promise<GlobalCatalogLiveInput> {
   const database = await getMongoDatabase();

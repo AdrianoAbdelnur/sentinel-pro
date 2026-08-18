@@ -16,7 +16,7 @@ vi.mock("./create-operational-sources", () => ({
   createOperationalSources: sourceComposition.create,
 }));
 
-vi.mock("./create-global-catalog-source", () => ({
+vi.mock("./create-catalog-source", () => ({
   createGlobalCatalogSource: catalogComposition.create,
 }));
 
