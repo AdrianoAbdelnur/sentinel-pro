@@ -10,6 +10,7 @@ import {
   createTenantVehicleGrant,
   resolveGlobalCatalogReview,
   retainGlobalVehiclePlacement,
+  normalizePlate,
   createSentinelGroup, createGroupEvidenceBinding, createVehiclePlacement,
   type GlobalCatalogReview,
   type GlobalVehicle,
@@ -18,6 +19,10 @@ import {
 } from "./index";
 
 describe("global catalog domain", () => {
+  it("normalizes canonical plate identity without the organizational catalog", () => {
+    expect(normalizePlate(" ab-123 cd ")).toBe("AB123CD");
+  });
+
   it("creates a global vehicle without tenant, Company, provider, or provider fleet identity", () => {
     const vehicle = createGlobalVehicle({
       id: "vehicle-1",

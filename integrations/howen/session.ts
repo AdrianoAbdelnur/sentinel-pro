@@ -3,7 +3,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { HowenConfig } from "./config";
-import type { CatalogSyncFailureCategory } from "@/domain/catalog";
+import type { GlobalSyncFailureCategory } from "@/application/catalog-global/synchronize-global-connection";
 
 export type HowenSession = {
   token: string;
@@ -36,10 +36,10 @@ type CachedSession = {
 };
 
 export class HowenSessionError extends Error {
-  readonly category: CatalogSyncFailureCategory;
+  readonly category: GlobalSyncFailureCategory;
   readonly httpStatus?: number;
 
-  constructor(category: CatalogSyncFailureCategory, httpStatus?: number) {
+  constructor(category: GlobalSyncFailureCategory, httpStatus?: number) {
     super("Howen request unavailable");
     this.name = "HowenSessionError";
     this.category = category;
@@ -47,7 +47,7 @@ export class HowenSessionError extends Error {
   }
 }
 
-function unavailable(category: CatalogSyncFailureCategory = "connectivity", httpStatus?: number): HowenSessionError {
+function unavailable(category: GlobalSyncFailureCategory = "connectivity", httpStatus?: number): HowenSessionError {
   return new HowenSessionError(category, httpStatus);
 }
 

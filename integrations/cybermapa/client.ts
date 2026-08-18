@@ -1,13 +1,13 @@
-import type { CatalogSyncFailureCategory } from "@/domain/catalog";
+import type { GlobalSyncFailureCategory } from "@/application/catalog-global/synchronize-global-connection";
 
 import type { CybermapaConfig } from "./config";
 import { parseCybermapaVehiclesResponse, type CybermapaVehicleRecord } from "./responses";
 
 export class CybermapaRequestError extends Error {
-  readonly category: CatalogSyncFailureCategory;
+  readonly category: GlobalSyncFailureCategory;
   readonly httpStatus?: number;
 
-  constructor(category: CatalogSyncFailureCategory, httpStatus?: number) {
+  constructor(category: GlobalSyncFailureCategory, httpStatus?: number) {
     super("Cybermapa request failed");
     this.name = "CybermapaRequestError";
     this.category = category;
@@ -29,7 +29,7 @@ export type CybermapaClient = {
   fetchVehicles(): Promise<CybermapaVehicleRecord[]>;
 };
 
-function statusCategory(status: number): CatalogSyncFailureCategory {
+function statusCategory(status: number): GlobalSyncFailureCategory {
   if (status === 401 || status === 403) return "authentication";
   if (status === 429) return "rate-limited";
   return "invalid-response";

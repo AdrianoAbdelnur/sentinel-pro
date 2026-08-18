@@ -1,4 +1,5 @@
 export * from "./capabilities";
+export * from "./plate";
 export * from "./global-vehicle";
 export * from "./provider";
 export * from "./provider-contribution";
