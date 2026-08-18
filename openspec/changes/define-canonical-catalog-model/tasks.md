@@ -4,49 +4,54 @@
 
 | Field | Value |
 |---|---|
-| Estimated changed lines | 150-400 logical; mechanical renames/deletions exceed 400 and are measured separately |
+| Estimated logical changes | At most 400 lines; no new functionality |
+| Mechanical churn | Renames and covered deletions measured separately |
 | 400-line budget risk | High |
 | Chained PRs recommended | Yes |
-| Suggested split | Baseline and canonical rename -> consumer retargeting -> covered removal |
-| Delivery strategy | ask-on-risk |
-| Chain strategy | pending |
+| Delivery strategy | auto-chain |
+| Chain strategy | feature-branch-chain |
 
-Decision needed before apply: Yes
+Decision needed before apply: No
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: feature-branch-chain
 400-line budget risk: High
 
 ### Suggested Work Units
 
-| Unit | Goal | Verification boundary |
+| Unit | Goal | Base boundary |
 |---|---|---|
-| 1 | Characterize behavior and rename the active global model | Catalog, synchronization, adapter, and Mongo tests pass |
-| 2 | Retarget import, review, routes, and Live | Route and Live regression tests pass without behavior changes |
-| 3 | Remove covered parallel paths | Full validation proves one model and schema |
+| 1 | Characterize the surviving slice | Feature/tracker branch |
+| 2 | Retarget consumers while `catalog-global` remains stable | Unit 1 branch |
+| 3 | Remove the unreferenced parallel slice | Unit 2 branch |
+| 4 | Apply definitive names and validate | Unit 3 branch |
 
-## Phase 1: Lock the Active Behavior
+## Phase 1: Characterize Existing Behavior
 
-- [ ] 1.1 Run and record the existing tests for `domain/catalog-global/**`, `application/catalog-global/**`, `integrations/catalog/**`, `integrations/persistence/mongodb/catalog-global-*`, import routes, review routes, and `application/live/project-global-catalog-live.test.ts`.
-- [ ] 1.2 Add only missing characterization assertions needed to protect current matching, group placement, multi-provider contributions, checkpoint retries, leases, reviews, access grants, and Live projection before files move.
+- [ ] 1.1 Run the current tests for `domain/catalog-global/**`, `application/catalog-global/**`, `integrations/catalog/**`, `integrations/persistence/mongodb/catalog-global-*`, admin review routes, synchronization routes, import, and Live projection.
+- [ ] 1.2 Add only missing regression assertions required to protect current matching, placement, contributions, checkpoints, leases, manual reviews, access filtering, and Live projection before dependency changes.
+- [ ] 1.3 Verify `app/api/admin/import/**` already composes the surviving canonical behavior; change no import behavior.
 
-## Phase 2: Promote the Canonical Model
+## Phase 2: Retarget Consumers to the Surviving Slice
 
-- [ ] 2.1 Use `git mv` to rename `domain/catalog-global/**` to `domain/catalog/**` and `application/catalog-global/**` to `application/catalog/**`; resolve displaced parallel files without altering retained rules.
-- [ ] 2.2 Use `git mv` to rename `integrations/persistence/mongodb/catalog-global-*` and replace versioned collection constants with `catalog_groups`, `catalog_vehicles`, `provider_contributions`, `provider_fleet_memberships`, `group_evidence_bindings`, `organization_vehicle_access`, `catalog_reviews`, `catalog_runs`, and `catalog_leases`.
-- [ ] 2.3 Retarget `integrations/catalog/**`, Cybermapa, and Howen adapters to the renamed contracts; run the Phase 1 tests after each logical move.
+- [ ] 2.1 Retarget `app/api/admin/catalog/**` and `app/admin/catalog/**` review/status consumers to `application/catalog-global/**`; preserve existing authorization and review decisions.
+- [ ] 2.2 Retarget `app/api/internal/catalog/synchronize/**` and `integrations/catalog/**` adapters to the same synchronization contracts; preserve provider mapping, matching, checkpoint, and lease behavior.
+- [ ] 2.3 Wire `application/live/project-global-catalog-live.ts` into `app/live/**` as the production catalog source; preserve organization-grant filtering and the provider-neutral Live output.
+- [ ] 2.4 Run focused route, adapter, synchronization, review, import, and Live regression tests; prove the organizational slice has no remaining production consumers.
 
-## Phase 3: Retarget Existing Consumers
+## Phase 3: Remove the Parallel Organizational Slice
 
-- [ ] 3.1 Retarget `app/api/admin/import/**`, `app/api/admin/catalog/**`, and `app/api/internal/catalog/synchronize/**` to the canonical composition and definitive unversioned routes.
-- [ ] 3.2 Retarget the existing pending/resolve manual-review flow and admin UI to the same canonical review contracts; add no subjects, fields, decisions, or workflows.
-- [ ] 3.3 Rename and wire `application/live/project-global-catalog-live.ts` as the production canonical projector used by `app/live/**`; preserve organization filtering and the Live output contract.
+- [ ] 3.1 Delete displaced `domain/catalog/**`, `application/catalog/**`, and Mongo repositories that implement organization-owned `Company/Fleet/Vehicle`, company binding, or `Unassigned` placement.
+- [ ] 3.2 Delete their routes, admin components, compatibility loader, conversion/backfill modules, unused import-item contracts, and tests that assert only removed behavior.
+- [ ] 3.3 Search the repository for imports of removed modules and run focused tests before any surviving-file rename.
 
-## Phase 4: Remove Covered Parallel Paths
+## Phase 4: Apply Definitive Names
 
-- [ ] 4.1 Delete the displaced organization-owned `Company/Fleet/Vehicle` stack, versioned routes/collections, migration/backfill modules, compatibility loader, unused import-item contracts, and tests that assert only removed behavior.
-- [ ] 4.2 Search production code and SDD targets for remaining `catalog-global`, `global-catalog`, `_v2`, `/v2`, `legacy`, migration, compatibility, duplicate collection, or parallel ownership references; allow them only in explicit exclusion history.
+- [ ] 4.1 Use `git mv` to rename `domain/catalog-global/**` and `application/catalog-global/**` to their final `catalog/**` paths; update imports without changing rules.
+- [ ] 4.2 Use `git mv` for `integrations/persistence/mongodb/catalog-global-*`; rename constants to the definitive unversioned collections listed in `design.md` and initialize only those collections.
+- [ ] 4.3 Rename the surviving Live projector and replace versioned admin/internal route paths with definitive unversioned paths; update tests mechanically.
+- [ ] 4.4 Search production code for `catalog-global`, `global-catalog`, `_v2`, `/v2`, `legacy`, migration, compatibility, duplicate collections, and parallel ownership; retain references only in explicit exclusion history.
 
 ## Phase 5: Validate
 
-- [ ] 5.1 Run focused tests after every phase, then `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`.
-- [ ] 5.2 Run strict OpenSpec validation and inspect `git diff --stat`; confirm logical edits stay at or below 400 lines and report mechanical rename/deletion churn separately.
+- [ ] 5.1 Run `npm run lint`, `npm run typecheck`, `npm test`, `npm run test:coverage`, and `npm run build`.
+- [ ] 5.2 Run strict OpenSpec validation; inspect `git diff --stat` and report logical edits separately from rename/deletion churn.
