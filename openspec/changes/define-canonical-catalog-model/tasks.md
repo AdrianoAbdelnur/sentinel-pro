@@ -27,9 +27,9 @@ Chain strategy: feature-branch-chain
 
 ## Phase 1: Characterize Existing Behavior
 
-- [ ] 1.1 Run the current tests for `domain/catalog-global/**`, `application/catalog-global/**`, `integrations/catalog/**`, `integrations/persistence/mongodb/catalog-global-*`, admin review routes, synchronization routes, import, and Live projection.
-- [ ] 1.2 Add only missing regression assertions required to protect current matching, placement, contributions, checkpoints, leases, manual reviews, access filtering, and Live projection before dependency changes.
-- [ ] 1.3 Verify `app/api/admin/import/**` already composes the surviving canonical behavior; change no import behavior.
+- [x] 1.1 Run the current tests for `domain/catalog-global/**`, `application/catalog-global/**`, `integrations/catalog/**`, `integrations/persistence/mongodb/catalog-global-*`, admin review routes, synchronization routes, import, and Live projection.
+- [x] 1.2 Add only missing regression assertions required to protect current matching, placement, contributions, checkpoints, leases, manual reviews, access filtering, and Live projection before dependency changes.
+- [x] 1.3 Verify `app/api/admin/import/**` already composes the surviving canonical behavior; change no import behavior.
 
 ## Phase 2: Retarget Consumers to the Surviving Slice
 
