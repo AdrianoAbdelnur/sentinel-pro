@@ -30,9 +30,13 @@ async function loadHowenSnapshots(contributions: readonly ProviderContribution[]
   const config = readHowenConfig();
   const client = createHowenClient({ config, session: createHowenSessionManager({ config }) });
   const result = await createHowenOperationalSource({ client }).loadSnapshot();
-  if (result.kind === "failure") throw new Error("Operational source unavailable");
+  if (result.kind === "failure") return {};
   return mapHowenOperationalStateToCatalogSnapshots(result.state, contributions);
 }
+
+type OperationalLoader = (contributions: readonly ProviderContribution[]) => Promise<ConnectionSnapshots>;
+
+const operationalLoaders: Readonly<Record<string, OperationalLoader>> = { howen: loadHowenSnapshots };
 
 export async function loadLiveSnapshots(
   connections: readonly ProviderConnection[],
@@ -40,10 +44,15 @@ export async function loadLiveSnapshots(
   contributions: readonly ProviderContribution[],
 ): Promise<Snapshots> {
   const providersById = new Map(providers.map((provider) => [provider.id, provider]));
-  const entries = await Promise.all(connections.flatMap(async (connection) => {
+  const entries = await Promise.all(connections.map(async (connection) => {
+    const load = operationalLoaders[providersById.get(connection.providerId)?.adapterKey ?? ""];
+    if (!load) return [connection.id, {}] as const;
     const connectionContributions = contributions.filter(({ connectionId }) => connectionId === connection.id);
-    if (providersById.get(connection.providerId)?.adapterKey !== "howen") return [];
-    return [[connection.id, await loadHowenSnapshots(connectionContributions)] as const];
+    try {
+      return [connection.id, await load(connectionContributions)] as const;
+    } catch {
+      return [connection.id, {}] as const;
+    }
   }));
-  return Object.fromEntries(entries.flat());
+  return Object.fromEntries(entries);
 }
