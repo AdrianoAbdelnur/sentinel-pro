@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GlobalVehicle, ProviderContribution, ProviderFleetMembership } from "@/domain/catalog-global";
+import type { GlobalVehicle, ProviderContribution, ProviderFleetMembership } from "@/domain/catalog";
 
 import { seedHowenCatalog } from "./seed-howen-catalog";
 import type { HowenRosterRecord } from "./responses";

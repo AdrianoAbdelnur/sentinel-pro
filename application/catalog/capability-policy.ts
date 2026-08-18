@@ -1,5 +1,5 @@
-import { DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER, createGlobalCapabilityPolicy, type GlobalCapabilityPolicy } from "@/domain/catalog-global";
-import type { Capability } from "@/domain/catalog-global";
+import { DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER, createGlobalCapabilityPolicy, type GlobalCapabilityPolicy } from "@/domain/catalog";
+import type { Capability } from "@/domain/catalog";
 
 export type GlobalCapabilityPolicyRepository = {
   find(capability: Capability): Promise<GlobalCapabilityPolicy | undefined>;

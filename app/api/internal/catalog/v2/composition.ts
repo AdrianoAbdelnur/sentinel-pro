@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { createGlobalCatalogReviewApplication } from "@/application/catalog-global/reviews";
-import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog-global/synchronize-global-connection";
+import { createGlobalCatalogReviewApplication } from "@/application/catalog/reviews";
+import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog/synchronize-global-connection";
 import { createGlobalCatalogRepositories, getMongoClient, getMongoDatabase, MongoGlobalCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
 import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/global-sync-source-adapters";
 

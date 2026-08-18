@@ -1,5 +1,5 @@
-import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
-import { normalizeGroupLabel, normalizePlate } from "@/domain/catalog-global";
+import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog/match-and-apply-provider-candidate";
+import { normalizeGroupLabel, normalizePlate } from "@/domain/catalog";
 
 import type { CybermapaVehicleRecord } from "./responses";
 

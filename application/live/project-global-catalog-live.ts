@@ -1,11 +1,11 @@
-import { DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER } from "@/domain/catalog-global";
+import { DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER } from "@/domain/catalog";
 import type {
   GlobalCapabilityPolicy,
   GlobalVehicle,
   ProviderConnection,
   ProviderContribution,
   TenantVehicleGrant,
-} from "@/domain/catalog-global";
+} from "@/domain/catalog";
 import type { Device, DeviceTelemetry } from "@/domain/live";
 
 import type { LiveState, LiveVehicleState, OperationalSource } from "./contracts";

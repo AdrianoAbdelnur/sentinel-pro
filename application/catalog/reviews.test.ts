@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createGlobalCatalogReview, createGlobalVehicle } from "@/domain/catalog-global";
+import { createGlobalCatalogReview, createGlobalVehicle } from "@/domain/catalog";
 
 import { createGlobalCatalogReviewApplication } from "./reviews";
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGlobalCapabilityPolicyApplication } from "./capability-policy";
 import { createProviderAdapterRegistry } from "./provider-adapter-registry";
-import type { GlobalCapabilityPolicy } from "@/domain/catalog-global";
+import type { GlobalCapabilityPolicy } from "@/domain/catalog";
 
 describe("global capability policies", () => {
   it("resolves the default GPS and video sources", async () => {

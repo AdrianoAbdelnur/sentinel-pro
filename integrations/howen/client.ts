@@ -6,7 +6,7 @@ import type {
   HowenSession,
   HowenSessionManager,
 } from "./session";
-import type { GlobalSyncFailureCategory } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncFailureCategory } from "@/application/catalog/synchronize-global-connection";
 
 type CreateHowenClientInput = {
   config: HowenConfig;

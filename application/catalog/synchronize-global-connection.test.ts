@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ProviderConnection, ProviderContribution } from "@/domain/catalog-global";
+import type { ProviderConnection, ProviderContribution } from "@/domain/catalog";
 
 import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts, type GlobalSyncRun } from "./synchronize-global-connection";
 

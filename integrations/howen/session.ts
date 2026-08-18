@@ -3,7 +3,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { HowenConfig } from "./config";
-import type { GlobalSyncFailureCategory } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncFailureCategory } from "@/application/catalog/synchronize-global-connection";
 
 export type HowenSession = {
   token: string;

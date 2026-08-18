@@ -1,6 +1,6 @@
-﻿import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type { GlobalVehicle, ProviderContribution } from "@/domain/catalog-global";
+import type { GlobalVehicle, ProviderContribution } from "@/domain/catalog";
 
 import { mapCybermapaGlobalCatalog, seedCybermapaCatalog } from "./seed-cybermapa-catalog";
 import type { CybermapaVehicleRecord } from "./responses";

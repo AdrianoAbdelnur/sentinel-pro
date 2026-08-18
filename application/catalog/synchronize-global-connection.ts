@@ -1,6 +1,6 @@
 import { matchAndApplyProviderCandidate, type ProviderCandidate } from "./match-and-apply-provider-candidate";
 import type { GlobalCatalogRepositories } from "./ports";
-import type { ProviderConnection, ProviderDefinition } from "@/domain/catalog-global";
+import type { ProviderConnection, ProviderDefinition } from "@/domain/catalog";
 
 export type GlobalSyncTrigger = "initial" | "manual" | "internal" | "scheduler";
 export type GlobalSyncFailureCategory = "authentication" | "connectivity" | "invalid-response" | "timeout" | "rate-limited" | "internal";

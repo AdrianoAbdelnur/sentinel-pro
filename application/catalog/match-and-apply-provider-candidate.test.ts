@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createGlobalVehicle, normalizeGroupLabel, type GroupEvidenceBinding, type ProviderContribution, type SentinelGroup } from "@/domain/catalog-global";
+import { createGlobalVehicle, normalizeGroupLabel, type GroupEvidenceBinding, type ProviderContribution, type SentinelGroup } from "@/domain/catalog";
 import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "./match-and-apply-provider-candidate";
 
 const createFixture = () => {

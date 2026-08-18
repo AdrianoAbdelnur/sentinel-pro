@@ -1,7 +1,7 @@
 import type { ObjectId } from "mongodb";
-import type { GlobalCatalogReview, GlobalVehicle, ProviderConnection, ProviderContribution, ProviderDefinition, ProviderFleetMembership, TenantVehicleGrant, SentinelGroup, GroupEvidenceBinding } from "@/domain/catalog-global";
-import type { CapabilitySourceStatus } from "@/domain/catalog-global/capabilities";
-import type { GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalCatalogReview, GlobalVehicle, ProviderConnection, ProviderContribution, ProviderDefinition, ProviderFleetMembership, TenantVehicleGrant, SentinelGroup, GroupEvidenceBinding } from "@/domain/catalog";
+import type { CapabilitySourceStatus } from "@/domain/catalog/capabilities";
+import type { GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 type Timestamps = { createdAt: Date; updatedAt: Date };
 export type GlobalVehicleDocument = { _id?: ObjectId; schemaVersion: number; id: string; normalizedPlate: string; plate: string; placementFleetId: string; placement?: GlobalVehicle["placement"] } & Timestamps;

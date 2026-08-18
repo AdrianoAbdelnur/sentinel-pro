@@ -1,5 +1,5 @@
-import type { GlobalSyncSource, GlobalSnapshot } from "@/application/catalog-global/synchronize-global-connection";
-import type { ProviderConnection as GlobalConnection, ProviderDefinition } from "@/domain/catalog-global";
+import type { GlobalSyncSource, GlobalSnapshot } from "@/application/catalog/synchronize-global-connection";
+import type { ProviderConnection as GlobalConnection, ProviderDefinition } from "@/domain/catalog";
 import { createCybermapaClient, CybermapaRequestError } from "@/integrations/cybermapa/client";
 import { readCybermapaConfig } from "@/integrations/cybermapa/config";
 import { mapCybermapaGlobalCatalog } from "@/integrations/cybermapa/seed-cybermapa-catalog";

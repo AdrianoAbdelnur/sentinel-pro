@@ -46,7 +46,7 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Apply Definitive Names
 
-- [ ] 4.1 Use `git mv` to rename `domain/catalog-global/**` and `application/catalog-global/**` to their final `catalog/**` paths; update imports without changing rules.
+- [x] 4.1 Use `git mv` to rename `domain/catalog-global/**` and `application/catalog-global/**` to their final `catalog/**` paths; update imports without changing rules.
 - [ ] 4.2 Use `git mv` for `integrations/persistence/mongodb/catalog-global-*`; rename constants to the definitive unversioned collections listed in `design.md` and initialize only those collections.
 - [ ] 4.3 Rename the surviving Live projector and replace versioned admin/internal route paths with definitive unversioned paths; update tests mechanically.
 - [ ] 4.4 Search production code for `catalog-global`, `global-catalog`, `_v2`, `/v2`, `legacy`, migration, compatibility, duplicate collections, and parallel ownership; retain references only in explicit exclusion history.

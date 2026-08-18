@@ -1,4 +1,4 @@
-import type { GlobalSyncCounts, GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncCounts, GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 export const RUN_STATUS_LABELS: Record<GlobalSyncRun["status"], string> = { active: "En curso", succeeded: "Exitosa", failed: "Fallida" };
 

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoClient } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
-import type { GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 import { createGlobalSyncRepositories, migrateGlobalCatalogDatabase } from "./index";
 

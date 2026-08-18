@@ -7,7 +7,7 @@ import type {
   ProviderFleetMembership,
   TenantVehicleGrant,
   SentinelGroup, GroupEvidenceBinding,
-} from "@/domain/catalog-global";
+} from "@/domain/catalog";
 
 export type GlobalCatalogIdGenerator = { create(): string };
 

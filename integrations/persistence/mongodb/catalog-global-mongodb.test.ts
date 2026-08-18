@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { MongoClient } from "mongodb";
-import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
+import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "@/application/catalog/match-and-apply-provider-candidate";
 import { createGlobalCatalogRepositories, globalCatalogIndexes, migrateGlobalCatalogDatabase, rollbackGlobalCatalogDatabase } from "./index";
 
 let replSet: MongoMemoryReplSet;

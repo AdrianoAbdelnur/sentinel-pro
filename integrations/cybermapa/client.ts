@@ -1,4 +1,4 @@
-import type { GlobalSyncFailureCategory } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncFailureCategory } from "@/application/catalog/synchronize-global-connection";
 
 import type { CybermapaConfig } from "./config";
 import { parseCybermapaVehiclesResponse, type CybermapaVehicleRecord } from "./responses";

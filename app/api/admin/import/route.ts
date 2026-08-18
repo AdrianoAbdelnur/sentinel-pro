@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
 import { getProviderImportRuntime } from "./composition";
-import type { GlobalSyncOutcome, GlobalSyncProgress } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncOutcome, GlobalSyncProgress } from "@/application/catalog/synchronize-global-connection";
 
 export const runtime = "nodejs";
 

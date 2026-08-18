@@ -1,6 +1,6 @@
 import type { ClientSession, Db, Filter } from "mongodb";
 import type { GlobalSyncLeaseDocument, GlobalSyncRunDocument } from "./catalog-global-documents";
-import type { GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 const options = (session?: ClientSession) => session ? { session } : {};
 const isDuplicate = (error: unknown) => typeof error === "object" && error !== null && "code" in error && (error as { code?: number }).code === 11000;

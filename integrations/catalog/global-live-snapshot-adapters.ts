@@ -1,5 +1,5 @@
 import type { GlobalCatalogLiveInput, LiveState } from "@/application/live";
-import type { ProviderConnection, ProviderContribution, ProviderDefinition } from "@/domain/catalog-global";
+import type { ProviderConnection, ProviderContribution, ProviderDefinition } from "@/domain/catalog";
 import { createHowenClient } from "@/integrations/howen/client";
 import { readHowenConfig } from "@/integrations/howen/config";
 import { createHowenOperationalSource } from "@/integrations/howen/howen-operational-source";

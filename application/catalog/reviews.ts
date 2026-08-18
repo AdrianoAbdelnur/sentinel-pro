@@ -1,4 +1,4 @@
-import { resolveGlobalCatalogReview } from "@/domain/catalog-global";
+import { resolveGlobalCatalogReview } from "@/domain/catalog";
 
 import type { GlobalCatalogReviewRepository, GlobalVehicleRepository } from "./ports";
 

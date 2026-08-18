@@ -1,5 +1,5 @@
 import type { Db, MongoClient } from "mongodb";
-import type { GlobalCatalogRepositories } from "@/application/catalog-global/ports";
+import type { GlobalCatalogRepositories } from "@/application/catalog/ports";
 import { createGlobalCatalogRepositories } from "./catalog-global-repositories";
 
 export class MongoGlobalCatalogTransactionRunner {

@@ -1,4 +1,4 @@
-import type { GlobalCatalogReview } from "@/domain/catalog-global";
+import type { GlobalCatalogReview } from "@/domain/catalog";
 import { NextResponse } from "next/server";
 
 export function alreadyResolved() {

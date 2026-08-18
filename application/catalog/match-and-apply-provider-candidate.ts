@@ -1,4 +1,4 @@
-import { createGlobalCatalogReview, createGlobalVehicle, createGroupEvidenceBinding, createSentinelGroup, createVehiclePlacement, createProviderContribution, createProviderFleetMembership, normalizeGroupEvidence, type GlobalCatalogReview, type GlobalVehicle, type ProviderContribution, type CapabilityStates, type GroupEvidence, type GroupEvidenceBinding, type SentinelGroup } from "@/domain/catalog-global";
+import { createGlobalCatalogReview, createGlobalVehicle, createGroupEvidenceBinding, createSentinelGroup, createVehiclePlacement, createProviderContribution, createProviderFleetMembership, normalizeGroupEvidence, type GlobalCatalogReview, type GlobalVehicle, type ProviderContribution, type CapabilityStates, type GroupEvidence, type GroupEvidenceBinding, type SentinelGroup } from "@/domain/catalog";
 
 type ProviderFleetMembershipEvidence = Readonly<{ externalFleetId: string; label: string }>;
 

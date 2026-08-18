@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import type { GlobalSyncOutcome, GlobalSyncRun } from "@/application/catalog-global/synchronize-global-connection";
+import type { GlobalSyncOutcome, GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
 
 export function readBearerToken(request: Request) {
   const authorization = request.headers.get("authorization") ?? "";

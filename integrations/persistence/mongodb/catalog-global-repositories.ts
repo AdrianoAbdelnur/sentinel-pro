@@ -1,6 +1,6 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
-import type { GlobalCatalogRepositories } from "@/application/catalog-global/ports";
-import { createGlobalCapabilityPolicy, type GlobalCapabilityPolicy, type GlobalVehicle, type SentinelGroup } from "@/domain/catalog-global";
+import type { GlobalCatalogRepositories } from "@/application/catalog/ports";
+import { createGlobalCapabilityPolicy, type GlobalCapabilityPolicy, type GlobalVehicle, type SentinelGroup } from "@/domain/catalog";
 import {
   toGlobalCatalogReviewDocument, toGlobalCatalogReviewDomain, toGlobalVehicleDocument, toGlobalVehicleDomain,
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
