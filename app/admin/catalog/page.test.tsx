@@ -14,13 +14,13 @@ describe("CatalogAdminPage", () => {
     expect(requirePageAuthorization).toHaveBeenCalledWith("admin");
   });
 
-  it("mounts the connection sync panel and the candidate binding panel together", async () => {
+  it("mounts synchronization and canonical review controls only", async () => {
     requirePageAuthorization.mockResolvedValue({ userId: "admin", organizationId: "org", role: "admin" });
     render(await CatalogAdminPage());
     expect(screen.getByRole("heading", { name: "Catálogo" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Consultar estado" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Sincronizar ahora" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Vincular candidato a la Company" })).toBeInTheDocument();
+    expect(screen.queryByText(/Company/i)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cargar revisiones pendientes" })).toBeInTheDocument();
   });
 

@@ -18,7 +18,6 @@ function failureMessage(failure: LatestRun["failure"]) {
 
 export function ConnectionSyncPanel() {
   const [connectionId, setConnectionId] = useState("");
-  const [companyId, setCompanyId] = useState("");
   const [status, setStatus] = useState<SyncStatus>();
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string>();
@@ -45,11 +44,6 @@ export function ConnectionSyncPanel() {
     if (!refreshed.error && refreshed.status) setStatus(refreshed.status); else if (refreshed.error) setStatus(undefined);
   });
 
-  const asignarCompany = () => run(async () => {
-    const result = await requestCatalogApi<{ connection: { id: string; companyId?: string } }>(`/api/admin/catalog/connections/${encodeURIComponent(connectionId)}/company`, { method: "POST", body: JSON.stringify({ companyId }) });
-    if (result.error) setError(result.error); else setNotice("Company asignada a la conexión.");
-  });
-
   const latestRun = status?.latestRun;
 
   return (
@@ -59,8 +53,6 @@ export function ConnectionSyncPanel() {
         <button className="rounded bg-zinc-700 px-3 py-2 disabled:opacity-60" disabled={loading || !connectionId.trim()} onClick={consultarEstado} type="button">Consultar estado</button>
         <button className="rounded bg-emerald-500 px-3 py-2 font-medium text-zinc-950 disabled:opacity-60" disabled={loading || !connectionId.trim()} onClick={sincronizarAhora} type="button">Sincronizar ahora</button>
       </div>
-      <label className="flex flex-col gap-1 text-sm">ID de Company<input className="rounded border border-zinc-700 bg-zinc-950 p-2" onChange={(event) => setCompanyId(event.target.value)} value={companyId} /></label>
-      <button className="rounded bg-zinc-700 px-3 py-2 disabled:opacity-60" disabled={loading || !connectionId.trim() || !companyId.trim()} onClick={asignarCompany} type="button">Asignar Company a la conexión</button>
       {status ? (
         <section aria-label="Estado de la conexión" className="flex flex-col gap-2 rounded border border-zinc-800 p-3 text-sm">
           <p>Conexión: {status.connectionId}</p>

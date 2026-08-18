@@ -1,6 +1,6 @@
 import type { Capability } from "./capabilities";
 
-export type ProviderDefinition = Readonly<{
+export type Provider = Readonly<{
   id: string;
   adapterKey: string;
   capabilities: readonly Capability[];
@@ -14,7 +14,7 @@ export type ProviderConnection = Readonly<{
   cadenceMinutes: number;
 }>;
 
-export type ProviderDefinitionInput = {
+export type ProviderInput = {
   id: string;
   adapterKey: string;
   capabilities: readonly Capability[];
@@ -28,7 +28,7 @@ export type ProviderConnectionInput = {
   cadenceMinutes: number;
 };
 
-export function createProviderDefinition(input: ProviderDefinitionInput): ProviderDefinition {
+export function createProvider(input: ProviderInput): Provider {
   return Object.freeze({ ...input, capabilities: Object.freeze([...input.capabilities]) });
 }
 

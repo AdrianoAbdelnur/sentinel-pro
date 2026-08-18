@@ -1,14 +1,14 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
 import type { CatalogRepositories } from "@/application/catalog/ports";
-import { createGlobalCapabilityPolicy, type GlobalCapabilityPolicy, type GlobalVehicle, type SentinelGroup } from "@/domain/catalog";
+import { createCapabilityPolicy, type CapabilityPolicy, type CatalogVehicle, type CatalogGroup } from "@/domain/catalog";
 import {
   toCatalogReviewDocument, toCatalogReviewDomain, toCatalogVehicleDocument, toCatalogVehicleDomain,
   toProviderConnectionDocument, toProviderConnectionDomain, toProviderContributionDocument, toProviderContributionDomain,
-  toProviderDefinitionDocument, toProviderDefinitionDomain, toProviderFleetMembershipDocument, toProviderFleetMembershipDomain,
+  toProviderDocument, toProviderDomain, toProviderFleetMembershipDocument, toProviderFleetMembershipDomain,
   toOrganizationVehicleAccessDocument, toOrganizationVehicleAccessDomain,
   toCatalogGroupDocument, toCatalogGroupDomain, toGroupEvidenceBindingDocument, toGroupEvidenceBindingDomain,
   type CatalogReviewDocument, type CatalogVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
-  type ProviderDefinitionDocument, type ProviderFleetMembershipDocument, type OrganizationVehicleAccessDocument,
+  type ProviderDocument, type ProviderFleetMembershipDocument, type OrganizationVehicleAccessDocument,
   type CatalogGroupDocument, type GroupEvidenceBindingDocument,
 } from "./catalog-documents";
 import { createCatalogSyncRepositories } from "./catalog-sync-repositories";
@@ -21,9 +21,9 @@ const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; up
 };
 
 type CatalogLiveReadRepositories = {
-  groups: CatalogRepositories["groups"] & { list(): Promise<SentinelGroup[]> };
-  vehicles: CatalogRepositories["vehicles"] & { list(): Promise<GlobalVehicle[]> };
-  policies: { list(): Promise<GlobalCapabilityPolicy[]> };
+  groups: CatalogRepositories["groups"] & { list(): Promise<CatalogGroup[]> };
+  vehicles: CatalogRepositories["vehicles"] & { list(): Promise<CatalogVehicle[]> };
+  policies: { list(): Promise<CapabilityPolicy[]> };
 };
 
 type CapabilityPolicyDocument = {
@@ -34,7 +34,7 @@ type CapabilityPolicyDocument = {
 
 export function createCatalogRepositories(db: Db, session?: ClientSession): CatalogRepositories & CatalogLiveReadRepositories & ReturnType<typeof createCatalogSyncRepositories> {
   const vehicles = db.collection<CatalogVehicleDocument>("catalog_vehicles");
-  const providers = db.collection<ProviderDefinitionDocument>("providers");
+  const providers = db.collection<ProviderDocument>("providers");
   const connections = db.collection<ProviderConnectionDocument>("provider_connections");
   const contributions = db.collection<ProviderContributionDocument>("provider_contributions");
   const memberships = db.collection<ProviderFleetMembershipDocument>("provider_fleet_memberships");
@@ -49,7 +49,7 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
     policies: {
       async list() {
         return (await policies.find({}, options(session)).sort({ id: 1 }).toArray())
-          .map(({ id, capability, sourceOrder }) => createGlobalCapabilityPolicy({ id, capability, sourceOrder }));
+          .map(({ id, capability, sourceOrder }) => createCapabilityPolicy({ id, capability, sourceOrder }));
       },
     },
     groups: {
@@ -71,10 +71,10 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
       async save(vehicle) { await atomicSave(vehicles, { id: vehicle.id }, toCatalogVehicleDocument(vehicle, now()), session); },
     },
     providers: {
-      async findById(id) { const document = await providers.findOne({ id }, options(session)); return document ? toProviderDefinitionDomain(document) : undefined; },
-      async findByAdapterKey(adapterKey) { const document = await providers.findOne({ adapterKey }, options(session)); return document ? toProviderDefinitionDomain(document) : undefined; },
-      async list() { return (await providers.find({}, options(session)).sort({ id: 1 }).toArray()).map(toProviderDefinitionDomain); },
-      async save(provider) { await atomicSave(providers, { id: provider.id }, toProviderDefinitionDocument(provider, now()), session); },
+      async findById(id) { const document = await providers.findOne({ id }, options(session)); return document ? toProviderDomain(document) : undefined; },
+      async findByAdapterKey(adapterKey) { const document = await providers.findOne({ adapterKey }, options(session)); return document ? toProviderDomain(document) : undefined; },
+      async list() { return (await providers.find({}, options(session)).sort({ id: 1 }).toArray()).map(toProviderDomain); },
+      async save(provider) { await atomicSave(providers, { id: provider.id }, toProviderDocument(provider, now()), session); },
     },
     connections: {
       async findById(id) { const document = await connections.findOne({ id }, options(session)); return document ? toProviderConnectionDomain(document) : undefined; },

@@ -67,31 +67,15 @@ describe("ConnectionSyncPanel", () => {
     await waitFor(() => expect(screen.queryByText("Conexión: conn-1")).not.toBeInTheDocument());
   });
 
-  it("muestra los tres resultados distinguibles de un intento de sincronización fallido", async () => {
+  it("muestra resultados distinguibles de un intento de sincronización fallido", async () => {
     render(<ConnectionSyncPanel />);
     await fillConnectionId();
     vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "Este proveedor todavía no admite sincronización." });
     fireEvent.click(screen.getByRole("button", { name: "Sincronizar ahora" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Este proveedor todavía no admite sincronización.");
-    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "Esta conexión no tiene una Company asignada. Asigná una Company para poder sincronizar." });
-    fireEvent.click(screen.getByRole("button", { name: "Sincronizar ahora" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Esta conexión no tiene una Company asignada. Asigná una Company para poder sincronizar.");
     vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "La conexión con el proveedor está mal configurada. Contactá al equipo técnico." });
     fireEvent.click(screen.getByRole("button", { name: "Sincronizar ahora" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("La conexión con el proveedor está mal configurada. Contactá al equipo técnico.");
-  });
-
-  it("asigna una Company a la conexión y reporta un rechazo del servidor", async () => {
-    render(<ConnectionSyncPanel />);
-    await fillConnectionId();
-    fireEvent.change(screen.getByLabelText("ID de Company"), { target: { value: "company-1" } });
-    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ connection: { id: "conn-1", companyId: "company-1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Asignar Company a la conexión" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Company asignada a la conexión.");
-    expect(requestCatalogApi).toHaveBeenCalledWith("/api/admin/catalog/connections/conn-1/company", { method: "POST", body: JSON.stringify({ companyId: "company-1" }) });
-    vi.mocked(requestCatalogApi).mockResolvedValueOnce({ error: "No tenés permisos para realizar esta acción." });
-    fireEvent.click(screen.getByRole("button", { name: "Asignar Company a la conexión" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("No tenés permisos para realizar esta acción.");
   });
 
   it("muestra que la conexión nunca sincronizó cuando no hay corridas registradas", async () => {
@@ -129,14 +113,11 @@ describe("ConnectionSyncPanel", () => {
     vi.mocked(requestCatalogApi).mockReturnValueOnce(new Promise((done) => { resolve = done; }));
     render(<ConnectionSyncPanel />);
     await fillConnectionId();
-    fireEvent.change(screen.getByLabelText("ID de Company"), { target: { value: "company-1" } });
     fireEvent.click(screen.getByRole("button", { name: "Consultar estado" }));
     expect(screen.getByRole("button", { name: "Consultar estado" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Sincronizar ahora" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Asignar Company a la conexión" })).toBeDisabled();
     resolve({ status: FULL_STATUS });
     await waitFor(() => expect(screen.getByRole("button", { name: "Consultar estado" })).toBeEnabled());
     expect(screen.getByRole("button", { name: "Sincronizar ahora" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Asignar Company a la conexión" })).toBeEnabled();
   });
 });

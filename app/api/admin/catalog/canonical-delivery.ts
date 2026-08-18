@@ -1,11 +1,11 @@
-import type { GlobalCatalogReview } from "@/domain/catalog";
+import type { CatalogReview } from "@/domain/catalog";
 import { NextResponse } from "next/server";
 
 export function alreadyResolved() {
   return NextResponse.json({ error: "Esta revisión ya fue resuelta." }, { status: 409 });
 }
 
-export function toCanonicalReviewSummary(review: GlobalCatalogReview) {
+export function toCanonicalReviewSummary(review: CatalogReview) {
   return {
     id: review.id,
     subject: review.subject,

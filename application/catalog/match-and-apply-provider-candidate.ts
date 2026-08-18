@@ -1,4 +1,4 @@
-import { createGlobalCatalogReview, createGlobalVehicle, createGroupEvidenceBinding, createSentinelGroup, createVehiclePlacement, createProviderContribution, createProviderFleetMembership, normalizeGroupEvidence, type GlobalCatalogReview, type GlobalVehicle, type ProviderContribution, type CapabilityStates, type GroupEvidence, type GroupEvidenceBinding, type SentinelGroup } from "@/domain/catalog";
+import { createCatalogReview, createCatalogVehicle, createGroupEvidenceBinding, createCatalogGroup, createVehiclePlacement, createProviderContribution, createProviderFleetMembership, normalizeGroupEvidence, type CatalogReview, type CatalogVehicle, type ProviderContribution, type CapabilityStates, type GroupEvidence, type GroupEvidenceBinding, type CatalogGroup } from "@/domain/catalog";
 
 type ProviderFleetMembershipEvidence = Readonly<{ externalFleetId: string; label: string }>;
 
@@ -18,21 +18,21 @@ export type ProviderCandidate = Readonly<{
 
 export type MatchAndApplyRepositories = {
   vehicles: {
-    findByNormalizedPlate(normalizedPlate: string): Promise<GlobalVehicle | undefined>;
-    save(vehicle: GlobalVehicle): Promise<void>;
+    findByNormalizedPlate(normalizedPlate: string): Promise<CatalogVehicle | undefined>;
+    save(vehicle: CatalogVehicle): Promise<void>;
   };
   contributions: {
     findByConnectionAndExternalId(connectionId: string, externalId: string): Promise<ProviderContribution | undefined>;
     save(contribution: ProviderContribution): Promise<void>;
   };
   reviews: {
-    findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<GlobalCatalogReview | undefined>;
-    save(review: GlobalCatalogReview): Promise<void>;
+    findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<CatalogReview | undefined>;
+    save(review: CatalogReview): Promise<void>;
   };
   memberships?: {
     save(membership: { connectionId: string; externalFleetId: string; vehicleId: string; label: string }): Promise<void>;
   };
-  groups?: { findById(id: string): Promise<SentinelGroup | undefined>; findByLabel(label: string): Promise<SentinelGroup[]>; save(group: SentinelGroup): Promise<void> };
+  groups?: { findById(id: string): Promise<CatalogGroup | undefined>; findByLabel(label: string): Promise<CatalogGroup[]>; save(group: CatalogGroup): Promise<void> };
   evidenceBindings?: { findByEvidence(connectionId: string, kind: string, externalKey: string): Promise<GroupEvidenceBinding[]>; save(binding: GroupEvidenceBinding): Promise<void> };
 };
 
@@ -47,7 +47,7 @@ export type MatchAndApplyDependencies = MatchAndApplyRepositories & {
 
 export type MatchAndApplyResult =
   | { kind: "reused" | "matched" | "created"; vehicleId: string; contribution: ProviderContribution }
-  | { kind: "review"; review: GlobalCatalogReview };
+  | { kind: "review"; review: CatalogReview };
 
 const isNormalizedPlate = (value: string | undefined): value is string => value !== undefined && /^[A-Z0-9]+$/.test(value);
 
@@ -55,40 +55,40 @@ async function resolvePlacement(
   repositories: MatchAndApplyRepositories,
   candidate: ProviderCandidate,
   ids: { create(): string },
-): Promise<{ groupId: string; authority: "authoritative" | "fallback"; evidenceBindingId: string } | { review: GlobalCatalogReview } | undefined> {
+): Promise<{ groupId: string; authority: "authoritative" | "fallback"; evidenceBindingId: string } | { review: CatalogReview } | undefined> {
   if (!candidate.groupEvidence || !repositories.groups || !repositories.evidenceBindings) {
     return candidate.placementFleetId === undefined ? undefined : { groupId: candidate.placementFleetId, authority: "fallback", evidenceBindingId: "" };
   }
   const evidence = normalizeGroupEvidence(candidate.groupEvidence);
   const matches = await repositories.evidenceBindings.findByEvidence(evidence.connectionId, evidence.kind, evidence.externalKey);
   if (matches.length > 1) {
-    return { review: createGlobalCatalogReview({ id: ids.create(), connectionId: candidate.connectionId, externalId: candidate.externalId, reason: "ambiguous-group-evidence", normalizedPlate: candidate.normalizedPlate, candidateVehicleIds: [], evidenceKey: evidence.externalKey, candidateGroupIds: matches.map((match) => match.groupId) }) };
+    return { review: createCatalogReview({ id: ids.create(), connectionId: candidate.connectionId, externalId: candidate.externalId, reason: "ambiguous-group-evidence", normalizedPlate: candidate.normalizedPlate, candidateVehicleIds: [], evidenceKey: evidence.externalKey, candidateGroupIds: matches.map((match) => match.groupId) }) };
   }
   if (matches.length === 1) {
     if (matches[0].evidence.label !== evidence.label) await repositories.evidenceBindings.save(createGroupEvidenceBinding({ ...matches[0], evidence }));
     return { groupId: matches[0].groupId, authority: evidence.authority, evidenceBindingId: matches[0].id };
   }
   const labelMatches = await repositories.groups.findByLabel(evidence.label);
-  if (labelMatches.length > 1) return { review: createGlobalCatalogReview({ id: ids.create(), connectionId: candidate.connectionId, externalId: candidate.externalId, reason: "ambiguous-group-evidence", normalizedPlate: candidate.normalizedPlate, candidateVehicleIds: [], evidenceKey: evidence.externalKey, candidateGroupIds: labelMatches.map((group) => group.id) }) };
+  if (labelMatches.length > 1) return { review: createCatalogReview({ id: ids.create(), connectionId: candidate.connectionId, externalId: candidate.externalId, reason: "ambiguous-group-evidence", normalizedPlate: candidate.normalizedPlate, candidateVehicleIds: [], evidenceKey: evidence.externalKey, candidateGroupIds: labelMatches.map((group) => group.id) }) };
   const existingGroup = labelMatches[0];
   if (existingGroup) {
     const binding = createGroupEvidenceBinding({ id: ids.create(), groupId: existingGroup.id, evidence });
     await repositories.evidenceBindings.save(binding);
     return { groupId: existingGroup.id, authority: evidence.authority, evidenceBindingId: binding.id };
   }
-  const group = createSentinelGroup({ id: ids.create(), label: evidence.label });
+  const group = createCatalogGroup({ id: ids.create(), label: evidence.label });
   const binding = createGroupEvidenceBinding({ id: ids.create(), groupId: group.id, evidence });
   await repositories.groups.save(group);
   await repositories.evidenceBindings.save(binding);
   return { groupId: group.id, authority: evidence.authority, evidenceBindingId: binding.id };
 }
 
-async function applyPlacement(repositories: MatchAndApplyRepositories, vehicle: GlobalVehicle, placement: Awaited<ReturnType<typeof resolvePlacement>>): Promise<GlobalVehicle> {
+async function applyPlacement(repositories: MatchAndApplyRepositories, vehicle: CatalogVehicle, placement: Awaited<ReturnType<typeof resolvePlacement>>): Promise<CatalogVehicle> {
   if (!placement || "review" in placement) return vehicle;
   const current = vehicle.placement;
   const canReplace = !current ? vehicle.placementFleetId === "" || placement.authority === "authoritative" : placement.authority === "authoritative" || current.authority !== "authoritative";
   if (!canReplace || (vehicle.placementFleetId === placement.groupId && current)) return vehicle;
-  const updated = createGlobalVehicle({ ...vehicle, placementFleetId: placement.groupId, placement: createVehiclePlacement({ groupId: placement.groupId, authority: placement.authority, evidenceBindingId: placement.evidenceBindingId || undefined, assignedAt: new Date() }) });
+  const updated = createCatalogVehicle({ ...vehicle, placementFleetId: placement.groupId, placement: createVehiclePlacement({ groupId: placement.groupId, authority: placement.authority, evidenceBindingId: placement.evidenceBindingId || undefined, assignedAt: new Date() }) });
   await repositories.vehicles.save(updated);
   return updated;
 }
@@ -141,7 +141,7 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
         ? dependencies.candidate.normalizedPlate === undefined ? "missing-plate" : "malformed-plate"
         : undefined;
     if (reviewReason) {
-      const review = createGlobalCatalogReview({
+      const review = createCatalogReview({
         id: dependencies.ids.create(),
         connectionId: dependencies.candidate.connectionId,
         externalId: dependencies.candidate.externalId,
@@ -157,7 +157,7 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
     if (!isNormalizedPlate(normalizedPlate)) throw new Error("Unsafe plate evidence reached matching");
     const matchedVehicle = await repositories.vehicles.findByNormalizedPlate(normalizedPlate);
     if (!matchedVehicle && !placement) {
-      const review = createGlobalCatalogReview({
+      const review = createCatalogReview({
         id: dependencies.ids.create(),
         connectionId: dependencies.candidate.connectionId,
         externalId: dependencies.candidate.externalId,
@@ -168,7 +168,7 @@ export async function matchAndApplyProviderCandidate(dependencies: MatchAndApply
       await repositories.reviews.save(review);
       return { kind: "review", review };
     }
-    const vehicle = matchedVehicle ?? createGlobalVehicle({
+    const vehicle = matchedVehicle ?? createCatalogVehicle({
       id: dependencies.ids.create(),
       normalizedPlate,
       plate: dependencies.candidate.plate ?? normalizedPlate,

@@ -3,14 +3,14 @@ import { normalizeGroupLabel, normalizePlate } from "@/domain/catalog";
 
 import type { CybermapaVehicleRecord } from "./responses";
 
-export type CybermapaGlobalCatalogOptions = Readonly<{
+export type CybermapaCatalogOptions = Readonly<{
   connectionId: string;
   placementFleetId?: string;
 }>;
 
 export type CybermapaSeedRepositories = MatchAndApplyRepositories;
 
-export type CybermapaSeedDependencies = CybermapaGlobalCatalogOptions & {
+export type CybermapaSeedDependencies = CybermapaCatalogOptions & {
   records: CybermapaVehicleRecord[];
   ids: { create(): string };
   repositories: CybermapaSeedRepositories;
@@ -36,7 +36,7 @@ function plate(value: string | undefined): string | undefined {
   return trimmed === "" || trimmed === undefined ? undefined : trimmed;
 }
 
-export function mapCybermapaGlobalCatalog(records: CybermapaVehicleRecord[], options: CybermapaGlobalCatalogOptions): ProviderCandidate[] {
+export function mapCybermapaCatalog(records: CybermapaVehicleRecord[], options: CybermapaCatalogOptions): ProviderCandidate[] {
   const seenExternalIds = new Set<string>();
   const candidates: ProviderCandidate[] = [];
 
@@ -63,7 +63,7 @@ export function mapCybermapaGlobalCatalog(records: CybermapaVehicleRecord[], opt
 }
 
 export async function seedCybermapaCatalog(dependencies: CybermapaSeedDependencies): Promise<CybermapaSeedResult> {
-  const candidates = mapCybermapaGlobalCatalog(dependencies.records, dependencies);
+  const candidates = mapCybermapaCatalog(dependencies.records, dependencies);
   const outcomes: MatchAndApplyResult[] = [];
 
   for (const candidate of candidates) {

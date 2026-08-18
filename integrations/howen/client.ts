@@ -6,7 +6,7 @@ import type {
   HowenSession,
   HowenSessionManager,
 } from "./session";
-import type { GlobalSyncFailureCategory } from "@/application/catalog/synchronize-global-connection";
+import type { CatalogSyncFailureCategory } from "@/application/catalog/synchronize-connection";
 
 type CreateHowenClientInput = {
   config: HowenConfig;
@@ -15,10 +15,10 @@ type CreateHowenClientInput = {
 };
 
 export class HowenRequestError extends Error {
-  readonly category: GlobalSyncFailureCategory;
+  readonly category: CatalogSyncFailureCategory;
   readonly httpStatus?: number;
 
-  constructor(category: GlobalSyncFailureCategory, httpStatus?: number) {
+  constructor(category: CatalogSyncFailureCategory, httpStatus?: number) {
     super("Howen request unavailable");
     this.name = "HowenRequestError";
     this.category = category;
@@ -30,7 +30,7 @@ export type HowenClient = {
   fetchRoster(): Promise<HowenRosterRecord[]>;
 };
 
-function unavailable(category: GlobalSyncFailureCategory = "connectivity", httpStatus?: number): HowenRequestError {
+function unavailable(category: CatalogSyncFailureCategory = "connectivity", httpStatus?: number): HowenRequestError {
   return new HowenRequestError(category, httpStatus);
 }
 

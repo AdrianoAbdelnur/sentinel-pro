@@ -1,30 +1,30 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGlobalCatalogReview,
-  createGlobalVehicle,
+  createCatalogReview,
+  createCatalogVehicle,
   createProviderConnection,
   createProviderContribution,
-  createProviderDefinition,
+  createProvider,
   createProviderFleetMembership,
-  createTenantVehicleGrant,
-  resolveGlobalCatalogReview,
-  retainGlobalVehiclePlacement,
+  createOrganizationVehicleAccess,
+  resolveCatalogReview,
+  retainCatalogVehiclePlacement,
   normalizePlate,
-  createSentinelGroup, createGroupEvidenceBinding, createVehiclePlacement,
-  type GlobalCatalogReview,
-  type GlobalVehicle,
+  createCatalogGroup, createGroupEvidenceBinding, createVehiclePlacement,
+  type CatalogReview,
+  type CatalogVehicle,
   type ProviderContribution,
   type ProviderFleetMembership,
 } from "./index";
 
-describe("global catalog domain", () => {
+describe("canonical catalog domain", () => {
   it("normalizes canonical plate identity without the organizational catalog", () => {
     expect(normalizePlate(" ab-123 cd ")).toBe("AB123CD");
   });
 
-  it("creates a global vehicle without tenant, Company, provider, or provider fleet identity", () => {
-    const vehicle = createGlobalVehicle({
+  it("creates a catalog vehicle without tenant, Company, provider, or provider fleet identity", () => {
+    const vehicle = createCatalogVehicle({
       id: "vehicle-1",
       normalizedPlate: "ABC123",
       plate: "ABC 123",
@@ -43,21 +43,21 @@ describe("global catalog domain", () => {
     expect(vehicle).not.toHaveProperty("externalFleetId");
   });
 
-  it("retains Sentinel placement when a later contribution proposes another fleet", () => {
-    const vehicle = createGlobalVehicle({
+  it("retains catalog placement when a later contribution proposes another fleet", () => {
+    const vehicle = createCatalogVehicle({
       id: "vehicle-1",
       normalizedPlate: "ABC123",
       plate: "ABC 123",
       placementFleetId: "sentinel-fleet-1",
     });
 
-    const enriched = retainGlobalVehiclePlacement(vehicle, "provider-fleet-2");
+    const enriched = retainCatalogVehiclePlacement(vehicle, "provider-fleet-2");
 
     expect(enriched).toEqual(vehicle);
     expect(enriched.placementFleetId).toBe("sentinel-fleet-1");
   });
 
-  it("records provider capabilities and presence independently of global identity", () => {
+  it("records provider capabilities and presence independently of catalog identity", () => {
     const contribution = createProviderContribution({
       id: "contribution-1",
       connectionId: "connection-1",
@@ -110,16 +110,16 @@ describe("global catalog domain", () => {
     expect(memberships.every((membership) => membership.vehicleId === "vehicle-1")).toBe(true);
   });
 
-  it("creates tenant access as a grant without changing global identity", () => {
-    const grant = createTenantVehicleGrant({ organizationId: "organization-1", vehicleId: "vehicle-1" });
+  it("creates organization access as a grant without changing catalog identity", () => {
+    const grant = createOrganizationVehicleAccess({ organizationId: "organization-1", vehicleId: "vehicle-1" });
 
     expect(grant).toEqual({ organizationId: "organization-1", vehicleId: "vehicle-1" });
     expect(grant).not.toHaveProperty("fleetId");
     expect(grant).not.toHaveProperty("companyId");
   });
 
-  it("stages a global review with provider-neutral evidence", () => {
-    const review = createGlobalCatalogReview({
+  it("stages a catalog review with provider-neutral evidence", () => {
+    const review = createCatalogReview({
       id: "review-1",
       connectionId: "connection-1",
       externalId: "external-1",
@@ -140,8 +140,8 @@ describe("global catalog domain", () => {
     });
   });
 
-  it("resolves a pending global review without changing its provider-neutral subject", () => {
-    const review = createGlobalCatalogReview({
+  it("resolves a pending catalog review without changing its provider-neutral subject", () => {
+    const review = createCatalogReview({
       id: "review-1",
       connectionId: "connection-1",
       externalId: "external-1",
@@ -149,7 +149,7 @@ describe("global catalog domain", () => {
       candidateVehicleIds: ["vehicle-1"],
     });
 
-    const resolved = resolveGlobalCatalogReview(review, "vehicle-1");
+    const resolved = resolveCatalogReview(review, "vehicle-1");
 
     expect(resolved).toEqual({
       ...review,
@@ -159,8 +159,8 @@ describe("global catalog domain", () => {
     expect(resolved.subject).toBe("vehicle-identity");
   });
 
-  it("defines provider connections through neutral adapter keys and global capabilities", () => {
-    const provider = createProviderDefinition({
+  it("defines provider connections through neutral adapter keys and catalog capabilities", () => {
+    const provider = createProvider({
       id: "provider-1",
       adapterKey: "adapter-key",
       capabilities: ["gps", "video"],
@@ -185,16 +185,16 @@ describe("global catalog domain", () => {
   });
 
   it("preserves an already resolved review when resolution is repeated", () => {
-    const review = createGlobalCatalogReview({
+    const review = createCatalogReview({
       id: "review-1",
       connectionId: "connection-1",
       externalId: "external-1",
       reason: "malformed-plate",
       candidateVehicleIds: [],
     });
-    const resolved = resolveGlobalCatalogReview(review, "vehicle-1");
+    const resolved = resolveCatalogReview(review, "vehicle-1");
 
-    expect(resolveGlobalCatalogReview(resolved, "vehicle-2")).toBe(resolved);
+    expect(resolveCatalogReview(resolved, "vehicle-2")).toBe(resolved);
   });
 
   it("keeps absent contributions valid without inventing capability values", () => {
@@ -212,8 +212,8 @@ describe("global catalog domain", () => {
   });
 
   it("keeps domain values immutable at runtime", () => {
-    const values: Array<GlobalVehicle | ProviderContribution | ProviderFleetMembership | GlobalCatalogReview> = [
-      createGlobalVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "fleet-1" }),
+    const values: Array<CatalogVehicle | ProviderContribution | ProviderFleetMembership | CatalogReview> = [
+      createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "fleet-1" }),
       createProviderContribution({
         id: "contribution-1",
         connectionId: "connection-1",
@@ -223,7 +223,7 @@ describe("global catalog domain", () => {
         presence: "present",
       }),
       createProviderFleetMembership({ connectionId: "connection-1", externalFleetId: "fleet-1", vehicleId: "vehicle-1", label: "North" }),
-      createGlobalCatalogReview({ id: "review-1", connectionId: "connection-1", externalId: "external-1", reason: "missing-plate", candidateVehicleIds: [] }),
+      createCatalogReview({ id: "review-1", connectionId: "connection-1", externalId: "external-1", reason: "missing-plate", candidateVehicleIds: [] }),
     ];
 
     expect(values.every((value) => Object.isFrozen(value))).toBe(true);
@@ -231,9 +231,9 @@ describe("global catalog domain", () => {
 });
 
   it("creates stable canonical groups and auditable placement evidence", () => {
-    const group = createSentinelGroup({ id: "group-1", label: "North" });
+    const group = createCatalogGroup({ id: "group-1", label: "North" });
     const binding = createGroupEvidenceBinding({ id: "binding-1", groupId: group.id, evidence: { connectionId: "c", kind: "company-label", externalKey: "north", label: "North", authority: "authoritative" } });
-    const vehicle = createGlobalVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "legacy", placement: createVehiclePlacement({ groupId: group.id, authority: "authoritative", evidenceBindingId: binding.id, assignedAt: new Date("2026-01-01") }) });
+    const vehicle = createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "group-1", placement: createVehiclePlacement({ groupId: group.id, authority: "authoritative", evidenceBindingId: binding.id, assignedAt: new Date("2026-01-01") }) });
     expect(group).toEqual({ id: "group-1", label: "North" });
     expect(binding.evidence.authority).toBe("authoritative");
     expect(vehicle.placement?.groupId).toBe(group.id);
@@ -241,7 +241,7 @@ describe("global catalog domain", () => {
   });
 
   it("does not merge ambiguous group evidence and records a review", () => {
-    const review = createGlobalCatalogReview({ id: "review-1", connectionId: "c", externalId: "north", reason: "ambiguous-group-evidence", candidateVehicleIds: [], evidenceKey: "north", candidateGroupIds: ["g1", "g2"] });
+    const review = createCatalogReview({ id: "review-1", connectionId: "c", externalId: "north", reason: "ambiguous-group-evidence", candidateVehicleIds: [], evidenceKey: "north", candidateGroupIds: ["g1", "g2"] });
     expect(review.reason).toBe("ambiguous-group-evidence");
     expect(review.candidateGroupIds).toEqual(["g1", "g2"]);
   });

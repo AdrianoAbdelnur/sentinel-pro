@@ -1,11 +1,11 @@
-import type { GlobalCatalogLiveInput, LiveState } from "@/application/live";
-import type { ProviderConnection, ProviderContribution, ProviderDefinition } from "@/domain/catalog";
+import type { CatalogLiveInput, LiveState } from "@/application/live";
+import type { ProviderConnection, ProviderContribution, Provider } from "@/domain/catalog";
 import { createHowenClient } from "@/integrations/howen/client";
 import { readHowenConfig } from "@/integrations/howen/config";
 import { createHowenOperationalSource } from "@/integrations/howen/howen-operational-source";
 import { createHowenSessionManager } from "@/integrations/howen/session";
 
-type Snapshots = GlobalCatalogLiveInput["sourceSnapshots"];
+type Snapshots = CatalogLiveInput["sourceSnapshots"];
 type ConnectionSnapshots = Snapshots[string];
 
 export function mapHowenOperationalStateToCatalogSnapshots(
@@ -34,9 +34,9 @@ async function loadHowenSnapshots(contributions: readonly ProviderContribution[]
   return mapHowenOperationalStateToCatalogSnapshots(result.state, contributions);
 }
 
-export async function loadGlobalLiveSnapshots(
+export async function loadLiveSnapshots(
   connections: readonly ProviderConnection[],
-  providers: readonly ProviderDefinition[],
+  providers: readonly Provider[],
   contributions: readonly ProviderContribution[],
 ): Promise<Snapshots> {
   const providersById = new Map(providers.map((provider) => [provider.id, provider]));

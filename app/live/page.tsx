@@ -8,7 +8,7 @@ import {
 } from "@/integrations/live/in-memory/in-memory-live-data-source";
 
 import { createOperationalSources } from "./create-operational-sources";
-import { createGlobalCatalogSource } from "./create-catalog-source";
+import { createCatalogSource } from "./create-catalog-source";
 import { readLiveRuntimeConfig } from "./live-runtime-config";
 import { requirePageAuthorization } from "../require-page-authorization";
 
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function LivePage() {
   const authorization = await requirePageAuthorization("operator");
   const runtime = readLiveRuntimeConfig();
-  const catalogSource = createGlobalCatalogSource(authorization.organizationId);
+  const catalogSource = createCatalogSource(authorization.organizationId);
   const sources = createOperationalSources(runtime, { catalogSource });
   const { state, warnings } = await aggregateOperationalSources(sources);
   const tabs = runtime.includeDevelopmentFixtures

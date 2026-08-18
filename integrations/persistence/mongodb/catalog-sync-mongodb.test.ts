@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MongoClient } from "mongodb";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 
-import type { GlobalSyncRun } from "@/application/catalog/synchronize-global-connection";
+import type { CatalogSyncRun } from "@/application/catalog/synchronize-connection";
 
 import { createCatalogSyncRepositories, initializeCatalogDatabase } from "./index";
 
@@ -21,7 +21,7 @@ afterAll(async () => {
 });
 
 const counts = { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 };
-const run = (overrides: Partial<GlobalSyncRun> = {}): GlobalSyncRun => ({
+const run = (overrides: Partial<CatalogSyncRun> = {}): CatalogSyncRun => ({
   id: "run-1",
   lineageId: "lineage-1",
   attempt: 1,
@@ -38,7 +38,7 @@ const run = (overrides: Partial<GlobalSyncRun> = {}): GlobalSyncRun => ({
 });
 
 async function database(name: string) {
-  const db = client.db(`global_sync_${name}_${Date.now()}`);
+  const db = client.db(`catalog_sync_${name}_${Date.now()}`);
   await initializeCatalogDatabase(db);
   return db;
 }

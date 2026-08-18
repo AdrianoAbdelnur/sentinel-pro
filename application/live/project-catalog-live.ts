@@ -1,47 +1,47 @@
-import { DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER } from "@/domain/catalog";
+import { DEFAULT_CAPABILITY_SOURCE_ORDER } from "@/domain/catalog";
 import type {
-  GlobalCapabilityPolicy,
-  GlobalVehicle,
+  CapabilityPolicy,
+  CatalogVehicle,
   ProviderConnection,
   ProviderContribution,
-  TenantVehicleGrant,
+  OrganizationVehicleAccess,
 } from "@/domain/catalog";
 import type { Device, DeviceTelemetry } from "@/domain/live";
 
 import type { LiveState, LiveVehicleState, OperationalSource } from "./contracts";
 
-export type GlobalCatalogFleet = {
+export type CatalogFleet = {
   id: string;
   label: string;
 };
 
-export type GlobalCatalogCapabilitySnapshot = {
+export type CatalogCapabilitySnapshot = {
   device?: Device;
   telemetry?: DeviceTelemetry;
 };
 
-export type GlobalCatalogLiveInput = {
+export type CatalogLiveInput = {
   organizationId: string;
-  fleets: readonly GlobalCatalogFleet[];
-  vehicles: readonly GlobalVehicle[];
+  fleets: readonly CatalogFleet[];
+  vehicles: readonly CatalogVehicle[];
   contributions: readonly ProviderContribution[];
   connections: readonly ProviderConnection[];
-  policies: readonly GlobalCapabilityPolicy[];
-  grants: readonly TenantVehicleGrant[];
-  sourceSnapshots: Readonly<Record<string, Readonly<Record<string, GlobalCatalogCapabilitySnapshot>>>>;
+  policies: readonly CapabilityPolicy[];
+  grants: readonly OrganizationVehicleAccess[];
+  sourceSnapshots: Readonly<Record<string, Readonly<Record<string, CatalogCapabilitySnapshot>>>>;
 };
 
-function sourceOrder(capability: string, policies: readonly GlobalCapabilityPolicy[]): readonly string[] {
-  return policies.find((policy) => policy.capability === capability)?.sourceOrder ?? DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER[capability] ?? [];
+function sourceOrder(capability: string, policies: readonly CapabilityPolicy[]): readonly string[] {
+  return policies.find((policy) => policy.capability === capability)?.sourceOrder ?? DEFAULT_CAPABILITY_SOURCE_ORDER[capability] ?? [];
 }
 
-function assignedVehicleIds(input: GlobalCatalogLiveInput): Set<string> {
+function assignedVehicleIds(input: CatalogLiveInput): Set<string> {
   return new Set(
     input.grants.filter((grant) => grant.organizationId === input.organizationId).map((grant) => grant.vehicleId),
   );
 }
 
-function enabledProviders(input: GlobalCatalogLiveInput): Map<string, string> {
+function enabledProviders(input: CatalogLiveInput): Map<string, string> {
   return new Map(input.connections.filter((connection) => connection.enabled).map((connection) => [connection.id, connection.providerId]));
 }
 
@@ -54,8 +54,8 @@ function resolveSource(
   capability: string,
   contributions: readonly ProviderContribution[],
   providers: Map<string, string>,
-  policies: readonly GlobalCapabilityPolicy[],
-  snapshots: GlobalCatalogLiveInput["sourceSnapshots"],
+  policies: readonly CapabilityPolicy[],
+  snapshots: CatalogLiveInput["sourceSnapshots"],
 ): ResolvedCapabilitySource | undefined {
   const eligible = new Map<string, ProviderContribution>();
   for (const contribution of contributions) {
@@ -79,12 +79,12 @@ function resolveSource(
 
 function snapshotFor(
   resolved: ResolvedCapabilitySource | undefined,
-  snapshots: GlobalCatalogLiveInput["sourceSnapshots"],
-): GlobalCatalogCapabilitySnapshot | undefined {
+  snapshots: CatalogLiveInput["sourceSnapshots"],
+): CatalogCapabilitySnapshot | undefined {
   return resolved ? snapshots[resolved.contribution.connectionId]?.[resolved.contribution.externalId] : undefined;
 }
 
-function projectVehicle(vehicle: GlobalVehicle, input: GlobalCatalogLiveInput, providers: Map<string, string>): LiveVehicleState {
+function projectVehicle(vehicle: CatalogVehicle, input: CatalogLiveInput, providers: Map<string, string>): LiveVehicleState {
   const contributions = input.contributions.filter((contribution) => contribution.vehicleId === vehicle.id);
   const gpsSource = resolveSource("gps", contributions, providers, input.policies, input.sourceSnapshots);
   const videoSource = resolveSource("video", contributions, providers, input.policies, input.sourceSnapshots);
@@ -109,8 +109,8 @@ function projectVehicle(vehicle: GlobalVehicle, input: GlobalCatalogLiveInput, p
   };
 }
 
-export function createGlobalCatalogLiveProjector() {
-  return (input: GlobalCatalogLiveInput): LiveState => {
+export function createCatalogLiveProjector() {
+  return (input: CatalogLiveInput): LiveState => {
     const assigned = assignedVehicleIds(input);
     const providers = enabledProviders(input);
     const vehicles = input.vehicles.filter((vehicle) => assigned.has(vehicle.id));
@@ -128,10 +128,10 @@ export function createGlobalCatalogLiveProjector() {
   };
 }
 
-export function createGlobalCatalogOperationalSource(
-  loadInput: () => Promise<GlobalCatalogLiveInput>,
+export function createCatalogOperationalSource(
+  loadInput: () => Promise<CatalogLiveInput>,
 ): OperationalSource {
-  const project = createGlobalCatalogLiveProjector();
+  const project = createCatalogLiveProjector();
 
   return {
     identity: { id: "canonical-catalog", label: "Catálogo" },

@@ -1,6 +1,6 @@
 import { isValidInternalSecret } from "@/integrations/security/authorize-internal-secret";
 
-import { getGlobalCatalogSyncRuntime } from "../composition";
+import { getCatalogSyncRuntime } from "../composition";
 import { readBearerToken, unauthorized } from "../delivery";
 
 export const runtime = "nodejs";
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   const expected = process.env.SENTINEL_CATALOG_SYNC_SECRET;
   if (!expected || !isValidInternalSecret(readBearerToken(request), expected)) return unauthorized();
-  const catalog = await getGlobalCatalogSyncRuntime();
+  const catalog = await getCatalogSyncRuntime();
   const results = [];
   for (const connection of await catalog.listDueConnections()) {
     const provider = await catalog.providers.findById(connection.providerId);

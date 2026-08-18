@@ -13,7 +13,7 @@ const vehicle = (id: string, plate = "ABC123") => ({ id, normalizedPlate: plate,
 
 describe("catalog Mongo persistence", () => {
   it("lists the canonical records required by the Live projection", async () => {
-    const db = client.db(`global_catalog_live_${Date.now()}`);
+    const db = client.db(`catalog_live_${Date.now()}`);
     await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.groups.save({ id: "group-1", label: "North" });
@@ -22,17 +22,17 @@ describe("catalog Mongo persistence", () => {
     await repos.contributions.save({ id: "contribution-1", connectionId: "connection-1", externalId: "external-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     await repos.grants.save({ organizationId: "organization-1", vehicleId: "vehicle-1" });
     const now = new Date();
-    await db.collection("capability_policies").insertOne({ schemaVersion: 2, id: "global:gps", capability: "gps", sourceOrder: ["provider-1"], createdAt: now, updatedAt: now });
+    await db.collection("capability_policies").insertOne({ schemaVersion: 1, id: "gps", capability: "gps", sourceOrder: ["provider-1"], createdAt: now, updatedAt: now });
 
     await expect(repos.groups.list()).resolves.toEqual([{ id: "group-1", label: "North" }]);
     await expect(repos.vehicles.list()).resolves.toEqual([vehicle("vehicle-1")]);
     await expect(repos.connections.listEnabled()).resolves.toHaveLength(1);
     await expect(repos.contributions.listByConnectionId("connection-1")).resolves.toHaveLength(1);
     await expect(repos.grants.listByOrganizationId("organization-1")).resolves.toEqual([{ organizationId: "organization-1", vehicleId: "vehicle-1" }]);
-    await expect(repos.policies.list()).resolves.toEqual([{ id: "global:gps", capability: "gps", sourceOrder: ["provider-1"] }]);
+    await expect(repos.policies.list()).resolves.toEqual([{ id: "gps", capability: "gps", sourceOrder: ["provider-1"] }]);
   });
   it("initializes only the definitive strict collections and indexes idempotently", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`);
+    const db = client.db(`catalog_${Date.now()}`);
     await initializeCatalogDatabase(db);
     await initializeCatalogDatabase(db);
     expect(new Set(await db.listCollections({}, { nameOnly: true }).map(({ name }) => name).toArray())).toEqual(new Set(catalogCollectionNames));
@@ -45,8 +45,8 @@ describe("catalog Mongo persistence", () => {
     await expect(db.collection("provider_contributions").insertOne({ schemaVersion: 1, id: "bad", connectionId: "c", externalId: "e", vehicleId: "v", capabilities: { gps: "invalid" }, presence: "present", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
   });
 
-  it("enforces global identity and contribution uniqueness without tenant identity", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`); await initializeCatalogDatabase(db);
+  it("enforces catalog identity and contribution uniqueness without tenant identity", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.vehicles.save(vehicle("one"));
     await expect(repos.vehicles.save(vehicle("two"))).rejects.toThrow();
@@ -55,7 +55,7 @@ describe("catalog Mongo persistence", () => {
   });
 
   it("keeps concurrent idempotent writes atomic", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`); await initializeCatalogDatabase(db);
+    const db = client.db(`catalog_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     const writes = await Promise.all(Array.from({ length: 8 }, () => repos.vehicles.save(vehicle("same"))));
     expect(writes).toHaveLength(8);
@@ -63,16 +63,16 @@ describe("catalog Mongo persistence", () => {
     expect(await repos.vehicles.findById("same")).toEqual(vehicle("same"));
   });
 
-  it("writes provider contributions atomically while preserving their global vehicle link", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`); await initializeCatalogDatabase(db);
+  it("writes provider contributions atomically while preserving their catalog vehicle link", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.contributions.save({ id: "contribution", connectionId: "connection", externalId: "external", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     await repos.contributions.save({ id: "contribution", connectionId: "connection", externalId: "external", vehicleId: "vehicle-1", capabilities: { video: "eligible" }, presence: "absent" });
     await expect(repos.contributions.findByConnectionAndExternalId("connection", "external")).resolves.toEqual({ id: "contribution", connectionId: "connection", externalId: "external", vehicleId: "vehicle-1", capabilities: { video: "eligible" }, presence: "absent" });
   });
 
-  it("keeps provider definitions and connections global and lists only enabled connections", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`); await initializeCatalogDatabase(db);
+  it("keeps provider definitions and connections catalog-wide and lists only enabled connections", async () => {
+    const db = client.db(`catalog_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.providers.save({ id: "provider", adapterKey: "adapter", capabilities: ["gps", "video"] });
     await repos.connections.save({ id: "enabled", providerId: "provider", credentialRef: "vault:provider", enabled: true, cadenceMinutes: 60 });
@@ -83,7 +83,7 @@ describe("catalog Mongo persistence", () => {
   });
 
   it("stores independent memberships for the same vehicle and provider fleet", async () => {
-    const db = client.db(`global_catalog_${Date.now()}`); await initializeCatalogDatabase(db);
+    const db = client.db(`catalog_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.memberships.save({ connectionId: "connection-a", externalFleetId: "fleet", vehicleId: "vehicle", label: "North" });
     await repos.memberships.save({ connectionId: "connection-b", externalFleetId: "fleet", vehicleId: "vehicle", label: "Night" });
@@ -95,7 +95,7 @@ describe("catalog Mongo persistence", () => {
   });
 
   it("converges concurrent matcher transactions through unique identity indexes", async () => {
-    const db = client.db(`global_catalog_match_race_${Date.now()}`);
+    const db = client.db(`catalog_match_race_${Date.now()}`);
     await initializeCatalogDatabase(db);
     let sequence = 0;
     const candidate: ProviderCandidate = { connectionId: "connection", externalId: "external", plate: "ABC 123", normalizedPlate: "ABC123", placementFleetId: "fleet", capabilities: { gps: "eligible" }, presence: "present" };
@@ -125,8 +125,8 @@ describe("catalog Mongo persistence", () => {
     expect(await db.collection("provider_contributions").countDocuments({ connectionId: "connection", externalId: "external" })).toBe(1);
   }, 60_000);
 
-  it("converges different external identities competing for one global plate", async () => {
-    const db = client.db(`global_catalog_cross_identity_race_${Date.now()}`);
+  it("converges different external identities competing for one catalog plate", async () => {
+    const db = client.db(`catalog_cross_identity_race_${Date.now()}`);
     await initializeCatalogDatabase(db);
     let sequence = 0;
     const createDependencies = (externalId: string): MatchAndApplyDependencies => ({
@@ -157,18 +157,18 @@ describe("catalog Mongo persistence", () => {
   }, 60_000);
 
   it("persists canonical groups, evidence bindings, placement provenance, and ambiguity indexes", async () => {
-    const db = client.db(`global_catalog_groups_${Date.now()}`); await initializeCatalogDatabase(db);
+    const db = client.db(`catalog_groups_test_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.groups.save({ id: "group-1", label: "North" });
     await repos.evidenceBindings.save({ id: "binding-1", groupId: "group-1", evidence: { connectionId: "c", kind: "company-label", externalKey: "north", label: "North", authority: "authoritative" } });
-    await repos.vehicles.save({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "legacy", placement: { groupId: "group-1", authority: "authoritative", evidenceBindingId: "binding-1", assignedAt: new Date() } });
+    await repos.vehicles.save({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "group-1", placement: { groupId: "group-1", authority: "authoritative", evidenceBindingId: "binding-1", assignedAt: new Date() } });
     expect(await repos.groups.findById("group-1")).toEqual({ id: "group-1", label: "North" });
     expect((await repos.evidenceBindings.findByGroupId("group-1"))[0].evidence.externalKey).toBe("north");
     expect((await db.collection("group_evidence_bindings").indexes()).some((index) => index.name === "group_evidence_bindings_evidence_unique")).toBe(true);
   });
 
   it("persists ambiguity reviews with evidence and candidate groups", async () => {
-    const db = client.db(`global_catalog_review_${Date.now()}`); await initializeCatalogDatabase(db);
+    const db = client.db(`catalog_review_${Date.now()}`); await initializeCatalogDatabase(db);
     const repos = createCatalogRepositories(db);
     await repos.reviews.save({ id: "review-1", subject: "vehicle-identity", connectionId: "connection", externalId: "vehicle", reason: "ambiguous-group-evidence", evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"], candidateVehicleIds: [], status: "pending" });
 

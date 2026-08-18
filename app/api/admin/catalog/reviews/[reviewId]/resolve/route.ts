@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
-import { getGlobalCatalogSyncRuntime } from "@/app/api/internal/catalog/composition";
+import { getCatalogSyncRuntime } from "@/app/api/internal/catalog/composition";
 
 import { alreadyResolved, toCanonicalReviewSummary } from "../../../canonical-delivery";
 import { badRequest, forbidden } from "@/app/api/internal/catalog/delivery";
@@ -15,7 +15,7 @@ export async function POST(request: Request, { params }: Context) {
   const body = await readJson(request);
   const targetId = typeof body?.targetId === "string" ? body.targetId.trim() : "";
   if (!reviewId.trim() || !targetId) return badRequest();
-  const result = await (await getGlobalCatalogSyncRuntime()).resolveReview(reviewId, targetId);
+  const result = await (await getCatalogSyncRuntime()).resolveReview(reviewId, targetId);
   switch (result.kind) {
     case "resolved": return NextResponse.json({ review: toCanonicalReviewSummary(result.review) });
     case "already-resolved": return alreadyResolved();

@@ -1,5 +1,5 @@
-import type { VehiclePlacement } from "./sentinel-group";
-export type GlobalVehicle = Readonly<{
+import type { VehiclePlacement } from "./catalog-group";
+export type CatalogVehicle = Readonly<{
   id: string;
   normalizedPlate: string;
   plate: string;
@@ -7,7 +7,7 @@ export type GlobalVehicle = Readonly<{
   placement?: VehiclePlacement;
 }>;
 
-export type GlobalVehicleInput = {
+export type CatalogVehicleInput = {
   id: string;
   normalizedPlate: string;
   plate: string;
@@ -15,11 +15,11 @@ export type GlobalVehicleInput = {
   placement?: VehiclePlacement;
 };
 
-export function createGlobalVehicle(input: GlobalVehicleInput): GlobalVehicle {
+export function createCatalogVehicle(input: CatalogVehicleInput): CatalogVehicle {
   return Object.freeze({ ...input });
 }
 
-export function retainGlobalVehiclePlacement(vehicle: GlobalVehicle, proposedPlacementFleetId: string): GlobalVehicle {
+export function retainCatalogVehiclePlacement(vehicle: CatalogVehicle, proposedPlacementFleetId: string): CatalogVehicle {
   void proposedPlacementFleetId;
   return vehicle;
 }

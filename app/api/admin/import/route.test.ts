@@ -2,13 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const application = { authorizePlatform: vi.fn() };
 const synchronize = vi.fn();
-const legacyImport = vi.fn();
 const runtime = {
   connections: { findEnabledByProviderId: vi.fn() },
   providers: { findByAdapterKey: vi.fn() },
   sources: { resolve: vi.fn() },
   synchronize,
-  legacyImport,
 };
 
 vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication: () => application }));
@@ -28,7 +26,7 @@ describe("platform provider import route", () => {
     synchronize.mockResolvedValue({ kind: "succeeded", run: { id: "run-1", lineageId: "lineage-1", attempt: 1, connectionId: "connection-1", trigger: "manual", status: "succeeded", startedAt: new Date(0), completedAt: new Date(1), total: 1, counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" } } });
   });
 
-  it("authorizes global import with platform authority instead of tenant membership", async () => {
+  it("authorizes catalog import with platform authority instead of organization membership", async () => {
     const response = await POST(new Request("https://sentinel.test/api/admin/import", { method: "POST", headers, body: JSON.stringify({ provider: "cybermapa" }) }));
 
     expect(response.status).toBe(200);
@@ -46,16 +44,15 @@ describe("platform provider import route", () => {
     expect(synchronize).not.toHaveBeenCalled();
   });
 
-  it("uses one V2 connection and never calls the legacy import application", async () => {
+  it("uses the enabled canonical connection", async () => {
     const response = await POST(new Request("https://sentinel.test/api/admin/import", { method: "POST", headers, body: JSON.stringify({ provider: "cybermapa" }) }));
     await response.text();
 
     expect(runtime.connections.findEnabledByProviderId).toHaveBeenCalledWith("provider-1");
     expect(runtime.sources.resolve).toHaveBeenCalled();
-    expect(legacyImport).not.toHaveBeenCalled();
   });
 
-  it.each(["cybermapa", "howen"])("keeps %s imports on the V2 runtime", async (provider) => {
+  it.each(["cybermapa", "howen"])("keeps %s imports on the canonical runtime", async (provider) => {
     runtime.providers.findByAdapterKey.mockResolvedValueOnce({ id: `${provider}-provider`, adapterKey: provider, capabilities: [] });
     runtime.connections.findEnabledByProviderId.mockResolvedValueOnce({ id: `${provider}-connection`, providerId: `${provider}-provider`, credentialRef: `vault:${provider}/import`, enabled: true, cadenceMinutes: 60 });
 
@@ -65,7 +62,6 @@ describe("platform provider import route", () => {
     expect(runtime.providers.findByAdapterKey).toHaveBeenCalledWith(provider);
     expect(runtime.connections.findEnabledByProviderId).toHaveBeenCalledWith(`${provider}-provider`);
     expect(synchronize).toHaveBeenCalledWith(expect.objectContaining({ connectionId: `${provider}-connection` }));
-    expect(legacyImport).not.toHaveBeenCalled();
   });
 
   it("emits one terminal event and tolerates late progress and repeated close", async () => {

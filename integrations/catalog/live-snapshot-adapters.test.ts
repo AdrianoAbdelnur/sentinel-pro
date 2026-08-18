@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { mapHowenOperationalStateToCatalogSnapshots } from "./live-snapshot-adapters";
 
-describe("global Live snapshot adapters", () => {
+describe("catalog Live snapshot adapters", () => {
   it("maps Howen operational data by contribution without exposing provider roster ownership", () => {
     const snapshots = mapHowenOperationalStateToCatalogSnapshots(
       {

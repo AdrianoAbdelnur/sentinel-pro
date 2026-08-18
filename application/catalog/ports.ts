@@ -1,29 +1,29 @@
 import type {
-  GlobalCatalogReview,
-  GlobalVehicle,
+  CatalogReview,
+  CatalogVehicle,
   ProviderConnection,
   ProviderContribution,
-  ProviderDefinition,
+  Provider,
   ProviderFleetMembership,
-  TenantVehicleGrant,
-  SentinelGroup, GroupEvidenceBinding,
+  OrganizationVehicleAccess,
+  CatalogGroup, GroupEvidenceBinding,
 } from "@/domain/catalog";
 
-export type GlobalCatalogIdGenerator = { create(): string };
+export type CatalogIdGenerator = { create(): string };
 
-export type GlobalVehicleRepository = {
-  findById(id: string): Promise<GlobalVehicle | undefined>;
-  findByNormalizedPlate(normalizedPlate: string): Promise<GlobalVehicle | undefined>;
-  save(vehicle: GlobalVehicle): Promise<void>;
+export type CatalogVehicleRepository = {
+  findById(id: string): Promise<CatalogVehicle | undefined>;
+  findByNormalizedPlate(normalizedPlate: string): Promise<CatalogVehicle | undefined>;
+  save(vehicle: CatalogVehicle): Promise<void>;
 };
-export type SentinelGroupRepository = { findById(id: string): Promise<SentinelGroup | undefined>; findByLabel(label: string): Promise<SentinelGroup[]>; save(group: SentinelGroup): Promise<void> };
+export type CatalogGroupRepository = { findById(id: string): Promise<CatalogGroup | undefined>; findByLabel(label: string): Promise<CatalogGroup[]>; save(group: CatalogGroup): Promise<void> };
 export type GroupEvidenceBindingRepository = { findById(id: string): Promise<GroupEvidenceBinding | undefined>; findByGroupId(groupId: string): Promise<GroupEvidenceBinding[]>; findByEvidence(connectionId: string, kind: string, externalKey: string): Promise<GroupEvidenceBinding[]>; save(binding: GroupEvidenceBinding): Promise<void> };
 
-export type ProviderDefinitionRepository = {
-  findById(id: string): Promise<ProviderDefinition | undefined>;
-  findByAdapterKey(adapterKey: string): Promise<ProviderDefinition | undefined>;
-  list(): Promise<ProviderDefinition[]>;
-  save(provider: ProviderDefinition): Promise<void>;
+export type ProviderRepository = {
+  findById(id: string): Promise<Provider | undefined>;
+  findByAdapterKey(adapterKey: string): Promise<Provider | undefined>;
+  list(): Promise<Provider[]>;
+  save(provider: Provider): Promise<void>;
 };
 
 export type ProviderConnectionRepository = {
@@ -46,31 +46,31 @@ export type ProviderFleetMembershipRepository = {
   save(membership: ProviderFleetMembership): Promise<void>;
 };
 
-export type TenantVehicleGrantRepository = {
-  listByOrganizationId(organizationId: string): Promise<TenantVehicleGrant[]>;
-  find(organizationId: string, vehicleId: string): Promise<TenantVehicleGrant | undefined>;
-  save(grant: TenantVehicleGrant): Promise<void>;
+export type OrganizationVehicleAccessRepository = {
+  listByOrganizationId(organizationId: string): Promise<OrganizationVehicleAccess[]>;
+  find(organizationId: string, vehicleId: string): Promise<OrganizationVehicleAccess | undefined>;
+  save(grant: OrganizationVehicleAccess): Promise<void>;
 };
 
-export type GlobalCatalogReviewRepository = {
-  findById(id: string): Promise<GlobalCatalogReview | undefined>;
-  findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<GlobalCatalogReview | undefined>;
-  listPending(): Promise<GlobalCatalogReview[]>;
-  save(review: GlobalCatalogReview): Promise<void>;
+export type CatalogReviewRepository = {
+  findById(id: string): Promise<CatalogReview | undefined>;
+  findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<CatalogReview | undefined>;
+  listPending(): Promise<CatalogReview[]>;
+  save(review: CatalogReview): Promise<void>;
 };
 
 export type CatalogRepositories = {
-  vehicles: GlobalVehicleRepository;
-  providers: ProviderDefinitionRepository;
+  vehicles: CatalogVehicleRepository;
+  providers: ProviderRepository;
   connections: ProviderConnectionRepository;
   contributions: ProviderContributionRepository;
   memberships: ProviderFleetMembershipRepository;
-  grants: TenantVehicleGrantRepository;
-  reviews: GlobalCatalogReviewRepository;
-  groups: SentinelGroupRepository;
+  grants: OrganizationVehicleAccessRepository;
+  reviews: CatalogReviewRepository;
+  groups: CatalogGroupRepository;
   evidenceBindings: GroupEvidenceBindingRepository;
 };
 
-export type GlobalCatalogTransactionRunner = {
+export type CatalogTransactionRunner = {
   run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T>;
 };

@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createGlobalCatalogReview, createGlobalVehicle } from "@/domain/catalog";
+import { createCatalogReview, createCatalogVehicle } from "@/domain/catalog";
 
-import { createGlobalCatalogReviewApplication } from "./reviews";
+import { createCatalogReviewApplication } from "./reviews";
 
 function createFixture() {
-  const review = createGlobalCatalogReview({
+  const review = createCatalogReview({
     id: "review-1",
     connectionId: "connection-1",
     externalId: "external-1",
     reason: "ambiguous-match",
     candidateVehicleIds: ["vehicle-1"],
   });
-  const vehicle = createGlobalVehicle({
+  const vehicle = createCatalogVehicle({
     id: "vehicle-1",
     normalizedPlate: "ABC123",
     plate: "ABC 123",
@@ -26,10 +26,10 @@ function createFixture() {
   const vehicles = {
     findById: vi.fn().mockResolvedValue(vehicle),
   };
-  return { review, reviews, vehicles, application: createGlobalCatalogReviewApplication({ reviews, vehicles }) };
+  return { review, reviews, vehicles, application: createCatalogReviewApplication({ reviews, vehicles }) };
 }
 
-describe("global catalog review application", () => {
+describe("canonical catalog review application", () => {
   it("lists pending canonical reviews", async () => {
     const fixture = createFixture();
 

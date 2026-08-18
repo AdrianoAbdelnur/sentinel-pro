@@ -1,27 +1,27 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  createGlobalCatalogOperationalSource,
-  createGlobalCatalogLiveProjector,
-  type GlobalCatalogLiveInput,
+  createCatalogOperationalSource,
+  createCatalogLiveProjector,
+  type CatalogLiveInput,
 } from "./project-catalog-live";
 
 it("exposes the canonical projection through the provider-neutral operational source contract", async () => {
-  const source = createGlobalCatalogOperationalSource(async () => input);
+  const source = createCatalogOperationalSource(async () => input);
 
-  await expect(source.loadSnapshot()).resolves.toEqual({ kind: "success", state: createGlobalCatalogLiveProjector()(input) });
+  await expect(source.loadSnapshot()).resolves.toEqual({ kind: "success", state: createCatalogLiveProjector()(input) });
   expect(source.identity).toEqual({ id: "canonical-catalog", label: "Catálogo" });
 });
 
 it("translates catalog loading failures to the provider-neutral unavailable result", async () => {
-  const source = createGlobalCatalogOperationalSource(async () => {
+  const source = createCatalogOperationalSource(async () => {
     throw new Error("mongodb secret failure");
   });
 
   await expect(source.loadSnapshot()).resolves.toEqual({ kind: "failure", code: "unavailable" });
 });
 
-const input: GlobalCatalogLiveInput = {
+const input: CatalogLiveInput = {
   organizationId: "org-1",
   fleets: [{ id: "fleet-1", label: "North" }],
   vehicles: [
@@ -46,9 +46,9 @@ const input: GlobalCatalogLiveInput = {
   },
 };
 
-describe("projectGlobalCatalogLive", () => {
+describe("projectCatalogLive", () => {
   it("falls back to eligible Howen telemetry when no preferred Cybermapa contribution exists", () => {
-    const state = createGlobalCatalogLiveProjector()({
+    const state = createCatalogLiveProjector()({
       ...input,
       contributions: [{
         id: "contribution-howen",
@@ -76,7 +76,7 @@ describe("projectGlobalCatalogLive", () => {
   });
 
   it("falls back to Howen telemetry when the preferred Cybermapa contribution has no live snapshot", () => {
-    const state = createGlobalCatalogLiveProjector()({
+    const state = createCatalogLiveProjector()({
       ...input,
       contributions: [
         ...input.contributions,
@@ -106,14 +106,14 @@ describe("projectGlobalCatalogLive", () => {
   });
 
   it("discloses only vehicles assigned to the requesting organization", () => {
-    const state = createGlobalCatalogLiveProjector()(input);
+    const state = createCatalogLiveProjector()(input);
 
     expect(state.liveVehicles.map(({ vehicle }) => vehicle.id)).toEqual(["vehicle-assigned"]);
     expect(state.fleets).toEqual([{ fleetId: "fleet-1", label: "North", vehicleIds: ["vehicle-assigned"] }]);
   });
 
-  it("does not let an unassigned global vehicle affect the tenant projection", () => {
-    const state = createGlobalCatalogLiveProjector()({
+  it("does not let an unassigned catalog vehicle affect the organization projection", () => {
+    const state = createCatalogLiveProjector()({
       ...input,
       grants: [],
     });
@@ -122,7 +122,7 @@ describe("projectGlobalCatalogLive", () => {
   });
 
   it("resolves capability sources independently without changing the Live contract", () => {
-    const state = createGlobalCatalogLiveProjector()({
+    const state = createCatalogLiveProjector()({
       ...input,
       contributions: [
         ...input.contributions,
@@ -153,7 +153,7 @@ describe("projectGlobalCatalogLive", () => {
   });
 
   it("uses the policy order and the selected contribution snapshot for each capability", () => {
-    const state = createGlobalCatalogLiveProjector()({
+    const state = createCatalogLiveProjector()({
       ...input,
       policies: [{ id: "gps-policy", capability: "gps", sourceOrder: ["backup", "cybermapa"] }],
       contributions: [
@@ -193,7 +193,7 @@ describe("projectGlobalCatalogLive", () => {
   });
 
   it("keeps snapshots isolated when same-provider connections reuse an external id", () => {
-    const state = createGlobalCatalogLiveProjector()({
+    const state = createCatalogLiveProjector()({
       ...input,
       contributions: [
         ...input.contributions,

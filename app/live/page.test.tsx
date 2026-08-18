@@ -17,7 +17,7 @@ vi.mock("./create-operational-sources", () => ({
 }));
 
 vi.mock("./create-catalog-source", () => ({
-  createGlobalCatalogSource: catalogComposition.create,
+  createCatalogSource: catalogComposition.create,
 }));
 
 vi.mock("./live-logout-button", () => ({

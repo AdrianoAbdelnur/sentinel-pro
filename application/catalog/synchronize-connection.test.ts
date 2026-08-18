@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { ProviderConnection, ProviderContribution } from "@/domain/catalog";
 
-import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts, type GlobalSyncRun } from "./synchronize-global-connection";
+import { createSynchronizeConnectionApplication, type CatalogSyncPorts, type CatalogSyncRun } from "./synchronize-connection";
 
 const connection: ProviderConnection = { id: "connection-1", providerId: "provider-1", credentialRef: "vault:provider", enabled: true, cadenceMinutes: 60 };
 const provider = { id: "provider-1", adapterKey: "adapter", capabilities: ["gps"] };
@@ -11,7 +11,7 @@ const candidate = { connectionId: "connection-1", externalId: "external-1", plat
 
 function fixture() {
   let now = new Date("2026-08-16T12:00:00Z");
-  const runs: GlobalSyncRun[] = [];
+  const runs: CatalogSyncRun[] = [];
   const contributions: ProviderContribution[] = [];
   const ports = {
     clock: { now: () => now },
@@ -38,18 +38,18 @@ function fixture() {
     },
     reviews: { findByConnectionAndExternalId: vi.fn(async () => undefined), save: vi.fn(async () => undefined) },
     memberships: { save: vi.fn(async () => undefined) },
-    transactions: { run: async <T>(work: (repositories: GlobalSyncPorts) => Promise<T>) => work(ports), isConflict: () => false },
-  } as unknown as GlobalSyncPorts;
+    transactions: { run: async <T>(work: (repositories: CatalogSyncPorts) => Promise<T>) => work(ports), isConflict: () => false },
+  } as unknown as CatalogSyncPorts;
   return { ports, runs, contributions, setNow: (value: string) => { now = new Date(value); } };
 }
 
-describe("synchronize global connection", () => {
+describe("synchronize catalog connection", () => {
   it("does not run concurrently when a lease is held", async () => {
     const { ports } = fixture();
     ports.leases.claim = vi.fn(async () => ({ outcome: "held" as const }));
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate], evidence })) };
 
-    await expect(createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source })).resolves.toEqual({ kind: "already-running" });
+    await expect(createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source })).resolves.toEqual({ kind: "already-running" });
     expect(source.loadSnapshot).not.toHaveBeenCalled();
   });
 
@@ -59,7 +59,7 @@ describe("synchronize global connection", () => {
     contributions.push({ id: "contribution-1", connectionId: connection.id, externalId: "external-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, { ...candidate, externalId: "external-2", normalizedPlate: "XYZ999" }], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
 
-    const result = await createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
+    const result = await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
 
     expect(result.kind).toBe("succeeded");
     expect(ports.contributions.save).toHaveBeenCalledTimes(1);
@@ -76,7 +76,7 @@ describe("synchronize global connection", () => {
     contributions.push({ id: "old", connectionId: connection.id, externalId: "missing", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate], evidence: { ...evidence, paginationComplete: false } })) };
 
-    const result = await createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
+    const result = await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
 
     expect(result.kind).toBe("succeeded");
     expect(contributions.find((item) => item.externalId === "missing")?.presence).toBe("present");
@@ -85,12 +85,12 @@ describe("synchronize global connection", () => {
   it("classifies authentication and connectivity failures without retrying permanent authentication errors", async () => {
     const authentication = fixture();
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "failed" as const, failure: { category: "authentication" as const } })) };
-    const authResult = await createSynchronizeGlobalConnectionApplication(authentication.ports).synchronize({ connectionId: connection.id, trigger: "scheduler", source });
+    const authResult = await createSynchronizeConnectionApplication(authentication.ports).synchronize({ connectionId: connection.id, trigger: "scheduler", source });
     expect(authResult).toMatchObject({ kind: "failed", retryable: false });
 
     const connectivity = fixture();
     const retryableSource = { loadSnapshot: vi.fn(async () => ({ kind: "failed" as const, failure: { category: "connectivity" as const } })) };
-    const connectivityResult = await createSynchronizeGlobalConnectionApplication(connectivity.ports).synchronize({ connectionId: connection.id, trigger: "scheduler", source: retryableSource });
+    const connectivityResult = await createSynchronizeConnectionApplication(connectivity.ports).synchronize({ connectionId: connection.id, trigger: "scheduler", source: retryableSource });
     expect(connectivityResult).toMatchObject({ kind: "failed", retryable: true });
   });
 
@@ -98,7 +98,7 @@ describe("synchronize global connection", () => {
     const { ports, contributions } = fixture();
     const source = { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate, candidate], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) };
 
-    const result = await createSynchronizeGlobalConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
+    const result = await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source });
 
     expect(result.kind).toBe("succeeded");
     expect(result.kind === "succeeded" ? result.run.snapshot : undefined).toMatchObject({ status: "partial", reason: "duplicate-external-id" });
@@ -110,7 +110,7 @@ describe("synchronize global connection", () => {
   it("skips disabled and fresh connections while reporting due enabled connections", async () => {
     const { ports } = fixture();
     ports.connections.listEnabled = vi.fn(async () => [connection]);
-    const scheduler = createSynchronizeGlobalConnectionApplication(ports);
+    const scheduler = createSynchronizeConnectionApplication(ports);
     expect(await scheduler.listDueConnections()).toEqual([connection]);
     ports.runs.findLastSuccess = vi.fn(async () => ({ id: "fresh", lineageId: "lineage-fresh", attempt: 1, connectionId: connection.id, trigger: "scheduler" as const, status: "succeeded" as const, startedAt: new Date("2026-08-16T11:29:00Z"), completedAt: new Date("2026-08-16T11:30:00Z"), total: 0, counts: { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "complete" as const } }));
     expect(await scheduler.listDueConnections()).toEqual([]);

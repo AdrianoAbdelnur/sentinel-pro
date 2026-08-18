@@ -1,23 +1,23 @@
 import type { Capability } from "./capabilities";
 
-export type GlobalCapabilitySourceOrder = readonly string[];
-export type GlobalCapabilityPolicy = Readonly<{
+export type CapabilitySourceOrder = readonly string[];
+export type CapabilityPolicy = Readonly<{
   id: string;
   capability: Capability;
-  sourceOrder: GlobalCapabilitySourceOrder;
+  sourceOrder: CapabilitySourceOrder;
 }>;
 
-export type GlobalCapabilityPolicyInput = {
+export type CapabilityPolicyInput = {
   id: string;
   capability: Capability;
-  sourceOrder: GlobalCapabilitySourceOrder;
+  sourceOrder: CapabilitySourceOrder;
 };
 
-export function createGlobalCapabilityPolicy(input: GlobalCapabilityPolicyInput): GlobalCapabilityPolicy {
+export function createCapabilityPolicy(input: CapabilityPolicyInput): CapabilityPolicy {
   return Object.freeze({ ...input, sourceOrder: Object.freeze([...input.sourceOrder]) });
 }
 
-export const DEFAULT_GLOBAL_CAPABILITY_SOURCE_ORDER: Readonly<Record<string, GlobalCapabilitySourceOrder>> = Object.freeze({
+export const DEFAULT_CAPABILITY_SOURCE_ORDER: Readonly<Record<string, CapabilitySourceOrder>> = Object.freeze({
   gps: Object.freeze(["cybermapa", "howen"]),
   operationalAlerts: Object.freeze(["cybermapa"]),
   video: Object.freeze(["howen"]),

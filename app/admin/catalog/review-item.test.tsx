@@ -18,7 +18,7 @@ const REVIEW = {
 describe("ReviewItem", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("shows canonical vehicle candidates without legacy creation or fleet actions", () => {
+  it("shows canonical vehicle candidates without creation or fleet actions", () => {
     render(<ReviewItem onResolved={vi.fn()} review={REVIEW} />);
 
     expect(screen.getByText("Identidad de vehículo — Pendiente")).toBeInTheDocument();

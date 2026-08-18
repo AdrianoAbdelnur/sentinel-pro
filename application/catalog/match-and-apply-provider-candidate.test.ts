@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createGlobalVehicle, normalizeGroupLabel, type GroupEvidenceBinding, type ProviderContribution, type SentinelGroup } from "@/domain/catalog";
+import { createCatalogVehicle, normalizeGroupLabel, type GroupEvidenceBinding, type ProviderContribution, type CatalogGroup } from "@/domain/catalog";
 import { matchAndApplyProviderCandidate, type MatchAndApplyDependencies, type ProviderCandidate } from "./match-and-apply-provider-candidate";
 
 const createFixture = () => {
-  const vehicles = new Map<string, ReturnType<typeof createGlobalVehicle>>();
+  const vehicles = new Map<string, ReturnType<typeof createCatalogVehicle>>();
   const contributions = new Map<string, ProviderContribution>();
   const reviews: unknown[] = [];
   let sequence = 0;
@@ -81,7 +81,7 @@ describe("matchAndApplyProviderCandidate", () => {
     const fixture = createFixture();
     const groups = new Map<string, { id: string; label: string }>();
     const bindings = new Map<string, GroupEvidenceBinding>();
-    const repositories = { ...fixture.dependencies, groups: { findById: async (id: string) => groups.get(id), findByLabel: async () => [], save: async (group: SentinelGroup) => { groups.set(group.id, group); } }, evidenceBindings: { findById: async (id: string) => bindings.get(id), findByGroupId: async () => [], findByEvidence: async (connectionId: string, kind: string, externalKey: string) => [...bindings.values()].filter((binding) => binding.evidence.connectionId === connectionId && binding.evidence.kind === kind && binding.evidence.externalKey === externalKey), save: async (binding: GroupEvidenceBinding) => { bindings.set(binding.id, binding); } } };
+    const repositories = { ...fixture.dependencies, groups: { findById: async (id: string) => groups.get(id), findByLabel: async () => [], save: async (group: CatalogGroup) => { groups.set(group.id, group); } }, evidenceBindings: { findById: async (id: string) => bindings.get(id), findByGroupId: async () => [], findByEvidence: async (connectionId: string, kind: string, externalKey: string) => [...bindings.values()].filter((binding) => binding.evidence.connectionId === connectionId && binding.evidence.kind === kind && binding.evidence.externalKey === externalKey), save: async (binding: GroupEvidenceBinding) => { bindings.set(binding.id, binding); } } };
     repositories.transactions.run = async (work) => work(repositories);
     const input = { ...repositories, candidate: candidate({ placementFleetId: undefined, groupEvidence: { connectionId: "howen", kind: "fleet-membership" as const, externalKey: "h1", label: "Howen", authority: "fallback" as const } }) };
     await matchAndApplyProviderCandidate(input);
@@ -92,11 +92,11 @@ describe("matchAndApplyProviderCandidate", () => {
 
   it("keeps repeated authoritative Cybermapa evidence idempotent after Howen-first import", async () => {
     const fixture = createFixture();
-    const groups = new Map<string, SentinelGroup>();
+    const groups = new Map<string, CatalogGroup>();
     const bindings = new Map<string, GroupEvidenceBinding>();
     const repositories = {
       ...fixture.dependencies,
-      groups: { findById: async (id: string) => groups.get(id), findByLabel: async (label: string) => [...groups.values()].filter((group) => group.label === label), save: async (group: SentinelGroup) => { groups.set(group.id, group); } },
+      groups: { findById: async (id: string) => groups.get(id), findByLabel: async (label: string) => [...groups.values()].filter((group) => group.label === label), save: async (group: CatalogGroup) => { groups.set(group.id, group); } },
       evidenceBindings: { findById: async (id: string) => bindings.get(id), findByGroupId: async () => [], findByEvidence: async (connectionId: string, kind: string, externalKey: string) => [...bindings.values()].filter((binding) => binding.evidence.connectionId === connectionId && binding.evidence.kind === kind && binding.evidence.externalKey === externalKey), save: async (binding: GroupEvidenceBinding) => { bindings.set(binding.id, binding); } },
     };
     repositories.transactions.run = async (work) => work(repositories);
@@ -115,14 +115,14 @@ describe("matchAndApplyProviderCandidate", () => {
 
   it("preserves authoritative Cybermapa placement when it arrives before Howen fallback evidence", async () => {
     const fixture = createFixture();
-    const groups = new Map<string, SentinelGroup>();
+    const groups = new Map<string, CatalogGroup>();
     const bindings = new Map<string, GroupEvidenceBinding>();
     const repositories = {
       ...fixture.dependencies,
       groups: {
         findById: async (id: string) => groups.get(id),
         findByLabel: async (label: string) => [...groups.values()].filter((group) => group.label === label),
-        save: async (group: SentinelGroup) => { groups.set(group.id, group); },
+        save: async (group: CatalogGroup) => { groups.set(group.id, group); },
       },
       evidenceBindings: {
         findById: async (id: string) => bindings.get(id),
@@ -143,7 +143,7 @@ describe("matchAndApplyProviderCandidate", () => {
 
   it("creates an ambiguity review when normalized group evidence matches multiple groups", async () => {
     const fixture = createFixture();
-    const groups = new Map<string, SentinelGroup>([
+    const groups = new Map<string, CatalogGroup>([
       ["group-1", { id: "group-1", label: "North Hub" }],
       ["group-2", { id: "group-2", label: "North-Hub" }],
     ]);
@@ -153,7 +153,7 @@ describe("matchAndApplyProviderCandidate", () => {
       groups: {
         findById: async (id: string) => groups.get(id),
         findByLabel: async (label: string) => [...groups.values()].filter((group) => normalizeGroupLabel(group.label) === normalizeGroupLabel(label)),
-        save: async (group: SentinelGroup) => { groups.set(group.id, group); },
+        save: async (group: CatalogGroup) => { groups.set(group.id, group); },
       },
       evidenceBindings: {
         findById: async (id: string) => bindings.get(id),
@@ -173,7 +173,7 @@ describe("matchAndApplyProviderCandidate", () => {
 
   it("reuses an existing external identity before evaluating plate evidence", async () => {
     const fixture = createFixture();
-    const vehicle = createGlobalVehicle({ id: "vehicle-1", normalizedPlate: "OTHER1", plate: "OTHER 1", placementFleetId: "fleet-1" });
+    const vehicle = createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "OTHER1", plate: "OTHER 1", placementFleetId: "fleet-1" });
     fixture.vehicles.set(vehicle.id, vehicle);
     fixture.contributions.set("connection-1:external-1", { id: "contribution-1", connectionId: "connection-1", externalId: "external-1", vehicleId: vehicle.id, capabilities: {}, presence: "present" });
 
@@ -185,16 +185,16 @@ describe("matchAndApplyProviderCandidate", () => {
     expect(fixture.vehicles).toHaveLength(1);
   });
 
-  it("links a candidate to one exact global normalized plate", async () => {
+  it("links a candidate to one exact catalog normalized plate", async () => {
     const fixture = createFixture();
-    const vehicle = createGlobalVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "sentinel-1" });
+    const vehicle = createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "group-1" });
     fixture.vehicles.set(vehicle.id, vehicle);
 
     const result = await matchAndApplyProviderCandidate({ ...fixture.dependencies, candidate: candidate() });
 
     expect(result).toMatchObject({ kind: "matched", vehicleId: "vehicle-1" });
     expect(fixture.contributions.get("connection-1:external-1")).toMatchObject({ vehicleId: "vehicle-1" });
-    expect(fixture.vehicles.get("vehicle-1")?.placementFleetId).toBe("sentinel-1");
+    expect(fixture.vehicles.get("vehicle-1")?.placementFleetId).toBe("group-1");
   });
 
   it.each([

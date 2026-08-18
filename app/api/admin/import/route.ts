@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { authorizePlatformRequest, readJson } from "@/app/api/admin/users/delivery";
 import { getProviderImportRuntime } from "./composition";
-import type { GlobalSyncOutcome, GlobalSyncProgress } from "@/application/catalog/synchronize-global-connection";
+import type { CatalogSyncOutcome, CatalogSyncProgress } from "@/application/catalog/synchronize-connection";
 
 export const runtime = "nodejs";
 
-function runProgress(run: Extract<GlobalSyncOutcome, { kind: "succeeded" | "failed" }>['run']): GlobalSyncProgress {
+function runProgress(run: Extract<CatalogSyncOutcome, { kind: "succeeded" | "failed" }>['run']): CatalogSyncProgress {
   return { connectionId: run.connectionId, lineageId: run.lineageId, runId: run.id, total: run.total, ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}), counts: run.counts };
 }
 
-function resultEvent(outcome: GlobalSyncOutcome) {
+function resultEvent(outcome: CatalogSyncOutcome) {
   if (outcome.kind === "succeeded") return { type: "result", data: { status: "succeeded", provider: outcome.run.connectionId, counts: outcome.run.counts, total: outcome.run.total } };
   if (outcome.kind === "failed") return { type: "result", data: { status: "failed", provider: outcome.run.connectionId, code: outcome.failure.category } };
-  return { type: "result", data: { status: outcome.kind, provider: "global" } };
+  return { type: "result", data: { status: outcome.kind, provider: "catalog" } };
 }
 
 export async function POST(request: Request) {

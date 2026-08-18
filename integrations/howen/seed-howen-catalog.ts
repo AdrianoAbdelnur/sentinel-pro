@@ -3,14 +3,14 @@ import { normalizePlate } from "@/domain/catalog";
 
 import type { HowenRosterRecord } from "./responses";
 
-export type HowenGlobalCatalogOptions = Readonly<{
+export type HowenCatalogOptions = Readonly<{
   connectionId: string;
   resolveInitialPlacementFleetId(fleet: { externalFleetId: string; label: string }): string | undefined;
 }>;
 
 export type HowenSeedRepositories = MatchAndApplyRepositories;
 
-export type HowenSeedDependencies = HowenGlobalCatalogOptions & {
+export type HowenSeedDependencies = HowenCatalogOptions & {
   records: HowenRosterRecord[];
   ids: { create(): string };
   repositories: HowenSeedRepositories;
@@ -34,7 +34,7 @@ function isValidatedPlate(value: string): boolean {
   return /^(?:[A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/.test(value);
 }
 
-export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: HowenGlobalCatalogOptions): ProviderCandidate[] {
+export function mapHowenCatalog(records: HowenRosterRecord[], options: HowenCatalogOptions): ProviderCandidate[] {
   const seenExternalIds = new Set<string>();
   const candidates: ProviderCandidate[] = [];
 
@@ -67,7 +67,7 @@ export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: How
 }
 
 export async function seedHowenCatalog(dependencies: HowenSeedDependencies): Promise<HowenSeedResult> {
-  const candidates = mapHowenGlobalCatalog(dependencies.records, dependencies);
+  const candidates = mapHowenCatalog(dependencies.records, dependencies);
   const outcomes: MatchAndApplyResult[] = [];
 
   for (const candidate of candidates) {

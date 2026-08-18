@@ -1,13 +1,13 @@
 import {
-  createGlobalCatalogOperationalSource,
-  type GlobalCatalogLiveInput,
+  createCatalogOperationalSource,
+  type CatalogLiveInput,
   type OperationalSource,
 } from "@/application/live";
 import { getMongoDatabase } from "@/integrations/persistence/mongodb/client";
 import { createCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-repositories";
-import { loadGlobalLiveSnapshots } from "@/integrations/catalog/live-snapshot-adapters";
+import { loadLiveSnapshots } from "@/integrations/catalog/live-snapshot-adapters";
 
-async function loadCatalog(organizationId: string): Promise<GlobalCatalogLiveInput> {
+async function loadCatalog(organizationId: string): Promise<CatalogLiveInput> {
   const database = await getMongoDatabase();
   const repositories = createCatalogRepositories(database);
   const [fleets, vehicles, connections, grants, policies, providers] = await Promise.all([
@@ -21,7 +21,7 @@ async function loadCatalog(organizationId: string): Promise<GlobalCatalogLiveInp
   const contributions = (
     await Promise.all(connections.map(({ id }) => repositories.contributions.listByConnectionId(id)))
   ).flat();
-  const sourceSnapshots = await loadGlobalLiveSnapshots(connections, providers, contributions);
+  const sourceSnapshots = await loadLiveSnapshots(connections, providers, contributions);
 
   return {
     organizationId,
@@ -35,6 +35,6 @@ async function loadCatalog(organizationId: string): Promise<GlobalCatalogLiveInp
   };
 }
 
-export function createGlobalCatalogSource(organizationId: string): OperationalSource {
-  return createGlobalCatalogOperationalSource(() => loadCatalog(organizationId));
+export function createCatalogSource(organizationId: string): OperationalSource {
+  return createCatalogOperationalSource(() => loadCatalog(organizationId));
 }

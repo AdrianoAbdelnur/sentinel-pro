@@ -12,7 +12,7 @@ const runtime = {
   providers: { findById: vi.fn() },
   sources: { resolve: vi.fn() },
 };
-vi.mock("@/app/api/internal/catalog/composition", () => ({ getGlobalCatalogSyncRuntime: async () => runtime }));
+vi.mock("@/app/api/internal/catalog/composition", () => ({ getCatalogSyncRuntime: async () => runtime }));
 vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => { throw new Error("organizational catalog used"); } }));
 
 import { GET as listReviews } from "./reviews/route";
