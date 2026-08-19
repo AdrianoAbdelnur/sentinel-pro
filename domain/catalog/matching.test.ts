@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { ProviderConnection } from "./company-candidate";
 import {
   bindExternalVehicleIdentity,
+  classifyPlateFormat,
   markExternalVehicleIdentityAbsent,
   markExternalVehicleIdentitySeen,
   normalizePlate,
@@ -108,6 +109,42 @@ describe("normalizePlate", () => {
   it("normalizes plate punctuation and casing so equivalent plates compare equal", () => {
     expect(normalizePlate("abc-123")).toBe("ABC123");
     expect(normalizePlate(" ABC 123 ")).toBe("ABC123");
+  });
+
+  it("strips dot, underscore, and slash separators between alphanumeric segments", () => {
+    expect(normalizePlate("ab.123.cd")).toBe("AB123CD");
+    expect(normalizePlate("ab_123_cd")).toBe("AB123CD");
+    expect(normalizePlate("ab/123/cd")).toBe("AB123CD");
+  });
+
+  it("strips non-breaking spaces that Excel exports carry routinely", () => {
+    expect(normalizePlate("AB 123 CD")).toBe("AB123CD");
+  });
+
+  it("strips zero-width characters and byte-order marks anywhere in the value", () => {
+    expect(normalizePlate("AB​123‌‍CD")).toBe("AB123CD");
+    expect(normalizePlate("﻿AB123CD")).toBe("AB123CD");
+  });
+});
+
+describe("classifyPlateFormat", () => {
+  it("classifies a three-letter three-digit canonical plate as legacy", () => {
+    expect(classifyPlateFormat("ABC123")).toBe("legacy");
+  });
+
+  it("classifies a two-letter three-digit two-letter canonical plate as mercosur", () => {
+    expect(classifyPlateFormat("AB123CD")).toBe("mercosur");
+  });
+
+  it("classifies anything that matches neither pattern as unknown", () => {
+    expect(classifyPlateFormat("A1B2C3")).toBe("unknown");
+    expect(classifyPlateFormat("")).toBe("unknown");
+    expect(classifyPlateFormat("ABCDEFG")).toBe("unknown");
+  });
+
+  it("classifies the widened normalization output from Phase 0 (separators and zero-width characters already stripped)", () => {
+    expect(classifyPlateFormat(normalizePlate("ab.123.cd"))).toBe("mercosur");
+    expect(classifyPlateFormat(normalizePlate("abc-123"))).toBe("legacy");
   });
 });
 

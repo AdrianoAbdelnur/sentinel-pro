@@ -73,8 +73,21 @@ export function resolveExternalVehicleIdentity(
   return exactMatch ? { kind: "reused", vehicleId: exactMatch.vehicleId as string } : { kind: "unmatched" };
 }
 
+const PLATE_SEPARATOR_CHARACTERS = /[\s\-._/​-‍﻿]+/g;
+
 export function normalizePlate(plate: string): string {
-  return plate.trim().toUpperCase().replace(/[\s-]+/g, "");
+  return plate.trim().replace(PLATE_SEPARATOR_CHARACTERS, "").toUpperCase();
+}
+
+export type PlateFormat = "legacy" | "mercosur" | "unknown";
+
+const LEGACY_PLATE_PATTERN = /^[A-Z]{3}\d{3}$/;
+const MERCOSUR_PLATE_PATTERN = /^[A-Z]{2}\d{3}[A-Z]{2}$/;
+
+export function classifyPlateFormat(canonicalPlate: string): PlateFormat {
+  if (LEGACY_PLATE_PATTERN.test(canonicalPlate)) return "legacy";
+  if (MERCOSUR_PLATE_PATTERN.test(canonicalPlate)) return "mercosur";
+  return "unknown";
 }
 
 export type ActiveCompanyVehicle = {

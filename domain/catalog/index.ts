@@ -10,6 +10,7 @@ export * from "./sync-run";
 export * from "./sync-lease";
 export {
   bindExternalVehicleIdentity,
+  classifyPlateFormat,
   markExternalVehicleIdentityAbsent,
   markExternalVehicleIdentitySeen,
   normalizePlate,
@@ -21,6 +22,7 @@ export {
 export type {
   ActiveCompanyVehicle,
   ExternalVehicleIdentity,
+  PlateFormat,
   PlateMatchQuery,
   VehicleIdentityCandidate,
   VehicleIdentityCapabilityStates,
