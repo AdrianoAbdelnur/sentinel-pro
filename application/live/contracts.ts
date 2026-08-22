@@ -46,6 +46,8 @@ export type LiveFleetNode = {
     total: number;
   };
   vehicles: LiveVehicleNode[];
+  isLoaded?: boolean;
+  isLoading?: boolean;
 };
 
 export type LiveVehicleNode = {
@@ -135,6 +137,8 @@ export type LiveFleetState = {
   fleetId: string;
   label: string;
   vehicleIds: string[];
+  vehicleCount?: number;
+  isLoaded?: boolean;
 };
 
 export type BuildLiveSidebarViewModelInput = {

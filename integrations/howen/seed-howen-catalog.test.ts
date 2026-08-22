@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { GlobalVehicle, ProviderContribution, ProviderFleetMembership } from "@/domain/catalog-global";
+import type { CatalogVehicle, ProviderContribution, ProviderFleetMembership } from "@/domain/catalog";
 
 import { seedHowenCatalog } from "./seed-howen-catalog";
 import type { HowenRosterRecord } from "./responses";
@@ -16,14 +16,14 @@ function record(overrides: Partial<HowenRosterRecord> = {}): HowenRosterRecord {
 }
 
 function createFixture() {
-  const vehicles = new Map<string, GlobalVehicle>();
+  const vehicles = new Map<string, CatalogVehicle>();
   const contributions = new Map<string, ProviderContribution>();
   const memberships = new Map<string, ProviderFleetMembership>();
   let sequence = 0;
   const repositories = {
     vehicles: {
       findByNormalizedPlate: async (plate: string) => [...vehicles.values()].find((vehicle) => vehicle.normalizedPlate === plate),
-      save: async (vehicle: GlobalVehicle) => { vehicles.set(vehicle.id, vehicle); },
+      save: async (vehicle: CatalogVehicle) => { vehicles.set(vehicle.id, vehicle); },
     },
     contributions: {
       findByConnectionAndExternalId: async (connectionId: string, externalId: string) => contributions.get(`${connectionId}:${externalId}`),
@@ -48,7 +48,7 @@ function createFixture() {
 }
 
 describe("seedHowenCatalog", () => {
-  it("matches an existing global plate, adds video, preserves Sentinel placement, and persists verified Howen fleet membership", async () => {
+  it("matches an existing catalog plate, adds video, preserves catalog placement, and persists verified Howen fleet membership", async () => {
     const fixture = createFixture();
     fixture.vehicles.set("cybermapa-vehicle", { id: "cybermapa-vehicle", normalizedPlate: "AB123CD", plate: "AB 123 CD", placementFleetId: "sentinel-cybermapa" });
 
@@ -56,7 +56,7 @@ describe("seedHowenCatalog", () => {
 
     expect(result.outcomes).toMatchObject([{ kind: "matched", vehicleId: "cybermapa-vehicle" }]);
     expect(fixture.vehicles.get("cybermapa-vehicle")?.placementFleetId).toBe("sentinel-cybermapa");
-    expect([...fixture.contributions.values()]).toEqual([{ id: "id-1", connectionId: "howen-connection", externalId: "howen-device-1", vehicleId: "cybermapa-vehicle", capabilities: { video: "eligible", videoAlerts: "eligible" }, presence: "present" }]);
+    expect([...fixture.contributions.values()]).toEqual([{ id: "id-1", connectionId: "howen-connection", externalId: "howen-device-1", vehicleId: "cybermapa-vehicle", capabilities: { gps: "eligible", video: "eligible", videoAlerts: "eligible" }, presence: "present" }]);
     expect([...fixture.memberships.values()]).toEqual([{ connectionId: "howen-connection", externalFleetId: "howen-fleet-1", vehicleId: "cybermapa-vehicle", label: "Howen North" }]);
   });
 
@@ -83,7 +83,7 @@ describe("seedHowenCatalog", () => {
     expect(fixture.vehicles.get("cybermapa-vehicle")?.placementFleetId).toBe("sentinel-cybermapa");
   });
 
-  it("creates a Howen-only global vehicle only with validated plate evidence and its resolved initial placement", async () => {
+  it("creates a Howen-only catalog vehicle only with validated plate evidence and its resolved initial placement", async () => {
     const fixture = createFixture();
 
     const result = await seedHowenCatalog({ ...fixture, records: [record()] });
@@ -93,7 +93,7 @@ describe("seedHowenCatalog", () => {
     expect([...fixture.memberships.values()]).toEqual([{ connectionId: "howen-connection", externalFleetId: "howen-fleet-1", vehicleId: "id-1", label: "Howen North" }]);
   });
 
-  it("keeps one global vehicle when shared Howen plate records repeat with different external identities", async () => {
+  it("keeps one catalog vehicle when shared Howen plate records repeat with different external identities", async () => {
     const fixture = createFixture();
 
     await seedHowenCatalog({ ...fixture, records: [record(), record({ deviceno: "howen-device-2" })] });
@@ -113,7 +113,7 @@ describe("seedHowenCatalog", () => {
     expect(fixture.contributions.size).toBe(0);
   });
 
-  it("does not create a Howen-only identity when fleet evidence has no resolvable initial Sentinel placement", async () => {
+  it("does not create a Howen-only identity when fleet evidence has no resolvable initial catalog placement", async () => {
     const fixture = createFixture();
 
     const result = await seedHowenCatalog({ ...fixture, records: [record({ fleetid: "howen-fleet-unknown", fleetname: "Howen South" })] });

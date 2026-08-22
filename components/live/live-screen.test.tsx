@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 
 import * as liveApplication from "@/application/live";
@@ -196,6 +196,35 @@ describe("LiveScreen layout", () => {
 });
 
 describe("LiveScreen", () => {
+  it("loads an unloaded fleet once when it is expanded", async () => {
+    const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      fleets: [{ fleetId: "fleet-lazy", label: "Lazy Fleet", vehicleIds: ["vehicle-lazy"], vehicleCount: 1, isLoaded: true }],
+      liveVehicles: [{
+        vehicle: { id: "vehicle-lazy", fleetId: "fleet-lazy", plate: "LAZY123", isActive: true },
+      }],
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    vi.stubGlobal("fetch", fetch);
+
+    render(
+      <LiveScreen
+        liveState={{ fleets: [{ fleetId: "fleet-lazy", label: "Lazy Fleet", vehicleIds: [], vehicleCount: 1, isLoaded: false }], liveVehicles: [] }}
+        tabs={[]}
+        nowMs={NOW}
+        staleAfterMs={STALE_AFTER_MS}
+        warnings={[]}
+      />,
+    );
+
+    fireEvent.click(fleetToggle("Lazy Fleet"));
+
+    await waitFor(() => expect(screen.getByText("LAZY123")).toBeInTheDocument());
+    fireEvent.click(fleetToggle("Lazy Fleet"));
+    fireEvent.click(fleetToggle("Lazy Fleet"));
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
   it("keeps the successful roster visible beside source warnings", () => {
     render(
       <LiveScreen

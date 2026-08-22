@@ -1,50 +1,10 @@
-export * from "./entities";
-export * from "./policies";
-export * from "./company-candidate";
-export * from "./credential-ref";
-export * from "./fleet-binding";
-export * from "./union-projection";
+export * from "./capabilities";
+export * from "./plate";
+export * from "./catalog-vehicle";
+export * from "./provider";
+export * from "./provider-contribution";
+export * from "./provider-fleet-membership";
+export * from "./organization-vehicle-access";
 export * from "./review";
-export * from "./import-item";
-export * from "./sync-run";
-export * from "./sync-lease";
-export {
-  bindExternalVehicleIdentity,
-  classifyPlateFormat,
-  markExternalVehicleIdentityAbsent,
-  markExternalVehicleIdentitySeen,
-  normalizePlate,
-  resolveExternalVehicleIdentity,
-  resolveVehicleMatch,
-  setVehicleIdentityCapabilityStates,
-  stageExternalVehicleIdentity,
-} from "./matching";
-export type {
-  ActiveCompanyVehicle,
-  ExternalVehicleIdentity,
-  PlateFormat,
-  PlateMatchQuery,
-  VehicleIdentityCandidate,
-  VehicleIdentityCapabilityStates,
-  VehicleIdentityMatchOutcome,
-  VehicleIdentityPresence,
-  VehicleMatchOutcome,
-} from "./matching";
-export {
-  CAPABILITY_PRECEDENCE_SCOPES,
-  resolveCapabilitySource,
-  resolveCapabilitySourceOrder,
-  resolveEligibleCapabilitySource,
-  SYSTEM_DEFAULT_CAPABILITY_SOURCE_ORDER,
-} from "./precedence";
-export type {
-  Capability,
-  CapabilityPolicy,
-  CapabilityPolicyScope,
-  CapabilityResolution,
-  CapabilityScopeIds,
-  CapabilitySourceId,
-  CapabilitySourceOrder,
-  CapabilitySourceStatus,
-  CapabilitySourceStatuses,
-} from "./precedence";
+export * from "./catalog-group";
+export * from "./capability-policy";

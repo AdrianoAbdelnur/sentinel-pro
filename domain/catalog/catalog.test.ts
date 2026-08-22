@@ -1,94 +1,247 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  belongsToOrganization,
-  bindCandidateToCompany,
-  createUnassignedFleet,
-  normalizeCompanyLabel,
-  reconcilePlacement,
-  resolvePlacement,
-  stageCandidate,
-  UNASSIGNED_FLEET_NAME,
-  type Company,
-  type ProviderConnection,
+  createCatalogReview,
+  createCatalogVehicle,
+  createProviderConnection,
+  createProviderContribution,
+  createProvider,
+  createProviderFleetMembership,
+  createOrganizationVehicleAccess,
+  resolveCatalogReview,
+  retainCatalogVehiclePlacement,
+  normalizePlate,
+  createCatalogGroup, createGroupEvidenceBinding, createVehiclePlacement,
+  type CatalogReview,
+  type CatalogVehicle,
+  type ProviderContribution,
+  type ProviderFleetMembership,
 } from "./index";
 
-describe("catalog domain rules", () => {
-  it("creates a system-managed Unassigned fleet for a company", () => {
-    const fleet = createUnassignedFleet("fleet-1", "company-1");
-
-    expect(fleet).toEqual({ id: "fleet-1", companyId: "company-1", name: UNASSIGNED_FLEET_NAME, kind: "unassigned" });
+describe("canonical catalog domain", () => {
+  it("normalizes canonical plate identity without the organizational catalog", () => {
+    expect(normalizePlate(" ab-123 cd ")).toBe("AB123CD");
   });
 
-  it("scopes company ownership to its identity organization tenant", () => {
-    const company: Company = { id: "company-1", organizationId: "org-a", name: "Acme" };
+  it("creates a catalog vehicle without tenant, Company, provider, or provider fleet identity", () => {
+    const vehicle = createCatalogVehicle({
+      id: "vehicle-1",
+      normalizedPlate: "ABC123",
+      plate: "ABC 123",
+      placementFleetId: "sentinel-fleet-1",
+    });
 
-    expect(belongsToOrganization(company, "org-a")).toBe(true);
-    expect(belongsToOrganization(company, "org-b")).toBe(false);
+    expect(vehicle).toEqual({
+      id: "vehicle-1",
+      normalizedPlate: "ABC123",
+      plate: "ABC 123",
+      placementFleetId: "sentinel-fleet-1",
+    });
+    expect(vehicle).not.toHaveProperty("organizationId");
+    expect(vehicle).not.toHaveProperty("companyId");
+    expect(vehicle).not.toHaveProperty("providerId");
+    expect(vehicle).not.toHaveProperty("externalFleetId");
   });
 
-  it("places an unmatched candidate into the Unassigned fleet", () => {
-    expect(resolvePlacement({}, "fleet-unassigned")).toEqual({ fleetId: "fleet-unassigned", source: "system" });
+  it("retains catalog placement when a later contribution proposes another fleet", () => {
+    const vehicle = createCatalogVehicle({
+      id: "vehicle-1",
+      normalizedPlate: "ABC123",
+      plate: "ABC 123",
+      placementFleetId: "sentinel-fleet-1",
+    });
+
+    const enriched = retainCatalogVehiclePlacement(vehicle, "provider-fleet-2");
+
+    expect(enriched).toEqual(vehicle);
+    expect(enriched.placementFleetId).toBe("sentinel-fleet-1");
   });
 
-  it("places a matched candidate into its matched fleet", () => {
-    expect(resolvePlacement({ matchedFleetId: "fleet-real" }, "fleet-unassigned")).toEqual({
-      fleetId: "fleet-real",
-      source: "system",
+  it("records provider capabilities and presence independently of catalog identity", () => {
+    const contribution = createProviderContribution({
+      id: "contribution-1",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      vehicleId: "vehicle-1",
+      capabilities: { video: "eligible", videoAlerts: "unsupported" },
+      presence: "present",
+    });
+
+    expect(contribution).toEqual({
+      id: "contribution-1",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      vehicleId: "vehicle-1",
+      capabilities: { video: "eligible", videoAlerts: "unsupported" },
+      presence: "present",
     });
   });
 
-  it("keeps an administrator's placement across reconciliation regardless of the new candidate", () => {
-    const current = { fleetId: "fleet-admin", source: "admin" as const };
+  it("keeps provider fleet memberships as separate metadata for the same vehicle", () => {
+    const memberships: ProviderFleetMembership[] = [
+      createProviderFleetMembership({
+        connectionId: "connection-cyber",
+        externalFleetId: "fleet-a",
+        vehicleId: "vehicle-1",
+        label: "North route",
+      }),
+      createProviderFleetMembership({
+        connectionId: "connection-video",
+        externalFleetId: "fleet-b",
+        vehicleId: "vehicle-1",
+        label: "Night route",
+      }),
+    ];
 
-    expect(reconcilePlacement(current, { matchedFleetId: "fleet-real" }, "fleet-unassigned")).toEqual(current);
-    expect(reconcilePlacement(current, {}, "fleet-unassigned")).toEqual(current);
+    expect(memberships).toEqual([
+      {
+        connectionId: "connection-cyber",
+        externalFleetId: "fleet-a",
+        vehicleId: "vehicle-1",
+        label: "North route",
+      },
+      {
+        connectionId: "connection-video",
+        externalFleetId: "fleet-b",
+        vehicleId: "vehicle-1",
+        label: "Night route",
+      },
+    ]);
+    expect(memberships.every((membership) => membership.vehicleId === "vehicle-1")).toBe(true);
   });
 
-  it("re-resolves a system placement on reconciliation when no administrator override exists", () => {
-    const current = { fleetId: "fleet-unassigned", source: "system" as const };
+  it("creates organization access as a grant without changing catalog identity", () => {
+    const grant = createOrganizationVehicleAccess({ organizationId: "organization-1", vehicleId: "vehicle-1" });
 
-    expect(reconcilePlacement(current, { matchedFleetId: "fleet-real" }, "fleet-unassigned")).toEqual({
-      fleetId: "fleet-real",
-      source: "system",
+    expect(grant).toEqual({ organizationId: "organization-1", vehicleId: "vehicle-1" });
+    expect(grant).not.toHaveProperty("fleetId");
+    expect(grant).not.toHaveProperty("companyId");
+  });
+
+  it("stages a catalog review with provider-neutral evidence", () => {
+    const review = createCatalogReview({
+      id: "review-1",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "ambiguous-match",
+      normalizedPlate: "ABC123",
+      candidateVehicleIds: ["vehicle-1", "vehicle-2"],
+    });
+
+    expect(review).toEqual({
+      id: "review-1",
+      subject: "vehicle-identity",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "ambiguous-match",
+      normalizedPlate: "ABC123",
+      candidateVehicleIds: ["vehicle-1", "vehicle-2"],
+      status: "pending",
     });
   });
 
-  it("keeps a real-Fleet system-sourced placement when a later source supplies no fleet opinion, instead of resetting it to Unassigned", () => {
-    const current = { fleetId: "fleet-real", source: "system" as const };
-
-    expect(reconcilePlacement(current, {}, "fleet-unassigned")).toEqual(current);
-  });
-
-  it("still re-resolves a real-Fleet system-sourced placement when a later source supplies a different real fleet opinion", () => {
-    const current = { fleetId: "fleet-real-a", source: "system" as const };
-
-    expect(reconcilePlacement(current, { matchedFleetId: "fleet-real-b" }, "fleet-unassigned")).toEqual({
-      fleetId: "fleet-real-b",
-      source: "system",
+  it("resolves a pending catalog review without changing its provider-neutral subject", () => {
+    const review = createCatalogReview({
+      id: "review-1",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "conflicting-identity",
+      candidateVehicleIds: ["vehicle-1"],
     });
+
+    const resolved = resolveCatalogReview(review, "vehicle-1");
+
+    expect(resolved).toEqual({
+      ...review,
+      status: "resolved",
+      resolvedVehicleId: "vehicle-1",
+    });
+    expect(resolved.subject).toBe("vehicle-identity");
   });
 
-  it("normalizes an external company label so equivalent spellings match", () => {
-    expect(normalizeCompanyLabel("  Acme   Transport  ")).toBe("acme transport");
-    expect(normalizeCompanyLabel("ACME TRANSPORT")).toBe("acme transport");
+  it("defines provider connections through neutral adapter keys and catalog capabilities", () => {
+    const provider = createProvider({
+      id: "provider-1",
+      adapterKey: "adapter-key",
+      capabilities: ["gps", "video"],
+    });
+    const connection = createProviderConnection({
+      id: "connection-1",
+      providerId: provider.id,
+      credentialRef: "credential-ref",
+      enabled: true,
+      cadenceMinutes: 60,
+    });
+
+    expect(provider).toEqual({ id: "provider-1", adapterKey: "adapter-key", capabilities: ["gps", "video"] });
+    expect(connection).toEqual({
+      id: "connection-1",
+      providerId: "provider-1",
+      credentialRef: "credential-ref",
+      enabled: true,
+      cadenceMinutes: 60,
+    });
+    expect(provider.adapterKey).toBe("adapter-key");
   });
 
-  it("stages a candidate scoped to its connection's tenant, unbound, without embedding the connection's credential", () => {
-    const connection: ProviderConnection = { id: "conn-1", organizationId: "org-a", credentialRef: "cred-ref-1" };
+  it("preserves an already resolved review when resolution is repeated", () => {
+    const review = createCatalogReview({
+      id: "review-1",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "malformed-plate",
+      candidateVehicleIds: [],
+    });
+    const resolved = resolveCatalogReview(review, "vehicle-1");
 
-    const candidate = stageCandidate("candidate-1", connection, "Acme Transport");
-
-    expect(candidate).toEqual({ id: "candidate-1", organizationId: "org-a", connectionId: "conn-1", normalizedLabel: "acme transport" });
-    expect(candidate).not.toHaveProperty("credentialRef");
+    expect(resolveCatalogReview(resolved, "vehicle-2")).toBe(resolved);
   });
 
-  it("binds a staged candidate to a canonical Company while preserving its staging identity", () => {
-    const connection: ProviderConnection = { id: "conn-1", organizationId: "org-a", credentialRef: "cred-ref-1" };
-    const candidate = stageCandidate("candidate-1", connection, "Acme Transport");
+  it("keeps absent contributions valid without inventing capability values", () => {
+    const contribution = createProviderContribution({
+      id: "contribution-2",
+      connectionId: "connection-2",
+      externalId: "external-2",
+      vehicleId: "vehicle-1",
+      capabilities: {},
+      presence: "absent",
+    });
 
-    const bound = bindCandidateToCompany(candidate, "company-1");
+    expect(contribution.presence).toBe("absent");
+    expect(contribution.capabilities).toEqual({});
+  });
 
-    expect(bound).toEqual({ ...candidate, companyId: "company-1" });
+  it("keeps domain values immutable at runtime", () => {
+    const values: Array<CatalogVehicle | ProviderContribution | ProviderFleetMembership | CatalogReview> = [
+      createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "fleet-1" }),
+      createProviderContribution({
+        id: "contribution-1",
+        connectionId: "connection-1",
+        externalId: "external-1",
+        vehicleId: "vehicle-1",
+        capabilities: { gps: "eligible" },
+        presence: "present",
+      }),
+      createProviderFleetMembership({ connectionId: "connection-1", externalFleetId: "fleet-1", vehicleId: "vehicle-1", label: "North" }),
+      createCatalogReview({ id: "review-1", connectionId: "connection-1", externalId: "external-1", reason: "missing-plate", candidateVehicleIds: [] }),
+    ];
+
+    expect(values.every((value) => Object.isFrozen(value))).toBe(true);
   });
 });
+
+  it("creates stable canonical groups and auditable placement evidence", () => {
+    const group = createCatalogGroup({ id: "group-1", label: "North" });
+    const binding = createGroupEvidenceBinding({ id: "binding-1", groupId: group.id, evidence: { connectionId: "c", kind: "company-label", externalKey: "north", label: "North", authority: "authoritative" } });
+    const vehicle = createCatalogVehicle({ id: "vehicle-1", normalizedPlate: "ABC123", plate: "ABC 123", placementFleetId: "group-1", placement: createVehiclePlacement({ groupId: group.id, authority: "authoritative", evidenceBindingId: binding.id, assignedAt: new Date("2026-01-01") }) });
+    expect(group).toEqual({ id: "group-1", label: "North" });
+    expect(binding.evidence.authority).toBe("authoritative");
+    expect(vehicle.placement?.groupId).toBe(group.id);
+    expect(Object.isFrozen(binding.evidence)).toBe(true);
+  });
+
+  it("does not merge ambiguous group evidence and records a review", () => {
+    const review = createCatalogReview({ id: "review-1", connectionId: "c", externalId: "north", reason: "ambiguous-group-evidence", candidateVehicleIds: [], evidenceKey: "north", candidateGroupIds: ["g1", "g2"] });
+    expect(review.reason).toBe("ambiguous-group-evidence");
+    expect(review.candidateGroupIds).toEqual(["g1", "g2"]);
+  });

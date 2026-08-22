@@ -69,4 +69,18 @@ describe("ProviderImportScreen", () => {
     expect(await screen.findByText("Second")).toBeInTheDocument();
     expect(screen.getAllByText("8")).toHaveLength(2);
   });
+
+  it("uses processed counts from the actual route progress contract", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(stream([
+      { type: "progress", data: { total: 8, counts: { processed: 8, created: 8, linked: 0, reviewed: 0, rejected: 0, absent: 0 } } },
+      { type: "result", data: { provider: "cybermapa", status: "succeeded", counts: { processed: 8, created: 8, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, total: 8 } },
+    ]))));
+    render(<ProviderImportScreen />);
+
+    fireEvent.click(screen.getByRole("button"));
+
+    expect((await screen.findAllByText("8")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("NaN")).not.toBeInTheDocument();
+    expect(screen.getByText("Encontrados")).toBeInTheDocument();
+  });
 });

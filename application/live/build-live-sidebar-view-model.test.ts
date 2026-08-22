@@ -90,6 +90,19 @@ function build(overrides: Partial<Parameters<typeof buildLiveSidebarViewModel>[0
 }
 
 describe("buildLiveSidebarViewModel", () => {
+  it("shows an unloaded fleet summary without requiring its vehicles in memory", () => {
+    const result = build({
+      fleets: [{ fleetId: "fleet-lazy", label: "Lazy Fleet", vehicleIds: [], vehicleCount: 7, isLoaded: false }],
+      liveVehicles: [],
+    });
+
+    expect(result.fleets).toEqual([expect.objectContaining({
+      fleetId: "fleet-lazy",
+      counts: { online: 0, total: 7 },
+      vehicles: [],
+    })]);
+  });
+
   it("collapses every fleet when there is no expansion override", () => {
     const result = build();
 

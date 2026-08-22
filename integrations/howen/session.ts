@@ -3,7 +3,7 @@ import { mkdir, readFile, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import type { HowenConfig } from "./config";
-import type { CatalogSyncFailureCategory } from "@/domain/catalog";
+import type { CatalogSyncFailureCategory } from "@/application/catalog/synchronize-connection";
 
 export type HowenSession = {
   token: string;

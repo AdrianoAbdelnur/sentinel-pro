@@ -1,16 +1,16 @@
-import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog-global/match-and-apply-provider-candidate";
-import { normalizePlate } from "@/domain/catalog";
+import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog/match-and-apply-provider-candidate";
+import { isValidNormalizedPlate, normalizePlate } from "@/domain/catalog";
 
 import type { HowenRosterRecord } from "./responses";
 
-export type HowenGlobalCatalogOptions = Readonly<{
+export type HowenCatalogOptions = Readonly<{
   connectionId: string;
   resolveInitialPlacementFleetId(fleet: { externalFleetId: string; label: string }): string | undefined;
 }>;
 
 export type HowenSeedRepositories = MatchAndApplyRepositories;
 
-export type HowenSeedDependencies = HowenGlobalCatalogOptions & {
+export type HowenSeedDependencies = HowenCatalogOptions & {
   records: HowenRosterRecord[];
   ids: { create(): string };
   repositories: HowenSeedRepositories;
@@ -30,11 +30,7 @@ function text(value: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function isValidatedPlate(value: string): boolean {
-  return /^(?:[A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/.test(value);
-}
-
-export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: HowenGlobalCatalogOptions): ProviderCandidate[] {
+export function mapHowenCatalog(records: HowenRosterRecord[], options: HowenCatalogOptions): ProviderCandidate[] {
   const seenExternalIds = new Set<string>();
   const candidates: ProviderCandidate[] = [];
 
@@ -54,11 +50,11 @@ export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: How
       connectionId: options.connectionId,
       externalId,
       ...(rawPlate !== undefined ? { plate: rawPlate } : {}),
-      ...(normalizedPlate !== undefined && isValidatedPlate(normalizedPlate) ? { normalizedPlate } : {}),
+      ...(normalizedPlate !== undefined && isValidNormalizedPlate(normalizedPlate) ? { normalizedPlate } : {}),
       ...(placementFleetId !== undefined ? { placementFleetId } : {}),
       ...(providerFleetMembership !== undefined ? { groupEvidence: { connectionId: options.connectionId, kind: "fleet-membership" as const, externalKey: fleetId as string, label: fleetLabel as string, authority: "fallback" as const } } : {}),
       ...(providerFleetMembership !== undefined ? { providerFleetMembership } : {}),
-      capabilities: { video: "eligible", videoAlerts: "eligible" },
+      capabilities: { gps: "eligible", video: "eligible", videoAlerts: "eligible" },
       presence: "present",
     });
   }
@@ -67,7 +63,7 @@ export function mapHowenGlobalCatalog(records: HowenRosterRecord[], options: How
 }
 
 export async function seedHowenCatalog(dependencies: HowenSeedDependencies): Promise<HowenSeedResult> {
-  const candidates = mapHowenGlobalCatalog(dependencies.records, dependencies);
+  const candidates = mapHowenCatalog(dependencies.records, dependencies);
   const outcomes: MatchAndApplyResult[] = [];
 
   for (const candidate of candidates) {

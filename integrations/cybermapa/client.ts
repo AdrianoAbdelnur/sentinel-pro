@@ -1,4 +1,4 @@
-import type { CatalogSyncFailureCategory } from "@/domain/catalog";
+import type { CatalogSyncFailureCategory } from "@/application/catalog/synchronize-connection";
 
 import type { CybermapaConfig } from "./config";
 import { parseCybermapaVehiclesResponse, type CybermapaVehicleRecord } from "./responses";

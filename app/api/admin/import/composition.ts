@@ -1,26 +1,30 @@
 import { randomUUID } from "node:crypto";
 
-import { createSynchronizeGlobalConnectionApplication, type GlobalSyncPorts } from "@/application/catalog-global/synchronize-global-connection";
-import { createGlobalSyncSourceRegistry } from "@/integrations/catalog/global-sync-source-adapters";
-import { createGlobalCatalogRepositories, getMongoClient, getMongoDatabase, MongoGlobalCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
+import { CATALOG_ADAPTER_REGISTRATIONS, createCatalogBootstrapApplication } from "@/application/catalog/bootstrap-catalog";
+import { createSynchronizeConnectionApplication, type CatalogSyncPorts } from "@/application/catalog/synchronize-connection";
+import { createCatalogSyncSourceRegistry } from "@/integrations/catalog/sync-source-adapters";
+import { createCatalogRepositories, getMongoClient, getMongoDatabase, initializeCatalogDatabase, MongoCatalogTransactionRunner } from "@/integrations/persistence/mongodb";
 
 async function createRuntime() {
   const [client, database] = await Promise.all([getMongoClient(), getMongoDatabase()]);
-  const repositories = createGlobalCatalogRepositories(database);
-  const application = createSynchronizeGlobalConnectionApplication({
+  await initializeCatalogDatabase(database);
+  const repositories = createCatalogRepositories(database);
+  const bootstrap = createCatalogBootstrapApplication({ ...repositories, ids: { create: randomUUID } });
+  await bootstrap.registerAdapters(CATALOG_ADAPTER_REGISTRATIONS);
+  const application = createSynchronizeConnectionApplication({
     ...repositories,
     ids: { create: randomUUID },
     clock: { now: () => new Date() },
     runs: repositories.syncRuns,
     leases: repositories.syncLeases,
-    transactions: new MongoGlobalCatalogTransactionRunner(client, database),
-  } as unknown as GlobalSyncPorts);
-  return { ...application, connections: repositories.connections, providers: repositories.providers, sources: createGlobalSyncSourceRegistry() };
+    transactions: new MongoCatalogTransactionRunner(client, database),
+  } as unknown as CatalogSyncPorts);
+  return { ...application, connections: repositories.connections, providers: repositories.providers, sources: createCatalogSyncSourceRegistry() };
 }
 
-let runtime: Awaited<ReturnType<typeof createRuntime>> | undefined;
+let runtime: Promise<Awaited<ReturnType<typeof createRuntime>>> | undefined;
 
 export async function getProviderImportRuntime() {
-  runtime ??= await createRuntime();
+  runtime ??= createRuntime();
   return runtime;
 }

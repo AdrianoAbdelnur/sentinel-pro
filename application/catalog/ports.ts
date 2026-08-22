@@ -1,194 +1,76 @@
-import type { Capability, CapabilityPolicy, CapabilityPolicyScope, CatalogImportItem, CatalogReview, CatalogReviewSubject, CatalogSyncFailure, CatalogSyncRun, CatalogSnapshotEvidence, Company, CompanyCandidate, ExternalFleetIdentity, ExternalVehicleIdentity, Fleet, ProviderConnection, Vehicle } from "@/domain/catalog";
+import type {
+  CatalogReview,
+  CatalogVehicle,
+  ProviderConnection,
+  ProviderContribution,
+  Provider,
+  ProviderFleetMembership,
+  OrganizationVehicleAccess,
+  CatalogGroup, GroupEvidenceBinding,
+} from "@/domain/catalog";
 
-export type Clock = { now(): Date };
+export type CatalogIdGenerator = { create(): string };
 
-export type CompanyRepository = {
-  findById(id: string): Promise<Company | undefined>;
-  listByOrganization?(organizationId: string): Promise<Company[]>;
-  save(company: Company): Promise<void>;
+export type CatalogVehicleRepository = {
+  findById(id: string): Promise<CatalogVehicle | undefined>;
+  findByNormalizedPlate(normalizedPlate: string): Promise<CatalogVehicle | undefined>;
+  save(vehicle: CatalogVehicle): Promise<void>;
 };
+export type CatalogGroupRepository = { findById(id: string): Promise<CatalogGroup | undefined>; findByLabel(label: string): Promise<CatalogGroup[]>; save(group: CatalogGroup): Promise<void> };
+export type GroupEvidenceBindingRepository = { findById(id: string): Promise<GroupEvidenceBinding | undefined>; findByGroupId(groupId: string): Promise<GroupEvidenceBinding[]>; findByEvidence(connectionId: string, kind: string, externalKey: string): Promise<GroupEvidenceBinding[]>; save(binding: GroupEvidenceBinding): Promise<void> };
 
-export type FleetRepository = {
-  findById(id: string): Promise<Fleet | undefined>;
-  listByCompany(companyId: string): Promise<Fleet[]>;
-  save(fleet: Fleet): Promise<void>;
-};
-
-export type VehicleRepository = {
-  findById(id: string): Promise<Vehicle | undefined>;
-  listByCompany(companyId: string): Promise<Vehicle[]>;
-  save(vehicle: Vehicle): Promise<void>;
-};
-
-export type IdGenerator = { create(): string };
-
-export type CatalogTransactionRepositories = {
-  companies: CompanyRepository;
-  fleets: FleetRepository;
-  vehicles: VehicleRepository;
-  vehicleIdentities: ExternalVehicleIdentityRepository;
-  reviews: CatalogReviewRepository;
-  importItems: CatalogImportItemRepository;
-};
-
-export type CatalogTransactionRunner = {
-  run<T>(work: (repositories: CatalogTransactionRepositories) => Promise<T>): Promise<T>;
-};
-
-export type CatalogApplicationPorts = {
-  companies: CompanyRepository;
-  fleets: FleetRepository;
-  vehicles: VehicleRepository;
-  ids: IdGenerator;
-  transactions: CatalogTransactionRunner;
-};
-
-export type CompanyCandidateRepository = {
-  findById(id: string): Promise<CompanyCandidate | undefined>;
-  findByConnectionAndLabel(organizationId: string, connectionId: string, normalizedLabel: string): Promise<CompanyCandidate | undefined>;
-  save(candidate: CompanyCandidate): Promise<void>;
-};
-
-export type CompanyBindingPorts = {
-  companies: CompanyRepository;
-  candidates: CompanyCandidateRepository;
-  ids: IdGenerator;
+export type ProviderRepository = {
+  findById(id: string): Promise<Provider | undefined>;
+  findByAdapterKey(adapterKey: string): Promise<Provider | undefined>;
+  list(): Promise<Provider[]>;
+  save(provider: Provider): Promise<void>;
 };
 
 export type ProviderConnectionRepository = {
-  findById(organizationId: string, id: string): Promise<ProviderConnection | undefined>;
-  listAll(): Promise<ProviderConnection[]>;
+  findById(id: string): Promise<ProviderConnection | undefined>;
+  findEnabledByProviderId(providerId: string): Promise<ProviderConnection | undefined>;
+  listEnabled(): Promise<ProviderConnection[]>;
   save(connection: ProviderConnection): Promise<void>;
 };
 
-export type AssignConnectionCompanyPorts = {
-  connections: ProviderConnectionRepository;
-  companies: CompanyRepository;
+export type ProviderContributionRepository = {
+  findByConnectionAndExternalId(connectionId: string, externalId: string): Promise<ProviderContribution | undefined>;
+  listByConnectionId(connectionId: string): Promise<ProviderContribution[]>;
+  listByVehicleId(vehicleId: string): Promise<ProviderContribution[]>;
+  save(contribution: ProviderContribution): Promise<void>;
 };
 
-export type CapabilityPolicyRepository = {
-  findByScope(
-    organizationId: string,
-    scope: CapabilityPolicyScope,
-    scopeId: string,
-    capability: Capability,
-  ): Promise<CapabilityPolicy | undefined>;
-  save(policy: CapabilityPolicy): Promise<void>;
+export type ProviderFleetMembershipRepository = {
+  listByVehicleId(vehicleId: string): Promise<ProviderFleetMembership[]>;
+  listByConnectionAndExternalFleet(connectionId: string, externalFleetId: string): Promise<ProviderFleetMembership[]>;
+  save(membership: ProviderFleetMembership): Promise<void>;
 };
 
-export type CapabilityPolicyPorts = {
-  companies: CompanyRepository;
-  fleets: FleetRepository;
-  vehicles: VehicleRepository;
-  policies: CapabilityPolicyRepository;
-  ids: IdGenerator;
-};
-
-export type ExternalFleetIdentityRepository = {
-  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalFleetIdentity | undefined>;
-  listByConnection(organizationId: string, connectionId: string): Promise<ExternalFleetIdentity[]>;
-  listByFleetId(organizationId: string, fleetId: string): Promise<ExternalFleetIdentity[]>;
-  save(identity: ExternalFleetIdentity): Promise<void>;
-};
-
-export type ExternalVehicleIdentityRepository = {
-  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string): Promise<ExternalVehicleIdentity | undefined>;
-  listByConnection(organizationId: string, connectionId: string): Promise<ExternalVehicleIdentity[]>;
-  listStaleByRun(organizationId: string, connectionId: string, currentRunId: string): Promise<ExternalVehicleIdentity[]>;
-  save(identity: ExternalVehicleIdentity): Promise<void>;
-  ensureBoundToVehicle?(identity: ExternalVehicleIdentity & { vehicleId: string }): Promise<"bound" | "conflict">;
-};
-
-export type CatalogSyncLeaseClaimResult = { outcome: "claimed"; previousRunId?: string } | { outcome: "held" };
-
-export type CatalogSyncLeaseRepository = {
-  claim(organizationId: string, connectionId: string, runId: string, now: Date, leaseDurationMs: number): Promise<CatalogSyncLeaseClaimResult>;
-  release(organizationId: string, connectionId: string, runId: string): Promise<void>;
-};
-
-export type CatalogSyncRunRepository = {
-  findById(id: string): Promise<CatalogSyncRun | undefined>;
-  findLatest(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
-  findLastSuccess(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
-  findLastConfirmed?(organizationId: string, connectionId: string): Promise<CatalogSyncRun | undefined>;
-  claimActive(run: CatalogSyncRun): Promise<"claimed" | "already-active">;
-  save(run: CatalogSyncRun): Promise<void>;
+export type OrganizationVehicleAccessRepository = {
+  listByOrganizationId(organizationId: string): Promise<OrganizationVehicleAccess[]>;
+  find(organizationId: string, vehicleId: string): Promise<OrganizationVehicleAccess | undefined>;
+  save(grant: OrganizationVehicleAccess): Promise<void>;
 };
 
 export type CatalogReviewRepository = {
   findById(id: string): Promise<CatalogReview | undefined>;
-  findByConnectionAndExternalId(organizationId: string, connectionId: string, externalId: string, subject: CatalogReviewSubject): Promise<CatalogReview | undefined>;
-  listPendingByOrganization(organizationId: string): Promise<CatalogReview[]>;
+  findByConnectionAndExternalId?(connectionId: string, externalId: string): Promise<CatalogReview | undefined>;
+  listPending(): Promise<CatalogReview[]>;
   save(review: CatalogReview): Promise<void>;
-  resolve(review: CatalogReview): Promise<"resolved" | "already-resolved">;
 };
 
-export type CatalogImportItemRepository = {
-  findByRunAndExternalId(organizationId: string, connectionId: string, runId: string, externalId: string): Promise<CatalogImportItem | undefined>;
-  listPendingByRun(organizationId: string, connectionId: string, runId: string): Promise<CatalogImportItem[]>;
-  save(item: CatalogImportItem): Promise<void>;
-};
-
-export type CatalogImportCandidate = {
-  externalId: string;
-  companyLabel?: string;
-  companyId?: string;
-  normalizedPlate?: string;
-  registeredPlate?: string;
-  label?: string;
-  externalFleetId?: string;
-  fleetLabel?: string;
-};
-
-export type CatalogSnapshotResult =
-  | { kind: "complete"; candidates: CatalogImportCandidate[]; evidence?: CatalogSnapshotEvidence }
-  | { kind: "failed"; failure: CatalogSyncFailure };
-
-export type CatalogImportSource = {
-  loadCompleteSnapshot(): Promise<CatalogSnapshotResult>;
-};
-
-export type ImportCatalogPorts = {
-  companies: CompanyRepository;
-  fleets: FleetRepository;
-  vehicles: VehicleRepository;
-  candidates: CompanyCandidateRepository;
-  vehicleIdentities: ExternalVehicleIdentityRepository;
-  fleetIdentities: ExternalFleetIdentityRepository;
-  reviews: CatalogReviewRepository;
-  importItems: CatalogImportItemRepository;
-  syncRuns: CatalogSyncRunRepository;
-  ids: IdGenerator;
-  transactions: CatalogTransactionRunner;
-};
-
-export type SynchronizeCatalogConnectionPorts = ImportCatalogPorts & {
+export type CatalogRepositories = {
+  vehicles: CatalogVehicleRepository;
+  providers: ProviderRepository;
   connections: ProviderConnectionRepository;
-  syncLeases: CatalogSyncLeaseRepository;
-  clock: Clock;
-};
-
-export type VehicleIdentityBindingRepository = {
-  ensureBoundToVehicle(identity: ExternalVehicleIdentity & { vehicleId: string }): Promise<"bound" | "conflict">;
-};
-
-export type CatalogReviewApplicationPorts = {
+  contributions: ProviderContributionRepository;
+  memberships: ProviderFleetMembershipRepository;
+  grants: OrganizationVehicleAccessRepository;
   reviews: CatalogReviewRepository;
-  fleets: Pick<FleetRepository, "findById" | "listByCompany">;
-  vehicles: Pick<VehicleRepository, "findById" | "save">;
-  vehicleIdentities: VehicleIdentityBindingRepository;
-  transactions: CatalogTransactionRunner;
-  fleetIdentities: Pick<ExternalFleetIdentityRepository, "findByConnectionAndExternalId" | "save">;
-  ids: Pick<IdGenerator, "create">;
+  groups: CatalogGroupRepository;
+  evidenceBindings: GroupEvidenceBindingRepository;
 };
 
-export type SynchronizeDueCatalogConnectionsPorts = {
-  syncRuns: Pick<CatalogSyncRunRepository, "findLastSuccess" | "findLastConfirmed">;
-  clock: Clock;
-};
-
-export type GetCatalogSyncStatusPorts = {
-  connections: Pick<ProviderConnectionRepository, "findById">;
-  syncRuns: Pick<CatalogSyncRunRepository, "findLatest" | "findLastSuccess" | "findLastConfirmed">;
-  clock: Clock;
+export type CatalogTransactionRunner = {
+  run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T>;
 };

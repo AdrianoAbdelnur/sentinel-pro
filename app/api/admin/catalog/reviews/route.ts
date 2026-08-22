@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
 
-import { authorizeAdminRequest } from "@/app/api/admin/users/delivery";
+import { authorizePlatformRequest } from "@/app/api/admin/users/delivery";
+import { getCatalogSyncRuntime } from "@/app/api/internal/catalog/composition";
 
-import { getCatalogAdminRuntime } from "../composition";
-import { catalogForbidden, toReviewSummary } from "../delivery";
+import { toCanonicalReviewSummary } from "../canonical-delivery";
 
 export async function GET(request: Request) {
-  const actor = await authorizeAdminRequest(request);
+  const actor = await authorizePlatformRequest(request);
   if (actor instanceof NextResponse) return actor;
-  const { listPendingCatalogReviews } = await getCatalogAdminRuntime();
-  const result = await listPendingCatalogReviews({ actor });
-  if (result.kind === "forbidden") return catalogForbidden();
-  return NextResponse.json({ reviews: result.reviews.map(toReviewSummary) });
+  const reviews = await (await getCatalogSyncRuntime()).listPendingReviews();
+  return NextResponse.json({ reviews: reviews.map(toCanonicalReviewSummary) });
 }

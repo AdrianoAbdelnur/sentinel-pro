@@ -1,75 +1,42 @@
-export type CatalogReviewSubject = "fleet-binding" | "vehicle-match";
-export type VehicleMatchEvidence =
-  | { kind: "registered-plate"; normalizedValue: string }
-  | { kind: "display-name-equals-registered-plate"; normalizedValue: string };
+export type CatalogReviewReason = "missing-plate" | "malformed-plate" | "missing-placement" | "ambiguous-match" | "conflicting-identity" | "ambiguous-group-evidence";
 
-export type CatalogReviewStatus = "pending" | "resolved";
-
-export const MAX_REVIEW_CANDIDATES = 5;
-
-type CatalogReviewIdentity = {
+export type CatalogReview = Readonly<{
   id: string;
-  organizationId: string;
+  subject: "vehicle-identity";
   connectionId: string;
-  companyId: string;
   externalId: string;
-  status: CatalogReviewStatus;
-};
-
-export type FleetBindingReview = CatalogReviewIdentity & {
-  subject: "fleet-binding";
-  label: string;
-  candidateFleetIds: string[];
-  resolvedFleetId?: string;
-};
-
-export type VehicleMatchReview = CatalogReviewIdentity & {
-  subject: "vehicle-match";
-  normalizedPlate: string;
-  evidence?: VehicleMatchEvidence;
-  candidateVehicleIds: string[];
+  reason: CatalogReviewReason;
+  normalizedPlate?: string;
+  candidateVehicleIds: readonly string[];
+  status: "pending" | "resolved";
   resolvedVehicleId?: string;
+  evidenceKey?: string;
+  candidateGroupIds?: readonly string[];
+}>;
+
+export type CatalogReviewInput = {
+  id: string;
+  connectionId: string;
+  externalId: string;
+  reason: CatalogReviewReason;
+  normalizedPlate?: string;
+  candidateVehicleIds: readonly string[];
+  evidenceKey?: string;
+  candidateGroupIds?: readonly string[];
 };
 
-export type CatalogReview = FleetBindingReview | VehicleMatchReview;
-
-export function stageFleetBindingReview(
-  id: string,
-  params: {
-    organizationId: string;
-    connectionId: string;
-    companyId: string;
-    externalId: string;
-    label: string;
-    candidateFleetIds: string[];
-  },
-): FleetBindingReview {
-  return { id, ...params, candidateFleetIds: params.candidateFleetIds.slice(0, MAX_REVIEW_CANDIDATES), subject: "fleet-binding", status: "pending" };
+export function createCatalogReview(input: CatalogReviewInput): CatalogReview {
+  return Object.freeze({
+    ...input,
+    subject: "vehicle-identity" as const,
+    candidateVehicleIds: Object.freeze([...input.candidateVehicleIds]),
+    status: "pending" as const,
+    ...(input.evidenceKey !== undefined ? { evidenceKey: input.evidenceKey } : {}),
+    ...(input.candidateGroupIds !== undefined ? { candidateGroupIds: Object.freeze([...input.candidateGroupIds]) } : {}),
+  });
 }
 
-export function stageVehicleMatchReview(
-  id: string,
-  params: {
-    organizationId: string;
-    connectionId: string;
-    companyId: string;
-    externalId: string;
-    normalizedPlate: string;
-    evidence?: VehicleMatchEvidence;
-    candidateVehicleIds: string[];
-  },
-): VehicleMatchReview {
-  return { id, ...params, candidateVehicleIds: params.candidateVehicleIds.slice(0, MAX_REVIEW_CANDIDATES), subject: "vehicle-match", status: "pending" };
-}
-
-export type CatalogReviewResolution<T> = { kind: "resolved"; review: T } | { kind: "already-resolved"; review: T };
-
-export function resolveCatalogReviewToFleet(review: FleetBindingReview, fleetId: string): CatalogReviewResolution<FleetBindingReview> {
-  if (review.status !== "pending") return { kind: "already-resolved", review };
-  return { kind: "resolved", review: { ...review, status: "resolved", resolvedFleetId: fleetId } };
-}
-
-export function resolveCatalogReviewToVehicle(review: VehicleMatchReview, vehicleId: string): CatalogReviewResolution<VehicleMatchReview> {
-  if (review.status !== "pending") return { kind: "already-resolved", review };
-  return { kind: "resolved", review: { ...review, status: "resolved", resolvedVehicleId: vehicleId } };
+export function resolveCatalogReview(review: CatalogReview, vehicleId: string): CatalogReview {
+  if (review.status === "resolved") return review;
+  return Object.freeze({ ...review, status: "resolved", resolvedVehicleId: vehicleId });
 }

@@ -6,7 +6,7 @@ import type {
   HowenSession,
   HowenSessionManager,
 } from "./session";
-import type { CatalogSyncFailureCategory } from "@/domain/catalog";
+import type { CatalogSyncFailureCategory } from "@/application/catalog/synchronize-connection";
 
 type CreateHowenClientInput = {
   config: HowenConfig;

@@ -4,6 +4,7 @@ import { LiveVehicleRow } from "./live-vehicle-row";
 
 type LiveFleetNodeProps = {
   fleet: LiveFleetNodeViewModel;
+  isLoading?: boolean;
   onToggleExpanded: (fleetId: string) => void;
   onToggleFleet: (fleetId: string) => void;
   onToggleVehicle: (vehicleId: string) => void;
@@ -11,6 +12,7 @@ type LiveFleetNodeProps = {
 
 export function LiveFleetNode({
   fleet,
+  isLoading = false,
   onToggleExpanded,
   onToggleFleet,
   onToggleVehicle,
@@ -25,6 +27,7 @@ export function LiveFleetNode({
           type="checkbox"
           aria-label={`Seleccionar todos los vehículos de ${fleet.label}`}
           checked={fleet.isSelected}
+          disabled={isLoading || fleet.isLoaded === false}
           onChange={() => onToggleFleet(fleet.fleetId)}
           className="size-3.5 shrink-0 appearance-none rounded-sm border border-slate-600 bg-transparent transition-colors checked:border-sky-400 checked:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
         />
@@ -58,10 +61,14 @@ export function LiveFleetNode({
           </span>
           <span className="text-slate-600">/{total}</span>
         </span>
+        {isLoading && <span className="font-mono text-[9px] uppercase text-sky-300">Cargando</span>}
       </div>
 
       {fleet.isExpanded && (
         <ul className="ml-4 border-l border-slate-800/80 pb-1">
+          {fleet.isLoaded === false && !isLoading && (
+            <li className="px-3 py-2 font-mono text-[10px] text-slate-500">Abrí el grupo para cargar sus vehículos</li>
+          )}
           {fleet.vehicles.map((vehicle) => (
             <LiveVehicleRow
               key={vehicle.vehicleId}

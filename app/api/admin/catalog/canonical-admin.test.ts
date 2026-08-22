@@ -1,0 +1,126 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const identity = { authorize: vi.fn(), authorizePlatform: vi.fn() };
+vi.mock("@/app/api/auth/composition", () => ({ getIdentityApplication: async () => identity }));
+
+const runtime = {
+  listPendingReviews: vi.fn(),
+  resolveReview: vi.fn(),
+  getStatus: vi.fn(),
+  synchronize: vi.fn(),
+  connections: { findById: vi.fn() },
+  providers: { findById: vi.fn() },
+  sources: { resolve: vi.fn() },
+};
+vi.mock("@/app/api/internal/catalog/composition", () => ({ getCatalogSyncRuntime: async () => runtime }));
+vi.mock("./composition", () => ({ getCatalogAdminRuntime: async () => { throw new Error("organizational catalog used"); } }));
+
+import { GET as listReviews } from "./reviews/route";
+import { POST as resolveReview } from "./reviews/[reviewId]/resolve/route";
+import { GET as getStatus } from "./connections/[connectionId]/status/route";
+import { POST as synchronizeConnection } from "./connections/[connectionId]/sync/route";
+
+const headers = { origin: "https://sentinel.test", cookie: "__Host-sentinel_session=opaque-token", "content-type": "application/json" };
+
+describe("canonical catalog administration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    identity.authorizePlatform.mockResolvedValue({ kind: "authorized", context: { userId: "platform-1" } });
+  });
+
+  it("lists canonical reviews without organization-owned fields", async () => {
+    runtime.listPendingReviews.mockResolvedValue([{
+      id: "review-1",
+      subject: "vehicle-identity",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "ambiguous-match",
+      candidateVehicleIds: ["vehicle-1"],
+      status: "pending",
+    }]);
+
+    const response = await listReviews(new Request("https://sentinel.test/api/admin/catalog/reviews", { headers }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ reviews: [{
+      id: "review-1",
+      subject: "vehicle-identity",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "ambiguous-match",
+      candidateVehicleIds: ["vehicle-1"],
+      status: "pending",
+    }] });
+    expect(runtime.listPendingReviews).toHaveBeenCalledOnce();
+  });
+
+  it("resolves a review only to an existing canonical vehicle", async () => {
+    runtime.resolveReview.mockResolvedValue({ kind: "resolved", review: {
+      id: "review-1",
+      subject: "vehicle-identity",
+      connectionId: "connection-1",
+      externalId: "external-1",
+      reason: "ambiguous-match",
+      candidateVehicleIds: ["vehicle-1"],
+      status: "resolved",
+      resolvedVehicleId: "vehicle-1",
+    } });
+    const request = new Request("https://sentinel.test/api/admin/catalog/reviews/review-1/resolve", { method: "POST", headers, body: JSON.stringify({ targetId: "vehicle-1" }) });
+
+    const response = await resolveReview(request, { params: Promise.resolve({ reviewId: "review-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(runtime.resolveReview).toHaveBeenCalledWith("review-1", "vehicle-1");
+    expect((await response.json()).review.resolvedVehicleId).toBe("vehicle-1");
+  });
+
+  it("reads canonical run status through the unversioned route", async () => {
+    runtime.getStatus.mockResolvedValue({ kind: "found", status: { connectionId: "connection-1", isDue: true } });
+
+    const response = await getStatus(new Request("https://sentinel.test/api/admin/catalog/connections/connection-1/status", { headers }), { params: Promise.resolve({ connectionId: "connection-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: { connectionId: "connection-1", isDue: true } });
+    expect(runtime.getStatus).toHaveBeenCalledWith("connection-1");
+  });
+
+  it("discloses run identity, lineage, and attempt so retries stay distinguishable", async () => {
+    runtime.getStatus.mockResolvedValue({ kind: "found", status: {
+      connectionId: "connection-1",
+      isDue: false,
+      lastSuccessAt: new Date("2026-08-17T10:05:00.000Z"),
+      latestRun: {
+        id: "run-9",
+        lineageId: "lineage-3",
+        attempt: 2,
+        connectionId: "connection-1",
+        trigger: "scheduler",
+        status: "succeeded",
+        startedAt: new Date("2026-08-17T10:00:00.000Z"),
+        completedAt: new Date("2026-08-17T10:05:00.000Z"),
+        checkpoint: "external-7",
+        total: 12,
+        counts: { processed: 12, created: 3, linked: 5, reviewed: 1, rejected: 0, absent: 3 },
+        snapshot: { status: "complete" },
+      },
+    } });
+
+    const response = await getStatus(new Request("https://sentinel.test/api/admin/catalog/connections/connection-1/status", { headers }), { params: Promise.resolve({ connectionId: "connection-1" }) });
+
+    expect((await response.json()).status.latestRun).toMatchObject({ id: "run-9", lineageId: "lineage-3", attempt: 2 });
+  });
+
+  it("starts manual synchronization through the canonical provider registry", async () => {
+    runtime.connections.findById.mockResolvedValue({ id: "connection-1", providerId: "provider-1" });
+    runtime.providers.findById.mockResolvedValue({ id: "provider-1", adapterKey: "howen", capabilities: ["video"] });
+    runtime.sources.resolve.mockReturnValue({ loadSnapshot: vi.fn() });
+    runtime.synchronize.mockResolvedValue({ kind: "succeeded", run: { counts: { processed: 1 } } });
+    const request = new Request("https://sentinel.test/api/admin/catalog/connections/connection-1/sync", { method: "POST", headers });
+
+    const response = await synchronizeConnection(request, { params: Promise.resolve({ connectionId: "connection-1" }) });
+
+    expect(response.status).toBe(200);
+    expect(runtime.synchronize).toHaveBeenCalledWith({ connectionId: "connection-1", trigger: "manual", source: expect.anything() });
+    expect(await response.json()).toEqual({ status: "succeeded", counts: { processed: 1 } });
+  });
+});

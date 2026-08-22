@@ -1,4 +1,3 @@
-import { CompanyCandidateBindingPanel } from "./company-candidate-binding-panel";
 import { ConnectionSyncPanel } from "./connection-sync-panel";
 import { PendingReviewsPanel } from "./pending-reviews-panel";
 
@@ -8,10 +7,6 @@ export function CatalogAdminScreen() {
       <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-lg font-medium">Sincronización de conexión</h2>
         <ConnectionSyncPanel />
-      </section>
-      <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <h2 className="text-lg font-medium">Vincular candidato a Company</h2>
-        <CompanyCandidateBindingPanel />
       </section>
       <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <h2 className="text-lg font-medium">Revisiones pendientes</h2>
