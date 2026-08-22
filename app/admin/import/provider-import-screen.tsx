@@ -6,19 +6,19 @@ import { useRouter } from "next/navigation";
 type Provider = "cybermapa" | "howen";
 type Counts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
 type Found = { companies: number; fleets: number; vehicles: number };
-type Progress = { phase?: "loading" | "saving"; found?: Found; total: number; processed: number; counts: Counts; currentGroup?: string };
+type Progress = { phase?: "loading" | "saving"; found?: Found; total: number; processed?: number; counts: Counts; currentGroup?: string };
 type Result = { provider: Provider | string; status: "succeeded"; found?: Found; companies?: number; fleets?: number; counts: Counts; total?: number } | { provider: Provider | string; status: "failed"; code: string };
 
 const initialCounts: Counts = { processed: 0, created: 0, linked: 0, reviewed: 0, rejected: 0, absent: 0 };
-const initialProgress: Progress = { phase: "loading", found: { companies: 0, fleets: 0, vehicles: 0 }, total: 0, processed: 0, counts: initialCounts };
+const initialProgress: Progress = { phase: "loading", total: 0, counts: initialCounts };
 
 function mergeProgress(previous: Progress, next: Progress): Progress {
   return {
     ...previous,
     ...next,
     found: next.found ?? previous.found,
-    total: Math.max(previous.total, next.total),
-    processed: Math.max(previous.processed, next.processed),
+    total: Math.max(previous.total, next.total ?? 0),
+    processed: Math.max(previous.processed ?? 0, next.processed ?? next.counts.processed),
     counts: Object.fromEntries(Object.keys(previous.counts).map((key) => [key, Math.max(previous.counts[key as keyof Counts], next.counts[key as keyof Counts] ?? 0)])) as Counts,
   };
 }
@@ -81,7 +81,8 @@ export function ProviderImportScreen() {
   }
 
   const visible = progress;
-  const found = visible.found ?? { companies: 0, fleets: 0, vehicles: 0 };
+  const found = visible.found ?? { companies: 0, fleets: 0, vehicles: visible.total };
+  const foundVehicles = found.vehicles || visible.total;
   const phaseLabel = visible.phase === "loading" ? "Consultando la plataforma" : "Guardando el catálogo";
 
   return <section className="flex flex-col gap-5 rounded-xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl shadow-black/20">
@@ -90,7 +91,7 @@ export function ProviderImportScreen() {
     {loading || result ? <div className="flex flex-col gap-4" aria-live="polite">
       {loading || visible.currentGroup ? <div className="flex items-center justify-between border-b border-zinc-800 pb-3 text-sm"><div><p className="font-medium text-emerald-300">{phaseLabel}</p>{visible.currentGroup ? <p className="mt-1 text-zinc-400">{visible.currentGroup}</p> : null}<p className="mt-1 text-zinc-500">Los datos se actualizan a medida que se procesan.</p></div><span className="font-mono tabular-nums text-zinc-400">{formatDuration(elapsed)}</span></div> : null}
       {result?.status === "succeeded" ? <div className="border-b border-emerald-900 pb-3 text-sm text-emerald-300">Importación completada en {formatDuration(elapsed)}.</div> : null}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Stat label="Encontrados" value={found.vehicles} tone="text-cyan-300" /><Stat label="Procesados" value={visible.processed} /><Stat label="Guardados" value={visible.counts.created} tone="text-emerald-300" /><Stat label="Vinculados" value={visible.counts.linked} tone="text-amber-300" /></div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Stat label="Encontrados" value={foundVehicles} tone="text-cyan-300" /><Stat label="Procesados" value={visible.counts.processed} /><Stat label="Guardados" value={visible.counts.created} tone="text-emerald-300" /><Stat label="Vinculados" value={visible.counts.linked} tone="text-amber-300" /></div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Stat label="Flotas detectadas" value={found.fleets} /><Stat label="Empresas detectadas" value={found.companies} /><Stat label="Revisión" value={visible.counts.reviewed} tone="text-orange-300" /><Stat label="Rechazados" value={visible.counts.rejected} tone="text-red-300" /></div>
       {result?.status === "failed" ? <p role="alert" className="text-sm text-red-300">No se pudo completar la importación. Revisá el estado de la plataforma e intentá nuevamente.</p> : null}
     </div> : null}

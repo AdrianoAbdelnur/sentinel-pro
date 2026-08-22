@@ -9,7 +9,8 @@ export type CatalogSnapshotEvidence = { retrievalComplete: boolean; paginationCo
 export type CatalogSnapshot = { kind: "complete"; candidates: ProviderCandidate[]; evidence?: CatalogSnapshotEvidence } | { kind: "failed"; failure: CatalogSyncFailure };
 export type CatalogSyncSource = { loadSnapshot(): Promise<CatalogSnapshot> };
 export type CatalogSyncCounts = { processed: number; created: number; linked: number; reviewed: number; rejected: number; absent: number };
-export type CatalogSyncProgress = { connectionId: string; lineageId: string; runId: string; total: number; checkpoint?: string; counts: CatalogSyncCounts; currentGroup?: string };
+export type CatalogSyncFound = { companies: number; fleets: number; vehicles: number };
+export type CatalogSyncProgress = { connectionId: string; lineageId: string; runId: string; total: number; checkpoint?: string; counts: CatalogSyncCounts; found?: CatalogSyncFound; currentGroup?: string };
 export type CatalogSyncProgressListener = (progress: CatalogSyncProgress) => Promise<void> | void;
 export type CatalogSyncRun = { id: string; lineageId: string; attempt: number; connectionId: string; trigger: CatalogSyncTrigger; status: "active" | "succeeded" | "failed"; startedAt: Date; completedAt?: Date; checkpoint?: string; total: number; counts: CatalogSyncCounts; snapshot: { status: "complete" | "partial"; reason?: string; receivedRecordCount?: number; parseableRecordCount?: number; authorizedCandidateCount?: number }; failure?: CatalogSyncFailure };
 export type CatalogSyncOutcome =
@@ -65,6 +66,18 @@ function sortCandidates(candidates: ProviderCandidate[]): ProviderCandidate[] {
   return [...candidates].sort((left, right) => left.externalId.localeCompare(right.externalId));
 }
 
+function foundFromCandidates(candidates: readonly ProviderCandidate[]): CatalogSyncFound {
+  const companies = new Set<string>();
+  const fleets = new Set<string>();
+  for (const candidate of candidates) {
+    const evidence = candidate.groupEvidence;
+    if (!evidence) continue;
+    if (evidence.kind === "company-label") companies.add(evidence.externalKey);
+    if (evidence.kind === "fleet-membership") fleets.add(evidence.externalKey);
+  }
+  return { companies: companies.size, fleets: fleets.size, vehicles: candidates.length };
+}
+
 function createRun(id: string, lineageId: string, attempt: number, connectionId: string, trigger: CatalogSyncTrigger, startedAt: Date): CatalogSyncRun {
   return { id, lineageId, attempt, connectionId, trigger, status: "active", startedAt, total: 0, counts: { ...ZERO_COUNTS }, snapshot: { status: "partial", reason: "pending" } };
 }
@@ -99,9 +112,9 @@ export function createSynchronizeConnectionApplication(ports: CatalogSyncPorts) 
   }
 
   async function synchronize({ connectionId, trigger, source, onProgress }: { connectionId: string; trigger: CatalogSyncTrigger; source: CatalogSyncSource; onProgress?: CatalogSyncProgressListener }): Promise<CatalogSyncOutcome> {
-    const publish = (run: CatalogSyncRun, currentGroup?: string) => {
+    const publish = (run: CatalogSyncRun, currentGroup?: string, found?: CatalogSyncFound) => {
       if (!onProgress) return;
-      void Promise.resolve(onProgress({ connectionId: run.connectionId, lineageId: run.lineageId, runId: run.id, total: run.total, ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}), counts: run.counts, ...(currentGroup ? { currentGroup } : {}) })).catch(() => undefined);
+      void Promise.resolve(onProgress({ connectionId: run.connectionId, lineageId: run.lineageId, runId: run.id, total: run.total, ...(run.checkpoint ? { checkpoint: run.checkpoint } : {}), counts: run.counts, ...(found ? { found } : {}), ...(currentGroup ? { currentGroup } : {}) })).catch(() => undefined);
     };
     const connection = await ports.connections.findById(connectionId);
     if (!connection) return { kind: "not-found" };
@@ -141,10 +154,11 @@ export function createSynchronizeConnectionApplication(ports: CatalogSyncPorts) 
     const priorConfirmed = await ports.runs.findLastConfirmed(connectionId);
     const sortedCandidates = sortCandidates(snapshot.candidates);
     const uniqueCandidates = sortedCandidates.filter((candidate, index) => index === 0 || candidate.externalId !== sortedCandidates[index - 1].externalId);
+    const found = foundFromCandidates(uniqueCandidates);
     const assessment = assessSnapshot(snapshot.evidence, uniqueCandidates.length, priorConfirmed, sortedCandidates.length - uniqueCandidates.length);
     let run = { ...initial, total: Math.max(initial.total, uniqueCandidates.length), snapshot: assessment };
     await ports.runs.save(run);
-    publish(run);
+    publish(run, undefined, found);
     const candidates = uniqueCandidates.filter((candidate) => run.checkpoint === undefined || candidate.externalId > run.checkpoint);
     const seen = new Set(snapshot.candidates.map((candidate) => candidate.externalId));
     try {
@@ -155,12 +169,12 @@ export function createSynchronizeConnectionApplication(ports: CatalogSyncPorts) 
         const counts = withOutcomeCount(run.counts, result.kind === "review" ? "review" : result.kind);
         run = { ...run, checkpoint: candidate.externalId, counts };
         await ports.runs.save(run);
-        publish(run, candidate.groupEvidence?.label);
+        publish(run, candidate.groupEvidence?.label, found);
       }
       if (assessment.status === "complete" && priorConfirmed) run = { ...run, counts: await reconcileAbsence(connectionId, seen, run.counts) };
       const completed = { ...run, status: "succeeded" as const, completedAt: ports.clock.now() };
       await ports.runs.save(completed);
-      publish(completed);
+      publish(completed, undefined, found);
       await ports.leases.release(connectionId, runId);
       return { kind: "succeeded", run: completed };
     } catch {

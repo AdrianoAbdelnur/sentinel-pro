@@ -1,15 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { createCatalogBootstrapApplication, type CatalogAdapterRegistration } from "@/application/catalog/bootstrap-catalog";
+import { CATALOG_ADAPTER_REGISTRATIONS, createCatalogBootstrapApplication } from "@/application/catalog/bootstrap-catalog";
 
 import { initializeCatalogDatabase } from "./catalog-initializer";
 import { createCatalogRepositories } from "./catalog-repositories";
 import { getMongoDatabase } from "./client";
-
-export const CATALOG_ADAPTER_REGISTRATIONS: readonly CatalogAdapterRegistration[] = [
-  { adapterKey: "cybermapa", capabilities: ["gps", "operationalAlerts"], credentialRef: "env:cybermapa", cadenceMinutes: 60 },
-  { adapterKey: "howen", capabilities: ["gps", "video", "videoAlerts"], credentialRef: "env:howen", cadenceMinutes: 60 },
-];
 
 export async function runCatalogSeed(organizationId?: string) {
   const database = await getMongoDatabase();

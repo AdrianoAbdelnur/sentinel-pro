@@ -53,6 +53,22 @@ describe("synchronize catalog connection", () => {
     expect(source.loadSnapshot).not.toHaveBeenCalled();
   });
 
+  it("publishes provider group counts with progress", async () => {
+    const { ports } = fixture();
+    const progress: Array<{ found?: { companies: number; fleets: number; vehicles: number } }> = [];
+    const cybermapaCandidate = { ...candidate, groupEvidence: { connectionId: "connection-1", kind: "company-label" as const, externalKey: "company-1", label: "Company 1", authority: "authoritative" as const } };
+    const howenCandidate = { ...candidate, externalId: "external-2", groupEvidence: { connectionId: "connection-1", kind: "fleet-membership" as const, externalKey: "fleet-1", label: "Fleet 1", authority: "fallback" as const } };
+
+    await createSynchronizeConnectionApplication(ports).synchronize({
+      connectionId: connection.id,
+      trigger: "manual",
+      source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [cybermapaCandidate, howenCandidate], evidence: { ...evidence, receivedRecordCount: 2, parseableRecordCount: 2 } })) },
+      onProgress: (value) => { progress.push(value); },
+    });
+
+    expect(progress.at(-1)?.found).toEqual({ companies: 1, fleets: 1, vehicles: 2 });
+  });
+
   it("resumes after the persisted checkpoint and does not duplicate a processed contribution", async () => {
     const { ports, runs, contributions } = fixture();
     runs.push({ id: "run-1", lineageId: "lineage-1", attempt: 1, connectionId: connection.id, trigger: "manual", status: "failed", startedAt: new Date(), checkpoint: "external-1", total: 2, counts: { processed: 1, created: 1, linked: 0, reviewed: 0, rejected: 0, absent: 0 }, snapshot: { status: "partial" } });

@@ -7,6 +7,11 @@ export type CatalogAdapterRegistration = {
   cadenceMinutes: number;
 };
 
+export const CATALOG_ADAPTER_REGISTRATIONS: readonly CatalogAdapterRegistration[] = [
+  { adapterKey: "cybermapa", capabilities: ["gps", "operationalAlerts"], credentialRef: "env:cybermapa", cadenceMinutes: 60 },
+  { adapterKey: "howen", capabilities: ["gps", "video", "videoAlerts"], credentialRef: "env:howen", cadenceMinutes: 60 },
+];
+
 export type CatalogBootstrapPorts = {
   ids: { create(): string };
   providers: {
