@@ -174,7 +174,7 @@ describe("LivePage operational composition", () => {
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 
-  it("keeps bottom-panel demo tabs available during local development", async () => {
+  it("does not send bottom-panel demo tabs during local development", async () => {
     vi.stubEnv("NODE_ENV", "development");
     sourceComposition.sources = [
       source("howen", "HOWEN", { kind: "success", state: howenState }),
@@ -183,6 +183,6 @@ describe("LivePage operational composition", () => {
 
     render(await LivePage());
 
-    expect(screen.getAllByRole("tab").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
 });

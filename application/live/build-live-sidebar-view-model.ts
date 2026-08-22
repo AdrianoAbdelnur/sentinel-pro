@@ -51,6 +51,7 @@ export function buildLiveSidebarViewModel({
     normalizedSearch !== "";
 
   const fleetNodes = fleets.flatMap((fleet) => {
+    const isLoaded = fleet.isLoaded ?? true;
     const fullRoster = fleet.vehicleIds.flatMap((vehicleId) => {
       const liveVehicle = vehiclesById.get(vehicleId);
       return liveVehicle ? [liveVehicle] : [];
@@ -82,7 +83,7 @@ export function buildLiveSidebarViewModel({
           matchesVehicle(liveVehicle, normalizedSearch),
         );
 
-    if (isNarrowed && visibleVehicles.length === 0) {
+    if (isNarrowed && visibleVehicles.length === 0 && (isLoaded || !fleetMatchesSearch || status !== NO_STATUS_NARROWING || provider !== undefined)) {
       return [];
     }
 
@@ -93,11 +94,12 @@ export function buildLiveSidebarViewModel({
       isSelected,
       counts: {
         online: onlineCount,
-        total: fullRoster.length,
+        total: fleet.vehicleCount ?? fullRoster.length,
       },
       vehicles: visibleVehicles.map((liveVehicle) =>
         toVehicleNode(liveVehicle, selectedIds, statusByVehicleId),
       ),
+      ...(isLoaded ? {} : { isLoaded: false }),
     };
 
     return [node];

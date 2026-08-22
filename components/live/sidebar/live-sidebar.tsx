@@ -18,6 +18,7 @@ type LiveSidebarProps = {
   onToggleExpanded: (fleetId: string) => void;
   onToggleFleet: (fleetId: string) => void;
   onToggleVehicle: (vehicleId: string) => void;
+  loadingFleetIds?: readonly string[];
 };
 
 export function LiveSidebar({
@@ -30,6 +31,7 @@ export function LiveSidebar({
   onToggleExpanded,
   onToggleFleet,
   onToggleVehicle,
+  loadingFleetIds = [],
 }: LiveSidebarProps) {
   if (isCollapsed) {
     return (
@@ -75,6 +77,7 @@ export function LiveSidebar({
               <LiveFleetNode
                 key={fleet.fleetId}
                 fleet={fleet}
+                isLoading={loadingFleetIds.includes(fleet.fleetId)}
                 onToggleExpanded={onToggleExpanded}
                 onToggleFleet={onToggleFleet}
                 onToggleVehicle={onToggleVehicle}

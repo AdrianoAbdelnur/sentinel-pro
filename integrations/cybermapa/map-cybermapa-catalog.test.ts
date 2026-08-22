@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { CatalogVehicle, ProviderContribution } from "@/domain/catalog";
 
-import { mapCybermapaCatalog, seedCybermapaCatalog } from "./seed-cybermapa-catalog";
+import { decodeCybermapaLabel, mapCybermapaCatalog, seedCybermapaCatalog } from "./seed-cybermapa-catalog";
 import type { CybermapaVehicleRecord } from "./responses";
 
 function record(overrides: Partial<CybermapaVehicleRecord> = {}): CybermapaVehicleRecord {
@@ -16,6 +16,10 @@ function record(overrides: Partial<CybermapaVehicleRecord> = {}): CybermapaVehic
 }
 
 describe("mapCybermapaCatalog", () => {
+  it("decodes URL-encoded company labels before they enter the catalog", () => {
+    expect(decodeCybermapaLabel("RD%20-%20NUEVO%20%2F%20SUR")).toBe("RD - NUEVO / SUR");
+  });
+
   it("omits malformed plate evidence so the matcher sends it to review", () => {
     const [candidate] = mapCybermapaCatalog([record({ patente: "CAMION-ROJO" })], { connectionId: "cyber-1", placementFleetId: "catalog-group" });
 
@@ -67,6 +71,12 @@ describe("seedCybermapaCatalog", () => {
 
     expect(result.outcomes).toMatchObject([{ kind: "review" }]);
     expect(vehicles.size).toBe(0);
+  });
+
+  it("stores decoded group evidence labels", () => {
+    const [candidate] = mapCybermapaCatalog([record({ nombre_empresa: "BAJA%20BUSINESS" })], { connectionId: "cyber-1", placementFleetId: "catalog-group" });
+
+    expect(candidate?.groupEvidence?.label).toBe("BAJA BUSINESS");
   });
 
   it("is idempotent and keeps one catalog vehicle and contribution on repeated seeds", async () => {

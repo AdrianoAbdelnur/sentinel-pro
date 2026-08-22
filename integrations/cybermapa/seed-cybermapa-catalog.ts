@@ -36,6 +36,22 @@ function plate(value: string | undefined): string | undefined {
   return trimmed === "" || trimmed === undefined ? undefined : trimmed;
 }
 
+export function decodeCybermapaLabel(value: string): string {
+  let decoded = value.trim();
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    } catch {
+      break;
+    }
+  }
+
+  return decoded;
+}
+
 export function mapCybermapaCatalog(records: CybermapaVehicleRecord[], options: CybermapaCatalogOptions): ProviderCandidate[] {
   const seenExternalIds = new Set<string>();
   const candidates: ProviderCandidate[] = [];
@@ -46,6 +62,7 @@ export function mapCybermapaCatalog(records: CybermapaVehicleRecord[], options: 
     seenExternalIds.add(id);
 
     const rawPlate = plate(record.patente);
+    const groupLabel = record.nombre_empresa ? decodeCybermapaLabel(record.nombre_empresa) : undefined;
     const normalizedPlate = rawPlate === undefined ? undefined : normalizePlate(rawPlate) || undefined;
     candidates.push({
       connectionId: options.connectionId,
@@ -53,7 +70,7 @@ export function mapCybermapaCatalog(records: CybermapaVehicleRecord[], options: 
       ...(rawPlate !== undefined ? { plate: rawPlate } : {}),
       ...(normalizedPlate !== undefined && isValidNormalizedPlate(normalizedPlate) ? { normalizedPlate } : {}),
       ...(options.placementFleetId !== undefined ? { placementFleetId: options.placementFleetId } : {}),
-      ...(record.nombre_empresa?.trim() ? { groupEvidence: { connectionId: options.connectionId, kind: "company-label" as const, externalKey: normalizeGroupLabel(record.nombre_empresa), label: record.nombre_empresa.trim(), authority: "authoritative" as const } } : {}),
+      ...(groupLabel ? { groupEvidence: { connectionId: options.connectionId, kind: "company-label" as const, externalKey: normalizeGroupLabel(groupLabel), label: groupLabel, authority: "authoritative" as const } } : {}),
       capabilities: { gps: "eligible", operationalAlerts: "eligible" },
       presence: "present",
     });

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import type { OperationalSource } from "@/application/live";
-import { inMemoryOperationalSource } from "@/integrations/live/in-memory/in-memory-live-data-source";
 
 import { createOperationalSources } from "./create-operational-sources";
 
@@ -13,11 +12,11 @@ const catalogSource: OperationalSource = {
 };
 
 describe("createOperationalSources", () => {
-  it("uses only the canonical catalog in production", () => {
+  it("uses only the canonical catalog", () => {
     expect(createOperationalSources({ includeDevelopmentFixtures: false }, { catalogSource })).toEqual([catalogSource]);
   });
 
-  it("adds development fixtures after the canonical catalog only in development", () => {
-    expect(createOperationalSources({ includeDevelopmentFixtures: true }, { catalogSource })).toEqual([catalogSource, inMemoryOperationalSource]);
+  it("does not add development fixtures", () => {
+    expect(createOperationalSources({ includeDevelopmentFixtures: true }, { catalogSource })).toEqual([catalogSource]);
   });
 });

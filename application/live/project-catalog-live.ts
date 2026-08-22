@@ -15,6 +15,10 @@ export type CatalogFleet = {
   label: string;
 };
 
+export type CatalogGroupSummary = CatalogFleet & {
+  vehicleCount: number;
+};
+
 export type CatalogCapabilitySnapshot = {
   device?: Device;
   telemetry?: DeviceTelemetry;
@@ -30,6 +34,59 @@ export type CatalogLiveInput = {
   grants: readonly OrganizationVehicleAccess[];
   sourceSnapshots: Readonly<Record<string, Readonly<Record<string, CatalogCapabilitySnapshot>>>>;
 };
+
+export function projectCatalogGroupSummaries(summaries: readonly CatalogGroupSummary[]): LiveState {
+  return {
+    fleets: summaries.map((summary) => ({
+      fleetId: summary.id,
+      label: summary.label,
+      vehicleIds: [],
+      vehicleCount: summary.vehicleCount,
+      isLoaded: false,
+    })),
+    liveVehicles: [],
+  };
+}
+
+export function createCatalogSummaryOperationalSource(
+  loadSummaries: () => Promise<readonly CatalogGroupSummary[]>,
+): OperationalSource {
+  return {
+    identity: { id: "canonical-catalog", label: "Catálogo" },
+    async loadSnapshot() {
+      try {
+        return { kind: "success", state: projectCatalogGroupSummaries(await loadSummaries()) };
+      } catch {
+        return { kind: "failure", code: "unavailable" };
+      }
+    },
+  };
+}
+
+export function projectCatalogGroupVehicles(
+  group: CatalogFleet,
+  vehicles: readonly CatalogVehicle[],
+): LiveState {
+  const state = createCatalogLiveProjector()({
+    organizationId: "group-load",
+    fleets: [group],
+    vehicles,
+    contributions: [],
+    connections: [],
+    policies: [],
+    grants: vehicles.map((vehicle) => ({ organizationId: "group-load", vehicleId: vehicle.id })),
+    sourceSnapshots: {},
+  });
+
+  return {
+    fleets: state.fleets.map((fleet) => ({
+      ...fleet,
+      vehicleCount: vehicles.length,
+      isLoaded: true,
+    })),
+    liveVehicles: state.liveVehicles,
+  };
+}
 
 function sourceOrder(capability: string, policies: readonly CapabilityPolicy[]): readonly string[] {
   return policies.find((policy) => policy.capability === capability)?.sourceOrder ?? DEFAULT_CAPABILITY_SOURCE_ORDER[capability] ?? [];

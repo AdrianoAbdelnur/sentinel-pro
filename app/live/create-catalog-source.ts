@@ -1,40 +1,16 @@
 import {
-  createCatalogOperationalSource,
-  type CatalogLiveInput,
+  createCatalogSummaryOperationalSource,
   type OperationalSource,
 } from "@/application/live";
 import { getMongoDatabase } from "@/integrations/persistence/mongodb/client";
 import { createCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-repositories";
-import { loadLiveSnapshots } from "@/integrations/catalog/live-snapshot-adapters";
 
-async function loadCatalog(organizationId: string): Promise<CatalogLiveInput> {
+async function loadCatalogGroups(organizationId: string) {
   const database = await getMongoDatabase();
   const repositories = createCatalogRepositories(database);
-  const [fleets, vehicles, connections, grants, policies, providers] = await Promise.all([
-    repositories.groups.list(),
-    repositories.vehicles.list(),
-    repositories.connections.listEnabled(),
-    repositories.grants.listByOrganizationId(organizationId),
-    repositories.policies.list(),
-    repositories.providers.list(),
-  ]);
-  const contributions = (
-    await Promise.all(connections.map(({ id }) => repositories.contributions.listByConnectionId(id)))
-  ).flat();
-  const sourceSnapshots = await loadLiveSnapshots(connections, providers, contributions);
-
-  return {
-    organizationId,
-    fleets,
-    vehicles,
-    connections,
-    contributions,
-    grants,
-    policies,
-    sourceSnapshots,
-  };
+  return repositories.groups.listForOrganization(organizationId);
 }
 
 export function createCatalogSource(organizationId: string): OperationalSource {
-  return createCatalogOperationalSource(() => loadCatalog(organizationId));
+  return createCatalogSummaryOperationalSource(() => loadCatalogGroups(organizationId));
 }

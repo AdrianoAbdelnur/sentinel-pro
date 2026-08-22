@@ -3,9 +3,6 @@ import type { Metadata } from "next";
 import { LiveScreen } from "@/components/live/live-screen";
 import { LiveLogoutButton } from "./live-logout-button";
 import { aggregateOperationalSources } from "@/application/live";
-import {
-  readInMemoryBottomPanelFixtures,
-} from "@/integrations/live/in-memory/in-memory-live-data-source";
 
 import { createOperationalSources } from "./create-operational-sources";
 import { createCatalogSource } from "./create-catalog-source";
@@ -25,9 +22,6 @@ export default async function LivePage() {
   const catalogSource = createCatalogSource(authorization.organizationId);
   const sources = createOperationalSources(runtime, { catalogSource });
   const { state, warnings } = await aggregateOperationalSources(sources);
-  const tabs = runtime.includeDevelopmentFixtures
-    ? readInMemoryBottomPanelFixtures()
-    : [];
   const nowMs = Date.now();
 
   return (
@@ -45,7 +39,7 @@ export default async function LivePage() {
 
       <LiveScreen
         liveState={state}
-        tabs={tabs}
+        tabs={[]}
         nowMs={nowMs}
         staleAfterMs={runtime.staleAfterMs}
         warnings={warnings}

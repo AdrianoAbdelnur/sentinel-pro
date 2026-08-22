@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createCatalogOperationalSource,
   createCatalogLiveProjector,
+  createCatalogSummaryOperationalSource,
   type CatalogLiveInput,
 } from "./project-catalog-live";
 
@@ -19,6 +20,20 @@ it("translates catalog loading failures to the provider-neutral unavailable resu
   });
 
   await expect(source.loadSnapshot()).resolves.toEqual({ kind: "failure", code: "unavailable" });
+});
+
+it("projects group summaries without loading vehicles", async () => {
+  const source = createCatalogSummaryOperationalSource(async () => [
+    { id: "fleet-1", label: "North", vehicleCount: 7 },
+  ]);
+
+  await expect(source.loadSnapshot()).resolves.toEqual({
+    kind: "success",
+    state: {
+      fleets: [{ fleetId: "fleet-1", label: "North", vehicleIds: [], vehicleCount: 7, isLoaded: false }],
+      liveVehicles: [],
+    },
+  });
 });
 
 const input: CatalogLiveInput = {
@@ -119,6 +134,29 @@ describe("projectCatalogLive", () => {
     });
 
     expect(state).toEqual({ fleets: [], liveVehicles: [] });
+  });
+
+  it("keeps an assigned catalog vehicle visible without provider data", () => {
+    const state = createCatalogLiveProjector()({
+      ...input,
+      sourceSnapshots: {},
+    });
+
+    expect(state).toEqual({
+      fleets: [{ fleetId: "fleet-1", label: "North", vehicleIds: ["vehicle-assigned"] }],
+      liveVehicles: [{
+        vehicle: {
+          id: "vehicle-assigned",
+          fleetId: "fleet-1",
+          plate: "AAA",
+          isActive: true,
+        },
+        device: undefined,
+        telemetry: undefined,
+        operationalAlerts: { kind: "unavailable" },
+        videoAlerts: { kind: "unavailable" },
+      }],
+    });
   });
 
   it("resolves capability sources independently without changing the Live contract", () => {

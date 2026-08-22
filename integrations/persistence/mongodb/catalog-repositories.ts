@@ -1,5 +1,6 @@
 import type { ClientSession, Collection, Db, Filter, UpdateFilter } from "mongodb";
 import type { CatalogRepositories } from "@/application/catalog/ports";
+import type { CatalogGroupSummary } from "@/application/live";
 import { createCapabilityPolicy, normalizeGroupLabel, type CapabilityPolicy, type CatalogVehicle, type CatalogGroup } from "@/domain/catalog";
 import {
   toCatalogReviewDocument, toCatalogReviewDomain, toCatalogVehicleDocument, toCatalogVehicleDomain,
@@ -21,8 +22,14 @@ const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; up
 };
 
 type CatalogLiveReadRepositories = {
-  groups: CatalogRepositories["groups"] & { list(): Promise<CatalogGroup[]> };
-  vehicles: CatalogRepositories["vehicles"] & { list(): Promise<CatalogVehicle[]> };
+  groups: CatalogRepositories["groups"] & {
+    list(): Promise<CatalogGroup[]>;
+    listForOrganization(organizationId: string): Promise<CatalogGroupSummary[]>;
+  };
+  vehicles: CatalogRepositories["vehicles"] & {
+    list(): Promise<CatalogVehicle[]>;
+    listByOrganizationAndGroupId(organizationId: string, groupId: string): Promise<CatalogVehicle[]>;
+  };
   policies: { list(): Promise<CapabilityPolicy[]> };
 };
 
@@ -54,6 +61,21 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
     },
     groups: {
       async list() { return (await groups.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
+      async listForOrganization(organizationId) {
+        const counts = await grants.aggregate([
+          { $match: { organizationId } },
+          { $lookup: { from: "catalog_vehicles", localField: "vehicleId", foreignField: "id", as: "vehicle" } },
+          { $unwind: "$vehicle" },
+          { $group: { _id: "$vehicle.placementFleetId", vehicleCount: { $sum: 1 } } },
+        ], options(session)).toArray();
+        const countByGroupId = new Map(counts.map((entry) => [String(entry._id), Number(entry.vehicleCount)]));
+        return (await groups.find({}, options(session)).sort({ id: 1 }).toArray())
+          .map(toCatalogGroupDomain)
+          .flatMap((group) => {
+            const vehicleCount = countByGroupId.get(group.id) ?? 0;
+            return vehicleCount > 0 ? [{ ...group, vehicleCount }] : [];
+          });
+      },
       async findById(id) { const document = await groups.findOne({ id }, options(session)); return document ? toCatalogGroupDomain(document) : undefined; },
       async findByLabel(label) { return (await groups.find({ normalizedLabel: normalizeGroupLabel(label) }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogGroupDomain); },
       async save(group) { await atomicSave(groups, { id: group.id }, toCatalogGroupDocument(group, now()), session); },
@@ -66,6 +88,14 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
     },
     vehicles: {
       async list() { return (await vehicles.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogVehicleDomain); },
+      async listByOrganizationAndGroupId(organizationId, groupId) {
+        const groupVehicles = await vehicles.find({ placementFleetId: groupId }, options(session)).sort({ id: 1 }).toArray();
+        const vehicleIds = groupVehicles.map(({ id }) => id);
+        if (vehicleIds.length === 0) return [];
+        const granted = await grants.find({ organizationId, vehicleId: { $in: vehicleIds } }, options(session)).project({ vehicleId: 1 }).toArray();
+        const grantedIds = new Set(granted.map(({ vehicleId }) => vehicleId));
+        return groupVehicles.filter(({ id }) => grantedIds.has(id)).map(toCatalogVehicleDomain);
+      },
       async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },
       async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },
       async save(vehicle) { await atomicSave(vehicles, { id: vehicle.id }, toCatalogVehicleDocument(vehicle, now()), session); },
