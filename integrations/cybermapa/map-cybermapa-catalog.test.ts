@@ -16,6 +16,13 @@ function record(overrides: Partial<CybermapaVehicleRecord> = {}): CybermapaVehic
 }
 
 describe("mapCybermapaCatalog", () => {
+  it("omits malformed plate evidence so the matcher sends it to review", () => {
+    const [candidate] = mapCybermapaCatalog([record({ patente: "CAMION-ROJO" })], { connectionId: "cyber-1", placementFleetId: "catalog-group" });
+
+    expect(candidate?.plate).toBe("CAMION-ROJO");
+    expect(candidate?.normalizedPlate).toBeUndefined();
+  });
+
   it("maps a vehicle to GPS and operational alerts without requiring a provider fleet", () => {
     expect(mapCybermapaCatalog([record({ nombre_empresa: undefined })], { connectionId: "cyber-1", placementFleetId: "catalog-group" })).toEqual([
       {
@@ -46,6 +53,22 @@ describe("mapCybermapaCatalog", () => {
 });
 
 describe("seedCybermapaCatalog", () => {
+  it("sends malformed plate evidence to review", async () => {
+    const vehicles = new Map<string, CatalogVehicle>();
+    const contributions = new Map<string, ProviderContribution>();
+    const catalogRepositories = {
+      vehicles: { findByNormalizedPlate: async (plate: string) => [...vehicles.values()].find((vehicle) => vehicle.normalizedPlate === plate), save: async (vehicle: CatalogVehicle) => { vehicles.set(vehicle.id, vehicle); } },
+      contributions: { findByConnectionAndExternalId: async (connectionId: string, externalId: string) => contributions.get(`${connectionId}:${externalId}`), save: async (contribution: ProviderContribution) => { contributions.set(`${contribution.connectionId}:${contribution.externalId}`, contribution); } },
+      reviews: { findByConnectionAndExternalId: async () => undefined, save: async () => undefined },
+    };
+    const transactions = { run: async <T>(work: (repositories: typeof catalogRepositories) => Promise<T>) => work(catalogRepositories), isConflict: () => false };
+
+    const result = await seedCybermapaCatalog({ records: [record({ patente: "CAMION-ROJO" })], connectionId: "cyber-1", placementFleetId: "catalog-group", ids: { create: () => "review-1" }, repositories: catalogRepositories, transactions });
+
+    expect(result.outcomes).toMatchObject([{ kind: "review" }]);
+    expect(vehicles.size).toBe(0);
+  });
+
   it("is idempotent and keeps one catalog vehicle and contribution on repeated seeds", async () => {
     const vehicles = new Map<string, CatalogVehicle>();
     const contributions = new Map<string, ProviderContribution>();

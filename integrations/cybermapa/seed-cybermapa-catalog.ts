@@ -1,5 +1,5 @@
 import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog/match-and-apply-provider-candidate";
-import { normalizeGroupLabel, normalizePlate } from "@/domain/catalog";
+import { isValidNormalizedPlate, normalizeGroupLabel, normalizePlate } from "@/domain/catalog";
 
 import type { CybermapaVehicleRecord } from "./responses";
 
@@ -51,7 +51,7 @@ export function mapCybermapaCatalog(records: CybermapaVehicleRecord[], options: 
       connectionId: options.connectionId,
       externalId: id,
       ...(rawPlate !== undefined ? { plate: rawPlate } : {}),
-      ...(normalizedPlate !== undefined ? { normalizedPlate } : {}),
+      ...(normalizedPlate !== undefined && isValidNormalizedPlate(normalizedPlate) ? { normalizedPlate } : {}),
       ...(options.placementFleetId !== undefined ? { placementFleetId: options.placementFleetId } : {}),
       ...(record.nombre_empresa?.trim() ? { groupEvidence: { connectionId: options.connectionId, kind: "company-label" as const, externalKey: normalizeGroupLabel(record.nombre_empresa), label: record.nombre_empresa.trim(), authority: "authoritative" as const } } : {}),
       capabilities: { gps: "eligible", operationalAlerts: "eligible" },

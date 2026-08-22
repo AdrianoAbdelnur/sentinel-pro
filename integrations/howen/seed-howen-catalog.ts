@@ -1,5 +1,5 @@
 import { matchAndApplyProviderCandidate, type MatchAndApplyRepositories, type MatchAndApplyResult, type ProviderCandidate } from "@/application/catalog/match-and-apply-provider-candidate";
-import { normalizePlate } from "@/domain/catalog";
+import { isValidNormalizedPlate, normalizePlate } from "@/domain/catalog";
 
 import type { HowenRosterRecord } from "./responses";
 
@@ -30,10 +30,6 @@ function text(value: string | undefined): string | undefined {
   return normalized || undefined;
 }
 
-function isValidatedPlate(value: string): boolean {
-  return /^(?:[A-Z]{3}\d{3}|[A-Z]{2}\d{3}[A-Z]{2})$/.test(value);
-}
-
 export function mapHowenCatalog(records: HowenRosterRecord[], options: HowenCatalogOptions): ProviderCandidate[] {
   const seenExternalIds = new Set<string>();
   const candidates: ProviderCandidate[] = [];
@@ -54,7 +50,7 @@ export function mapHowenCatalog(records: HowenRosterRecord[], options: HowenCata
       connectionId: options.connectionId,
       externalId,
       ...(rawPlate !== undefined ? { plate: rawPlate } : {}),
-      ...(normalizedPlate !== undefined && isValidatedPlate(normalizedPlate) ? { normalizedPlate } : {}),
+      ...(normalizedPlate !== undefined && isValidNormalizedPlate(normalizedPlate) ? { normalizedPlate } : {}),
       ...(placementFleetId !== undefined ? { placementFleetId } : {}),
       ...(providerFleetMembership !== undefined ? { groupEvidence: { connectionId: options.connectionId, kind: "fleet-membership" as const, externalKey: fleetId as string, label: fleetLabel as string, authority: "fallback" as const } } : {}),
       ...(providerFleetMembership !== undefined ? { providerFleetMembership } : {}),
