@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 const loadSnapshot = vi.fn();
+const fetchCurrentData = vi.fn();
 
 vi.mock("@/integrations/howen/config", () => ({ readHowenConfig: () => ({}) }));
 vi.mock("@/integrations/howen/session", () => ({ createHowenSessionManager: () => ({}) }));
@@ -8,14 +9,49 @@ vi.mock("@/integrations/howen/client", () => ({ createHowenClient: () => ({}) })
 vi.mock("@/integrations/howen/howen-operational-source", () => ({
   createHowenOperationalSource: () => ({ identity: { id: "howen", label: "HOWEN" }, loadSnapshot }),
 }));
+vi.mock("@/integrations/cybermapa/config", () => ({ readCybermapaConfig: () => ({}) }));
+vi.mock("@/integrations/cybermapa/client", () => ({ createCybermapaClient: () => ({ fetchCurrentData }) }));
 
-import { loadLiveSnapshots, mapHowenOperationalStateToCatalogSnapshots } from "./live-snapshot-adapters";
+import { loadLiveSnapshots, mapCybermapaCurrentDataToCatalogSnapshots, mapHowenOperationalStateToCatalogSnapshots } from "./live-snapshot-adapters";
 
 const howenProvider = { id: "provider-howen", adapterKey: "howen", capabilities: ["video"] };
 const cybermapaProvider = { id: "provider-cybermapa", adapterKey: "cybermapa", capabilities: ["gps"] };
 const connection = (id: string, providerId: string) => ({ id, providerId, credentialRef: "ref", enabled: true, cadenceMinutes: 60 });
 
 describe("catalog Live snapshot adapters", () => {
+  it("maps Cybermapa current GPS data to the canonical telemetry contract", () => {
+    expect(mapCybermapaCurrentDataToCatalogSnapshots([
+      { gps: "gps-1", patente: "AB 123 CD", latitud: "-34.6", longitud: "-58.4", fecha: "21/09/2016 11:48:32", velocidad: "12", sentido: "217" },
+    ], [{ id: "contribution-1", connectionId: "connection-cybermapa", externalId: "gps-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" }], new Map([["vehicle-1", "AB123CD"]]))).toEqual({
+      "gps-1": {
+        telemetry: {
+          deviceId: "cybermapa:gps-1",
+          gpsAt: "2016-09-21T14:48:32.000Z",
+          latitude: -34.6,
+          longitude: -58.4,
+          speedKmH: 12,
+          headingDeg: 217,
+        },
+      },
+    });
+  });
+
+  it("loads Cybermapa only for the contributions of the group", async () => {
+    fetchCurrentData.mockResolvedValueOnce([{ gps: "gps-1", patente: "AB123CD", latitud: "-34.6", longitud: "-58.4" }]);
+
+    await expect(loadLiveSnapshots(
+      [connection("connection-cybermapa", cybermapaProvider.id)],
+      [cybermapaProvider],
+      [{ id: "contribution-1", connectionId: "connection-cybermapa", externalId: "gps-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" }],
+      new Map([["vehicle-1", "AB123CD"]]),
+    )).resolves.toEqual({
+      "connection-cybermapa": {
+        "gps-1": { telemetry: expect.objectContaining({ latitude: -34.6, longitude: -58.4 }) },
+      },
+    });
+    expect(fetchCurrentData).toHaveBeenCalledWith(["AB123CD"], "patente");
+  });
+
   it("maps Howen operational data by contribution without exposing provider roster ownership", () => {
     const snapshots = mapHowenOperationalStateToCatalogSnapshots(
       {

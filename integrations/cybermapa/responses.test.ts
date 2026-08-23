@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseCybermapaVehiclesResponse } from "./responses";
+import { parseCybermapaCurrentDataResponse, parseCybermapaVehiclesResponse } from "./responses";
 
 describe("parseCybermapaVehiclesResponse", () => {
   it("keeps only the observed GETVEHICULOS fields from a valid response", () => {
@@ -86,4 +86,59 @@ describe("parseCybermapaVehiclesResponse", () => {
   it("accepts a genuinely empty vehicle list as a valid result, distinct from a rejected malformed envelope", () => {
     expect(parseCybermapaVehiclesResponse([])).toEqual([]);
   });
+});
+
+describe("parseCybermapaCurrentDataResponse", () => {
+  it("parses the documented current GPS response and preserves provider strings", () => {
+    expect(parseCybermapaCurrentDataResponse([
+      {
+        nombre: "prueba01",
+        alias: "movil 1",
+        patente: "AFV 132",
+        gps: "123456789101177",
+        latitud: "-34.55568800",
+        longitud: "-58.46693600",
+        fecha: "21/09/2016 11:48:32",
+        sentido: "217",
+        velocidad: "0",
+        evento: "8",
+      },
+    ])).toEqual([{
+      nombre: "prueba01",
+      alias: "movil 1",
+      patente: "AFV 132",
+      gps: "123456789101177",
+      latitud: "-34.55568800",
+      longitud: "-58.46693600",
+      fecha: "21/09/2016 11:48:32",
+      sentido: "217",
+      velocidad: "0",
+      evento: "8",
+    }]);
+  });
+
+  it("accepts the documented uppercase output format", () => {
+    expect(parseCybermapaCurrentDataResponse([{
+      GPS: "123",
+      LATITUD: "-34.6",
+      LONGITUD: "-58.4",
+      FECHA_COMUNICACION: "08/25/16 10:14:23",
+      VELOCIDAD: "12",
+    }])).toEqual([{
+      gps: "123",
+      latitud: "-34.6",
+      longitud: "-58.4",
+      fecha: "08/25/16 10:14:23",
+      velocidad: "12",
+    }]);
+  });
+
+  it.each([null, {}, { data: [] }, "not-an-array"])(
+    "rejects a non-array envelope: %j",
+    (value) => {
+      expect(() => parseCybermapaCurrentDataResponse(value)).toThrow(
+        "Invalid Cybermapa current data response",
+      );
+    },
+  );
 });

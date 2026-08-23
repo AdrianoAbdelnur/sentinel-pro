@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getPageAuthorization } from "@/app/authorization";
+import { loadLiveSnapshots } from "@/integrations/catalog/live-snapshot-adapters";
 import { projectCatalogGroupVehicles } from "@/application/live";
 import { getMongoDatabase } from "@/integrations/persistence/mongodb/client";
 import { createCatalogRepositories } from "@/integrations/persistence/mongodb/catalog-repositories";
@@ -31,7 +32,16 @@ export async function GET(_request: Request, { params }: Context) {
     authorization.context.organizationId,
     groupId,
   );
-  const state = projectCatalogGroupVehicles(group, vehicles);
+  const contributions = (await Promise.all(vehicles.map((vehicle) => repositories.contributions.listByVehicleId(vehicle.id)))).flat();
+  const connectionIds = [...new Set(contributions.map(({ connectionId }) => connectionId))];
+  const connections = (await Promise.all(connectionIds.map((id) => repositories.connections.findById(id)))).filter((connection): connection is NonNullable<typeof connection> => connection !== undefined);
+  const providerIds = [...new Set(connections.map(({ providerId }) => providerId))];
+  const providers = (await Promise.all(providerIds.map((id) => repositories.providers.findById(id)))).filter((provider): provider is NonNullable<typeof provider> => provider !== undefined);
+  const [policies, sourceSnapshots] = await Promise.all([
+    repositories.policies.list(),
+    loadLiveSnapshots(connections, providers, contributions, new Map(vehicles.map((vehicle) => [vehicle.id, vehicle.plate]))),
+  ]);
+  const state = projectCatalogGroupVehicles(group, vehicles, { contributions, connections, policies, sourceSnapshots });
 
   return NextResponse.json(state);
 }

@@ -66,16 +66,22 @@ export function createCatalogSummaryOperationalSource(
 export function projectCatalogGroupVehicles(
   group: CatalogFleet,
   vehicles: readonly CatalogVehicle[],
+  operational: Pick<CatalogLiveInput, "contributions" | "connections" | "policies" | "sourceSnapshots"> = {
+    contributions: [],
+    connections: [],
+    policies: [],
+    sourceSnapshots: {},
+  },
 ): LiveState {
   const state = createCatalogLiveProjector()({
     organizationId: "group-load",
     fleets: [group],
     vehicles,
-    contributions: [],
-    connections: [],
-    policies: [],
+    contributions: operational.contributions,
+    connections: operational.connections,
+    policies: operational.policies,
     grants: vehicles.map((vehicle) => ({ organizationId: "group-load", vehicleId: vehicle.id })),
-    sourceSnapshots: {},
+    sourceSnapshots: operational.sourceSnapshots,
   });
 
   return {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isValidNormalizedPlate, normalizePlate } from "./plate";
+import { classifyPlateFormat, isValidNormalizedPlate, normalizePlate } from "./plate";
 
 describe("catalog plate identity", () => {
   it("accepts the supported normalized plate formats", () => {
@@ -12,5 +12,13 @@ describe("catalog plate identity", () => {
     expect(isValidNormalizedPlate(normalizePlate("CAMION-ROJO"))).toBe(false);
     expect(isValidNormalizedPlate(normalizePlate("A?C12"))).toBe(false);
     expect(isValidNormalizedPlate(normalizePlate(""))).toBe(false);
+  });
+
+  it.each([
+    ["ABC123", "legacy"],
+    ["AB123CD", "mercosur"],
+    ["ABC1234", "unknown"],
+  ] as const)("classifies %s as %s", (plate, format) => {
+    expect(classifyPlateFormat(plate)).toBe(format);
   });
 });

@@ -15,6 +15,20 @@ export type CybermapaVehicleRecord = {
   patente?: string;
 };
 
+export type CybermapaCurrentDataRecord = {
+  nombre?: string;
+  alias?: string;
+  patente?: string;
+  gps?: string;
+  latitud?: string;
+  longitud?: string;
+  fecha?: string;
+  sentido?: string;
+  velocidad?: string;
+  evento?: string;
+  [key: string]: string | undefined;
+};
+
 const stringFields = [
   "gps_identificador",
   "alias",
@@ -67,4 +81,47 @@ export function parseCybermapaVehiclesResponse(value: unknown): CybermapaVehicle
   });
   Object.defineProperty(records, "receivedRecordCount", { value: value.length });
   return records;
+}
+
+const currentDataFields = [
+  "nombre",
+  "alias",
+  "patente",
+  "gps",
+  "latitud",
+  "longitud",
+  "fecha",
+  "sentido",
+  "velocidad",
+  "evento",
+] as const;
+
+function parseCurrentDataRecord(value: unknown): CybermapaCurrentDataRecord | undefined {
+  if (!isObject(value)) return undefined;
+
+  const record: CybermapaCurrentDataRecord = {};
+  const aliases: Partial<Record<typeof currentDataFields[number], readonly string[]>> = {
+    fecha: ["fecha", "FECHA", "FECHA_COMUNICACION"],
+  };
+  for (const field of currentDataFields) {
+    const candidate = (aliases[field] ?? [field, field.toUpperCase()])
+      .map((alias) => value[alias])
+      .find((candidate) => candidate !== undefined);
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      record[field] = String(candidate);
+    }
+  }
+
+  return record;
+}
+
+export function parseCybermapaCurrentDataResponse(value: unknown): CybermapaCurrentDataRecord[] {
+  if (!Array.isArray(value)) {
+    throw new Error("Invalid Cybermapa current data response");
+  }
+
+  return value.flatMap((item) => {
+    const record = parseCurrentDataRecord(item);
+    return record ? [record] : [];
+  });
 }

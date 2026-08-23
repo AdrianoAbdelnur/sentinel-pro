@@ -135,6 +135,41 @@ describe("createCybermapaClient", () => {
     await expect(client.fetchVehicles()).resolves.toEqual([]);
   });
 
+  it("requests current GPS only for the selected GPS identifiers", async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(response([{
+      gps: "90001",
+      patente: "AB123CD",
+      latitud: "-34.6",
+      longitud: "-58.4",
+    }]));
+    const client = createClient(fetch);
+
+    await expect(client.fetchCurrentData(["90001"], "gps")).resolves.toEqual([{
+      gps: "90001",
+      patente: "AB123CD",
+      latitud: "-34.6",
+      longitud: "-58.4",
+    }]);
+    expect(fetch).toHaveBeenCalledWith(
+      "https://cybermapa.example/api",
+      expect.objectContaining({
+        body: JSON.stringify({
+          action: "DATOSACTUALES",
+          user: "operator",
+          pwd: "raw-secret",
+          vehiculos: ["90001"],
+          tipoID: "gps",
+        }),
+      }),
+    );
+  });
+
+  it("does not call Cybermapa when no GPS identifiers are selected", async () => {
+    const fetch = vi.fn();
+    await expect(createClient(fetch).fetchCurrentData([])).resolves.toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("never leaks the configured credentials through a thrown failure", async () => {
     const secretConfig: CybermapaConfig = {
       ...config,
