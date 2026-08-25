@@ -7,3 +7,4 @@ export * from "./contracts";
 export * from "./open-vehicle-live";
 export * from "./project-catalog-live";
 export * from "./load-live-group";
+export * from "./load-live-page";

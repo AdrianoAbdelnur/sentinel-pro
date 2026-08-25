@@ -139,14 +139,23 @@ describe("LiveMap", () => {
     );
   });
 
-  it("refits the viewport when the markers change", () => {
+  it("preserves the current viewport when live markers refresh", () => {
     const { rerender } = render(<LiveMap markers={markers} />);
     mapSpies.fitBounds.mockClear();
 
-    rerender(<LiveMap markers={[markers[0]]} />);
+    rerender(<LiveMap markers={[{ ...markers[0], latitude: -34.604, longitude: -58.382 }, markers[1]]} />);
+
+    expect(mapSpies.fitBounds).not.toHaveBeenCalled();
+  });
+
+  it("fits the viewport when the selected vehicle set changes", () => {
+    const { rerender } = render(<LiveMap markers={[markers[0]]} />);
+    mapSpies.fitBounds.mockClear();
+
+    rerender(<LiveMap markers={[markers[1]]} />);
 
     expect(mapSpies.fitBounds).toHaveBeenCalledWith(
-      [[-34.6037, -58.3816]],
+      [[-34.9011, -56.1645]],
       expect.anything(),
     );
   });

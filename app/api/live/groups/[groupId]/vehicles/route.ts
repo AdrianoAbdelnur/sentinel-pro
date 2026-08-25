@@ -11,7 +11,7 @@ export const runtime = "nodejs";
 
 type Context = { params: Promise<{ groupId: string }> };
 
-export async function GET(_request: Request, { params }: Context) {
+export async function GET(request: Request, { params }: Context) {
   const authorization = await getPageAuthorization("operator");
   if (authorization.kind !== "authorized") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -22,10 +22,19 @@ export async function GET(_request: Request, { params }: Context) {
     return NextResponse.json({ error: "Invalid group" }, { status: 400 });
   }
 
+  const query = new URL(request.url).searchParams;
+  const rawPage = Number(query.get("page") ?? "1");
+  if (!Number.isInteger(rawPage) || rawPage < 1) {
+    return NextResponse.json({ error: "Invalid page" }, { status: 400 });
+  }
+  const plate = query.get("plate")?.trim() || undefined;
+
   const repositories = createCatalogRepositories(await getMongoDatabase());
   const result = await createLoadLiveGroup({ ...repositories, loadSnapshots: loadLiveSnapshots })({
     organizationId: authorization.context.organizationId,
     groupId,
+    page: rawPage,
+    plate,
   });
   if (result.kind === "not-found") {
     return NextResponse.json({ error: "Group not found" }, { status: 404 });

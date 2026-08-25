@@ -1,6 +1,6 @@
 "use client";
 
-import { Marker, Polyline } from "react-leaflet";
+import { Marker, Polyline, Tooltip } from "react-leaflet";
 
 import type { LiveMapMarker } from "@/application/live";
 
@@ -57,14 +57,16 @@ export function LiveMapMarkerLayer({
           return null;
         }
 
-        return (
-          <Marker
-            key={marker.vehicleId}
-            position={[entry.latitude, entry.longitude]}
-            title={marker.label}
-            icon={createLiveMapVehicleIcon(marker)}
-          />
-        );
+          return (
+            <Marker
+              key={marker.vehicleId}
+              position={[entry.latitude, entry.longitude]}
+              title={marker.label}
+              icon={createLiveMapVehicleIcon(marker)}
+            >
+              <VehicleTooltip marker={marker} />
+            </Marker>
+          );
       })}
 
       {fanMembers.map(({ marker, sourcePosition, displayPosition }) => (
@@ -77,6 +79,29 @@ export function LiveMapMarkerLayer({
         />
       ))}
     </>
+  );
+}
+
+function VehicleTooltip({ marker }: { marker: LiveMapMarker }) {
+  return (
+    <Tooltip
+      permanent
+      direction="right"
+      offset={[16, -14]}
+      opacity={0.96}
+      className="!border-0 !bg-transparent !p-0 !shadow-none"
+    >
+      <span className="block min-w-28 rounded border border-slate-300 bg-white px-2 py-1 text-left font-sans text-[11px] leading-tight text-slate-700 shadow-md">
+        <span className="block max-w-48 truncate">{marker.label}</span>
+        {marker.status === "offline" ? (
+          <span className="mt-0.5 block font-semibold text-rose-600">Offline</span>
+        ) : typeof marker.speedKmH === "number" && Number.isFinite(marker.speedKmH) ? (
+          <span className="mt-0.5 block font-semibold text-emerald-600">
+            {Math.round(marker.speedKmH)} km/h
+          </span>
+        ) : null}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -104,7 +129,9 @@ function FanMember({
         title={marker.label}
         icon={createLiveMapVehicleIcon(marker)}
         eventHandlers={{ click: onCollapse }}
-      />
+      >
+        <VehicleTooltip marker={marker} />
+      </Marker>
     </>
   );
 }

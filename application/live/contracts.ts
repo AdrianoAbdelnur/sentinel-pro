@@ -48,6 +48,7 @@ export type LiveFleetNode = {
   vehicles: LiveVehicleNode[];
   isLoaded?: boolean;
   isLoading?: boolean;
+  pagination?: LiveFleetState["pagination"];
 };
 
 export type LiveVehicleNode = {
@@ -69,6 +70,7 @@ export type LiveMapMarker = {
   latitude: number;
   longitude: number;
   headingDeg?: number;
+  status?: VehicleStatus;
   speedKmH?: number;
 };
 
@@ -131,6 +133,8 @@ export type LivePageViewModel = {
 export type BuildLiveMapViewModelInput = {
   selectedVehicleIds: string[];
   liveVehicles: LiveVehicleState[];
+  nowMs?: number;
+  staleAfterMs?: number;
 };
 
 export type LiveFleetState = {
@@ -139,6 +143,13 @@ export type LiveFleetState = {
   vehicleIds: string[];
   vehicleCount?: number;
   isLoaded?: boolean;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    plate?: string;
+  };
 };
 
 export type BuildLiveSidebarViewModelInput = {
@@ -163,6 +174,13 @@ export type BuildLiveBottomPanelViewModelInput = {
 export type LiveState = {
   fleets: LiveFleetState[];
   liveVehicles: LiveVehicleState[];
+  pagination?: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+    plate?: string;
+  };
 };
 
 export type OperationalSourceIdentity = {

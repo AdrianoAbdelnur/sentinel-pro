@@ -28,7 +28,9 @@ type CatalogLiveReadRepositories = {
   };
   vehicles: CatalogRepositories["vehicles"] & {
     list(): Promise<CatalogVehicle[]>;
-    listByOrganizationAndGroupId(organizationId: string, groupId: string): Promise<CatalogVehicle[]>;
+    listByOrganizationAndGroupId(organizationId: string, groupId: string, input?: { page: number; pageSize: number; plate?: string }): Promise<{ items: CatalogVehicle[]; total: number }>;
+    countByOrganizationAndGroup(organizationId: string, groupIds: readonly string[], plate?: string): Promise<Readonly<Record<string, number>>>;
+    listByOrganizationAndGroupRanges(organizationId: string, ranges: readonly { groupId: string; skip: number; limit: number }[], plate?: string): Promise<CatalogVehicle[]>;
   };
   policies: { list(): Promise<CapabilityPolicy[]> };
 };
@@ -88,13 +90,50 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
     },
     vehicles: {
       async list() { return (await vehicles.find({}, options(session)).sort({ id: 1 }).toArray()).map(toCatalogVehicleDomain); },
-      async listByOrganizationAndGroupId(organizationId, groupId) {
-        const groupVehicles = await vehicles.find({ placementFleetId: groupId }, options(session)).sort({ id: 1 }).toArray();
-        const vehicleIds = groupVehicles.map(({ id }) => id);
-        if (vehicleIds.length === 0) return [];
-        const granted = await grants.find({ organizationId, vehicleId: { $in: vehicleIds } }, options(session)).project({ vehicleId: 1 }).toArray();
-        const grantedIds = new Set(granted.map(({ vehicleId }) => vehicleId));
-        return groupVehicles.filter(({ id }) => grantedIds.has(id)).map(toCatalogVehicleDomain);
+      async listByOrganizationAndGroupId(organizationId, groupId, input = { page: 1, pageSize: 50 }) {
+        const page = Math.max(1, input.page);
+        const normalizedPlate = input.plate?.trim().replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        const escapedPlate = normalizedPlate?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const result = await vehicles.aggregate([
+          { $match: { placementFleetId: groupId, ...(escapedPlate ? { normalizedPlate: { $regex: escapedPlate } } : {}) } },
+          { $lookup: { from: "organization_vehicle_access", localField: "id", foreignField: "vehicleId", as: "grant" } },
+          { $match: { "grant.organizationId": organizationId } },
+          { $facet: {
+            metadata: [{ $count: "total" }],
+            items: [{ $sort: { id: 1 } }, { $skip: (page - 1) * input.pageSize }, { $limit: input.pageSize }],
+          } },
+        ], options(session)).toArray();
+        const facet = result[0] ?? { metadata: [], items: [] };
+        return { total: Number((facet.metadata[0] as { total?: number } | undefined)?.total ?? 0), items: (facet.items as CatalogVehicleDocument[]).map(toCatalogVehicleDomain) };
+      },
+      async countByOrganizationAndGroup(organizationId, groupIds, plate) {
+        if (groupIds.length === 0) return {};
+        const normalizedPlate = plate?.trim().replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        const escapedPlate = normalizedPlate?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const rows = await vehicles.aggregate([
+          { $match: { placementFleetId: { $in: groupIds }, ...(escapedPlate ? { normalizedPlate: { $regex: escapedPlate } } : {}) } },
+          { $lookup: { from: "organization_vehicle_access", localField: "id", foreignField: "vehicleId", as: "grant" } },
+          { $match: { "grant.organizationId": organizationId } },
+          { $group: { _id: "$placementFleetId", count: { $sum: 1 } } },
+        ], options(session)).toArray();
+        return Object.fromEntries(rows.map((row) => [String(row._id), Number(row.count)]));
+      },
+      async listByOrganizationAndGroupRanges(organizationId, ranges, plate) {
+        if (ranges.length === 0) return [];
+        const normalizedPlate = plate?.trim().replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        const escapedPlate = normalizedPlate?.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pageResults = await Promise.all(ranges.map(async ({ groupId, skip, limit }) => {
+          const documents = await vehicles.aggregate([
+            { $match: { placementFleetId: groupId, ...(escapedPlate ? { normalizedPlate: { $regex: escapedPlate } } : {}) } },
+            { $lookup: { from: "organization_vehicle_access", localField: "id", foreignField: "vehicleId", as: "grant" } },
+            { $match: { "grant.organizationId": organizationId } },
+            { $sort: { id: 1 } },
+            { $skip: skip },
+            { $limit: limit },
+          ], options(session)).toArray();
+          return documents as CatalogVehicleDocument[];
+        }));
+        return pageResults.flat().map(toCatalogVehicleDomain);
       },
       async findById(id) { const document = await vehicles.findOne({ id }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },
       async findByNormalizedPlate(normalizedPlate) { const document = await vehicles.findOne({ normalizedPlate }, options(session)); return document ? toCatalogVehicleDomain(document) : undefined; },

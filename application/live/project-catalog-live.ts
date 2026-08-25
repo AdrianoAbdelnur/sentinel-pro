@@ -2,6 +2,7 @@ import { DEFAULT_CAPABILITY_SOURCE_ORDER } from "@/domain/catalog";
 import type {
   CapabilityPolicy,
   CatalogVehicle,
+  Provider,
   ProviderConnection,
   ProviderContribution,
   OrganizationVehicleAccess,
@@ -30,6 +31,7 @@ export type CatalogLiveInput = {
   vehicles: readonly CatalogVehicle[];
   contributions: readonly ProviderContribution[];
   connections: readonly ProviderConnection[];
+  providers?: readonly Provider[];
   policies: readonly CapabilityPolicy[];
   grants: readonly OrganizationVehicleAccess[];
   sourceSnapshots: Readonly<Record<string, Readonly<Record<string, CatalogCapabilitySnapshot>>>>;
@@ -66,9 +68,10 @@ export function createCatalogSummaryOperationalSource(
 export function projectCatalogGroupVehicles(
   group: CatalogFleet,
   vehicles: readonly CatalogVehicle[],
-  operational: Pick<CatalogLiveInput, "contributions" | "connections" | "policies" | "sourceSnapshots"> = {
+  operational: Pick<CatalogLiveInput, "contributions" | "connections" | "providers" | "policies" | "sourceSnapshots"> = {
     contributions: [],
     connections: [],
+    providers: [],
     policies: [],
     sourceSnapshots: {},
   },
@@ -79,6 +82,7 @@ export function projectCatalogGroupVehicles(
     vehicles,
     contributions: operational.contributions,
     connections: operational.connections,
+    providers: operational.providers,
     policies: operational.policies,
     grants: vehicles.map((vehicle) => ({ organizationId: "group-load", vehicleId: vehicle.id })),
     sourceSnapshots: operational.sourceSnapshots,
@@ -105,7 +109,8 @@ function assignedVehicleIds(input: CatalogLiveInput): Set<string> {
 }
 
 function enabledProviders(input: CatalogLiveInput): Map<string, string> {
-  return new Map(input.connections.filter((connection) => connection.enabled).map((connection) => [connection.id, connection.providerId]));
+  const providersById = new Map((input.providers ?? []).map((provider) => [provider.id, provider.adapterKey]));
+  return new Map(input.connections.filter((connection) => connection.enabled).map((connection) => [connection.id, providersById.get(connection.providerId) ?? connection.providerId]));
 }
 
 type ResolvedCapabilitySource = {

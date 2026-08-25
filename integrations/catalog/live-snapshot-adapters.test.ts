@@ -19,6 +19,35 @@ const cybermapaProvider = { id: "provider-cybermapa", adapterKey: "cybermapa", c
 const connection = (id: string, providerId: string) => ({ id, providerId, credentialRef: "ref", enabled: true, cadenceMinutes: 60 });
 
 describe("catalog Live snapshot adapters", () => {
+  it("does not call providers without contributions on the requested page", async () => {
+    loadSnapshot.mockClear();
+    fetchCurrentData.mockClear();
+
+    await expect(loadLiveSnapshots(
+      [connection("connection-howen", howenProvider.id), connection("connection-cybermapa", cybermapaProvider.id)],
+      [howenProvider, cybermapaProvider],
+      [{ id: "contribution-1", connectionId: "connection-cybermapa", externalId: "gps-1", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" }],
+      new Map([["vehicle-1", "AB123CD"]]),
+    )).resolves.toEqual({
+      "connection-cybermapa": {},
+    });
+
+    expect(loadSnapshot).not.toHaveBeenCalled();
+    expect(fetchCurrentData).toHaveBeenCalledWith(["AB123CD"], "patente");
+  });
+
+  it("maps Cybermapa URL-encoded ISO dates from current GPS data", () => {
+    expect(mapCybermapaCurrentDataToCatalogSnapshots([
+      { gps: "gps-encoded", patente: "AB 123 CD", latitud: "-34.6", longitud: "-58.4", fecha: "2026-08-23%2010:30:45.000" },
+    ], [{ id: "contribution-encoded", connectionId: "connection-cybermapa", externalId: "gps-encoded", vehicleId: "vehicle-encoded", capabilities: { gps: "eligible" }, presence: "present" }], new Map([["vehicle-encoded", "AB123CD"]]))).toEqual({
+      "gps-encoded": {
+        telemetry: expect.objectContaining({
+          gpsAt: "2026-08-23T13:30:45.000Z",
+        }),
+      },
+    });
+  });
+
   it("maps Cybermapa current GPS data to the canonical telemetry contract", () => {
     expect(mapCybermapaCurrentDataToCatalogSnapshots([
       { gps: "gps-1", patente: "AB 123 CD", latitud: "-34.6", longitud: "-58.4", fecha: "21/09/2016 11:48:32", velocidad: "12", sentido: "217" },

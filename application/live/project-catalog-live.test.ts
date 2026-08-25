@@ -62,6 +62,16 @@ const input: CatalogLiveInput = {
 };
 
 describe("projectCatalogLive", () => {
+  it("resolves a provider by adapter key when persistence uses a provider UUID", () => {
+    const state = createCatalogLiveProjector()({
+      ...input,
+      providers: [{ id: "provider-uuid", adapterKey: "cybermapa", capabilities: ["gps"] }],
+      connections: [{ id: "connection-gps", providerId: "provider-uuid", credentialRef: "ref", enabled: true, cadenceMinutes: 60 }],
+    });
+
+    expect(state.liveVehicles[0].telemetry).toMatchObject({ deviceId: "device-1" });
+  });
+
   it("falls back to eligible Howen telemetry when no preferred Cybermapa contribution exists", () => {
     const state = createCatalogLiveProjector()({
       ...input,

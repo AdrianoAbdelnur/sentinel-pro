@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   buildLivePageViewModel,
@@ -32,16 +32,57 @@ export function LiveScreen({
 }: LiveScreenProps) {
   const [liveState, setLiveState] = useState(initialLiveState);
   const [selectedVehicleIds, setSelectedVehicleIds] = useState<string[]>([]);
-  const [expandedFleetIds, setExpandedFleetIds] = useState<string[]>([]);
+  const [expandedFleetIds, setExpandedFleetIds] = useState<string[]>(() =>
+    initialLiveState.fleets.map((fleet) => fleet.fleetId),
+  );
   const [loadingFleetIds, setLoadingFleetIds] = useState<string[]>([]);
-  const loadedFleetCache = useRef(new Set<string>());
-  const pendingFleetLoads = useRef(new Set<string>());
+  const fleetRequests = useRef(new Map<string, { generation: number; controller: AbortController; key: string }>());
+  const fleetGenerations = useRef(new Map<string, number>());
+  const pendingPageLoads = useRef(new Set<string>());
+  const pageRequest = useRef<{ generation: number; controller?: AbortController }>({ generation: 0 });
   const [activeTab, setActiveTab] = useState<LiveBottomPanelTab["key"]>(
     tabs[0]?.key ?? "status",
   );
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(true);
+
+  const invalidatePageRequest = useCallback(() => {
+    pageRequest.current.controller?.abort();
+    pageRequest.current = { generation: pageRequest.current.generation + 1 };
+    for (const request of fleetRequests.current.values()) request.controller.abort();
+    fleetRequests.current.clear();
+    setLoadingFleetIds([]);
+  }, []);
+
+  const loadPage = useCallback(async (page: number, plate: string) => {
+    const key = `${page}:${plate.trim()}`;
+    if (pendingPageLoads.current.has(key)) return;
+    pendingPageLoads.current.add(key);
+    for (const request of fleetRequests.current.values()) request.controller.abort();
+    fleetRequests.current.clear();
+    setLoadingFleetIds([]);
+    const generation = pageRequest.current.generation + 1;
+    pageRequest.current.controller?.abort();
+    const controller = new AbortController();
+    pageRequest.current = { generation, controller };
+    try {
+      const loadedState = await fetchLivePage(page, plate, controller.signal);
+      if (pageRequest.current.generation !== generation) return;
+      setLiveState((current) => mergeLoadedPage(current, loadedState));
+      setExpandedFleetIds(loadedState.fleets.map((fleet) => fleet.fleetId));
+    } catch {
+      return;
+    } finally {
+      pendingPageLoads.current.delete(key);
+    }
+  }, []);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadPage(1, "");
+    return invalidatePageRequest;
+  }, [invalidatePageRequest, loadPage]);
 
   const {
     searchTerm,
@@ -51,6 +92,15 @@ export function LiveScreen({
     setStatus,
     setProvider,
   } = useLiveSidebarFilters();
+
+  useEffect(() => {
+    const interval = window.setInterval(async () => {
+      await loadPage(liveState.pagination?.page ?? 1, searchTerm);
+    }, 15_000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [liveState.pagination?.page, searchTerm, loadPage]);
 
   const page = buildLivePageViewModel({
     liveState,
@@ -84,24 +134,42 @@ export function LiveScreen({
     );
   }
 
-  async function loadFleet(fleetId: string) {
-    if (loadedFleetCache.current.has(fleetId) || pendingFleetLoads.current.has(fleetId)) return;
-
-    pendingFleetLoads.current.add(fleetId);
+  async function loadFleet(fleetId: string, page = 1, plate = searchTerm) {
+    const cacheKey = `${fleetId}:${page}:${plate.trim()}`;
+    const previousRequest = fleetRequests.current.get(fleetId);
+    if (previousRequest?.key === cacheKey) return;
+    previousRequest?.controller.abort();
+    pageRequest.current.controller?.abort();
+    pageRequest.current = { generation: pageRequest.current.generation + 1 };
+    const generation = (fleetGenerations.current.get(fleetId) ?? 0) + 1;
+    fleetGenerations.current.set(fleetId, generation);
+    const controller = new AbortController();
+    fleetRequests.current.set(fleetId, { generation, controller, key: cacheKey });
     setLoadingFleetIds((current) => current.includes(fleetId) ? current : [...current, fleetId]);
 
     try {
-      const response = await fetch(`/api/live/groups/${encodeURIComponent(fleetId)}/vehicles`, { cache: "no-store" });
+      const params = new URLSearchParams({ page: String(page) });
+      if (plate.trim()) params.set("plate", plate.trim());
+      const response = await fetch(`/api/live/groups/${encodeURIComponent(fleetId)}/vehicles?${params}`, { cache: "no-store", signal: controller.signal });
       if (!response.ok) throw new Error("Group vehicles unavailable");
       const loadedState = (await response.json()) as LiveState;
-      loadedFleetCache.current.add(fleetId);
+      if (fleetRequests.current.get(fleetId)?.generation !== generation) return;
       setLiveState((current) => mergeLoadedFleet(current, loadedState, fleetId));
     } catch {
-      setExpandedFleetIds((current) => current.filter((id) => id !== fleetId));
+      if (fleetRequests.current.get(fleetId)?.generation === generation) {
+        setExpandedFleetIds((current) => current.filter((id) => id !== fleetId));
+      }
     } finally {
-      pendingFleetLoads.current.delete(fleetId);
-      setLoadingFleetIds((current) => current.filter((id) => id !== fleetId));
+      if (fleetRequests.current.get(fleetId)?.generation === generation) {
+        fleetRequests.current.delete(fleetId);
+        setLoadingFleetIds((current) => current.filter((id) => id !== fleetId));
+      }
     }
+  }
+
+  function handleSearchChange(term: string) {
+    setSearchTerm(term);
+    void loadPage(1, term);
   }
 
   function toggleFleet(fleetId: string) {
@@ -144,6 +212,10 @@ export function LiveScreen({
     );
   }
 
+  function changeFleetPage(fleetId: string, page: number) {
+    void loadFleet(fleetId, page);
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <LiveSourceWarnings warnings={warnings} />
@@ -153,12 +225,15 @@ export function LiveScreen({
           sidebar={page.sidebar}
           isCollapsed={isSidebarCollapsed}
           onToggleCollapsed={() => setIsSidebarCollapsed((current) => !current)}
-          onSearchChange={setSearchTerm}
+          onSearchChange={handleSearchChange}
           onStatusChange={setStatus}
           onProviderChange={setProvider}
           onToggleExpanded={toggleExpanded}
           onToggleFleet={toggleFleet}
           onToggleVehicle={toggleVehicle}
+          onFleetPageChange={changeFleetPage}
+          pagination={liveState.pagination}
+          onPageChange={(page) => void loadPage(page, searchTerm)}
           loadingFleetIds={loadingFleetIds}
         />
 
@@ -182,6 +257,23 @@ export function LiveScreen({
       </div>
     </div>
   );
+}
+
+async function fetchLivePage(page: number, plate: string, signal?: AbortSignal): Promise<LiveState> {
+  const query = new URLSearchParams({ page: String(page) });
+  if (plate.trim()) query.set("plate", plate.trim());
+  const response = await fetch(`/api/live/vehicles?${query}`, { cache: "no-store", signal });
+  if (!response.ok) throw new Error("Live vehicles unavailable");
+  return (await response.json()) as LiveState;
+}
+
+export function mergeLoadedPage(current: LiveState, loaded: LiveState): LiveState {
+  return {
+    ...current,
+    ...loaded,
+    fleets: loaded.fleets,
+    liveVehicles: loaded.liveVehicles,
+  };
 }
 
 function mergeLoadedFleet(current: LiveState, loaded: LiveState, fleetId: string): LiveState {
