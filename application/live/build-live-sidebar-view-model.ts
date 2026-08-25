@@ -100,6 +100,7 @@ export function buildLiveSidebarViewModel({
         toVehicleNode(liveVehicle, selectedIds, statusByVehicleId),
       ),
       ...(isLoaded ? {} : { isLoaded: false }),
+      ...(fleet.pagination ? { pagination: fleet.pagination } : {}),
     };
 
     return [node];

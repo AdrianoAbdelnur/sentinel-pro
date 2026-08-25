@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LiveState, OperationalSource } from "@/application/live";
@@ -135,10 +135,6 @@ describe("LivePage operational composition", () => {
     sourceComposition.create.mockReturnValue(sourceComposition.sources);
 
     render(await LivePage());
-    fireEvent.click(
-      screen.getByRole("button", { name: /TRAVIL SAS/i }),
-    );
-
     expect(screen.getByText("AA264KK")).toBeInTheDocument();
     expect(screen.getAllByText("HOWEN")).toHaveLength(2);
     expect(screen.queryByText("technical-1")).not.toBeInTheDocument();

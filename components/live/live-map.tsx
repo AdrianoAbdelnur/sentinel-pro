@@ -2,7 +2,7 @@
 
 import "leaflet/dist/leaflet.css";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, useMap } from "react-leaflet";
 
 import type { LiveMapMarker } from "@/application/live";
@@ -61,18 +61,18 @@ function InvalidateOnResize() {
 
 function FitBounds({ markers }: LiveMapProps) {
   const map = useMap();
-  const bounds = markers.map(toPosition).filter(isPosition);
-  const boundsKey = JSON.stringify(bounds);
+  const fittedMarkerIds = useRef<string | undefined>(undefined);
+  const bounds = useMemo(() => markers.map(toPosition).filter(isPosition), [markers]);
+  const markerIdsKey = markers.map(({ vehicleId }) => vehicleId).sort().join("|");
 
   useEffect(() => {
-    const positions: [number, number][] = JSON.parse(boundsKey);
-
-    if (positions.length === 0) {
+    if (bounds.length === 0 || fittedMarkerIds.current === markerIdsKey) {
       return;
     }
 
-    map.fitBounds(positions, { padding: [40, 40], maxZoom: 15 });
-  }, [map, boundsKey]);
+    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
+    fittedMarkerIds.current = markerIdsKey;
+  }, [bounds, map, markerIdsKey]);
 
   return null;
 }

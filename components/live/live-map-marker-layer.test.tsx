@@ -16,11 +16,13 @@ vi.mock("react-leaflet", () => ({
     title,
     icon,
     eventHandlers,
+    children,
   }: {
     position: [number, number];
     title?: string;
     icon: { options: { html: string } };
     eventHandlers?: { click?: () => void };
+    children?: React.ReactNode;
   }) => (
     <button
       type="button"
@@ -29,7 +31,9 @@ vi.mock("react-leaflet", () => ({
       data-icon={icon.options.html}
       title={title}
       onClick={eventHandlers?.click}
-    />
+    >
+      {children}
+    </button>
   ),
   Polyline: ({
     positions,
@@ -43,6 +47,9 @@ vi.mock("react-leaflet", () => ({
       data-positions={JSON.stringify(positions)}
       data-color={pathOptions.color}
     />
+  ),
+  Tooltip: ({ children }: { children: React.ReactNode }) => (
+    <span data-testid="vehicle-tooltip">{children}</span>
   ),
 }));
 
@@ -101,6 +108,22 @@ describe("LiveMapMarkerLayer", () => {
     expect(screen.getByTitle("Unit 201").dataset.icon).not.toContain(
       "--marker-rotation:",
     );
+  });
+
+  it("renders a permanent vehicle label with speed", () => {
+    clusterHook.entries = [{ kind: "point", vehicleId: "vehicle-101", latitude: -34.6037, longitude: -58.3816 }];
+    render(<LiveMapMarkerLayer markers={[{ ...markers[0], speedKmH: 6 }]} />);
+
+    expect(screen.getByTestId("vehicle-tooltip")).toHaveTextContent("Unit 101");
+    expect(screen.getByTestId("vehicle-tooltip")).toHaveTextContent("6 km/h");
+  });
+
+  it("renders the offline status without a speed", () => {
+    clusterHook.entries = [{ kind: "point", vehicleId: "vehicle-101", latitude: -34.6037, longitude: -58.3816 }];
+    render(<LiveMapMarkerLayer markers={[{ ...markers[0], status: "offline" }]} />);
+
+    expect(screen.getByTestId("vehicle-tooltip")).toHaveTextContent("Offline");
+    expect(screen.getByTestId("vehicle-tooltip")).not.toHaveTextContent("km/h");
   });
 
   it("shows an accessible count and activates only the cluster", () => {

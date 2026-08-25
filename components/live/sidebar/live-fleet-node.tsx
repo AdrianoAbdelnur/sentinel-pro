@@ -8,6 +8,7 @@ type LiveFleetNodeProps = {
   onToggleExpanded: (fleetId: string) => void;
   onToggleFleet: (fleetId: string) => void;
   onToggleVehicle: (vehicleId: string) => void;
+  onPageChange?: (fleetId: string, page: number) => void;
 };
 
 export function LiveFleetNode({
@@ -16,6 +17,7 @@ export function LiveFleetNode({
   onToggleExpanded,
   onToggleFleet,
   onToggleVehicle,
+  onPageChange,
 }: LiveFleetNodeProps) {
   const { online, total } = fleet.counts;
   const countsLabel = `${online} de ${total} vehículos en línea`;
@@ -76,6 +78,13 @@ export function LiveFleetNode({
               onToggle={onToggleVehicle}
             />
           ))}
+          {fleet.pagination && fleet.pagination.totalPages > 1 && onPageChange && (
+            <li className="flex items-center justify-between px-3 py-2 font-mono text-[10px] text-slate-500">
+              <button type="button" disabled={isLoading || fleet.pagination.page <= 1} onClick={() => onPageChange(fleet.fleetId, fleet.pagination!.page - 1)} className="disabled:opacity-30">Anterior</button>
+              <span>{fleet.pagination.page}/{fleet.pagination.totalPages}</span>
+              <button type="button" disabled={isLoading || fleet.pagination.page >= fleet.pagination.totalPages} onClick={() => onPageChange(fleet.fleetId, fleet.pagination!.page + 1)} className="disabled:opacity-30">Siguiente</button>
+            </li>
+          )}
         </ul>
       )}
     </li>

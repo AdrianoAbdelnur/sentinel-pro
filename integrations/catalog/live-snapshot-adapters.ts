@@ -26,7 +26,18 @@ function decodeProviderValue(value: string): string {
 
 function parseCybermapaDate(value: string | undefined): string | undefined {
   if (!value) return undefined;
-  const normalized = value.trim();
+  let normalized: string;
+  try {
+    normalized = decodeURIComponent(value).trim();
+  } catch {
+    normalized = value.trim();
+  }
+  const isoDate = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/.exec(normalized);
+  if (isoDate) {
+    const [, year, month, day, hours, minutes, seconds, milliseconds = "0"] = isoDate;
+    const date = new Date(`${year}-${month}-${day}T${hours}:${minutes}:${seconds}.${milliseconds.padEnd(3, "0")}-03:00`);
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  }
   const longDate = /^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})$/.exec(normalized);
   const shortDate = /^(\d{2})\/(\d{2})\/(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(normalized);
   const match = longDate ?? shortDate;
@@ -121,14 +132,16 @@ export async function loadLiveSnapshots(
 ): Promise<Snapshots> {
   const providersById = new Map(providers.map((provider) => [provider.id, provider]));
   const entries = await Promise.all(connections.map(async (connection) => {
+    const connectionContributions = contributions.filter(({ connectionId }) => connectionId === connection.id);
+    if (connectionContributions.length === 0) return undefined;
+
     const load = operationalLoaders[providersById.get(connection.providerId)?.adapterKey ?? ""];
     if (!load) return [connection.id, {}] as const;
-    const connectionContributions = contributions.filter(({ connectionId }) => connectionId === connection.id);
     try {
       return [connection.id, await load(connectionContributions, vehiclePlates)] as const;
     } catch {
       return [connection.id, {}] as const;
     }
   }));
-  return Object.fromEntries(entries);
+  return Object.fromEntries(entries.filter((entry): entry is Exclude<typeof entry, undefined> => entry !== undefined));
 }

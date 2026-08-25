@@ -16,6 +16,7 @@ export type CatalogVehicleRepository = {
   findByNormalizedPlate(normalizedPlate: string): Promise<CatalogVehicle | undefined>;
   save(vehicle: CatalogVehicle): Promise<void>;
 };
+export type CatalogPagedVehicles = { items: CatalogVehicle[]; total: number };
 export type CatalogGroupRepository = { findById(id: string): Promise<CatalogGroup | undefined>; findByLabel(label: string): Promise<CatalogGroup[]>; save(group: CatalogGroup): Promise<void> };
 export type GroupEvidenceBindingRepository = { findById(id: string): Promise<GroupEvidenceBinding | undefined>; findByGroupId(groupId: string): Promise<GroupEvidenceBinding[]>; findByEvidence(connectionId: string, kind: string, externalKey: string): Promise<GroupEvidenceBinding[]>; save(binding: GroupEvidenceBinding): Promise<void> };
 

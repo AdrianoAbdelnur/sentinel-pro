@@ -1,10 +1,12 @@
-import { hasValidGps } from "@/domain/live";
+import { DEFAULT_STALE_AFTER_MS, hasValidGps, resolveVehicleStatus } from "@/domain/live";
 
 import type { BuildLiveMapViewModelInput, LiveMapViewModel } from "./contracts";
 
 export function buildLiveMapViewModel({
   selectedVehicleIds,
   liveVehicles,
+  nowMs = Date.now(),
+  staleAfterMs = DEFAULT_STALE_AFTER_MS,
 }: BuildLiveMapViewModelInput): LiveMapViewModel {
   if (selectedVehicleIds.length === 0) {
     return {
@@ -21,6 +23,8 @@ export function buildLiveMapViewModel({
       return [];
     }
 
+    const isOffline = resolveVehicleStatus({ telemetry, nowMs, staleAfterMs }) === "offline";
+
     return [
       {
         vehicleId: vehicle.id,
@@ -28,7 +32,8 @@ export function buildLiveMapViewModel({
         latitude: telemetry.latitude,
         longitude: telemetry.longitude,
         headingDeg: telemetry.headingDeg,
-        speedKmH: telemetry.speedKmH,
+        ...(isOffline ? { status: "offline" as const } : {}),
+        speedKmH: isOffline ? undefined : telemetry.speedKmH,
       },
     ];
   });

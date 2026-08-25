@@ -38,6 +38,8 @@ export function buildLivePageViewModel({
     map: buildLiveMapViewModel({
       selectedVehicleIds,
       liveVehicles,
+      nowMs,
+      staleAfterMs,
     }),
     bottomPanel: buildLiveBottomPanelViewModel({
       selectedVehicleIds,

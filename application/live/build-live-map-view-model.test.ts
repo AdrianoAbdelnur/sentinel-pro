@@ -34,6 +34,21 @@ const liveVehicles: LiveVehicleState[] = [
       longitude: -58.4,
     },
   },
+  {
+    vehicle: {
+      id: "vehicle-offline",
+      fleetId: "fleet-1",
+      label: "Offline unit",
+      isActive: true,
+    },
+    telemetry: {
+      deviceId: "device-offline",
+      online: false,
+      latitude: -34.61,
+      longitude: -58.39,
+      speedKmH: 0,
+    },
+  },
 ];
 
 describe("buildLiveMapViewModel", () => {
@@ -137,6 +152,29 @@ describe("buildLiveMapViewModel", () => {
           longitude: -58.3816,
           speedKmH: 45,
           headingDeg: 90,
+        },
+      ],
+    });
+  });
+
+  it("does not expose speed for an offline marker", () => {
+    expect(
+      buildLiveMapViewModel({
+        selectedVehicleIds: ["vehicle-offline"],
+        liveVehicles,
+        nowMs: Date.parse("2026-08-24T12:00:00.000Z"),
+        staleAfterMs: 5 * 60 * 1000,
+      }),
+    ).toEqual({
+      markers: [
+        {
+          vehicleId: "vehicle-offline",
+          label: "Offline unit",
+          latitude: -34.61,
+          longitude: -58.39,
+          headingDeg: undefined,
+          status: "offline",
+          speedKmH: undefined,
         },
       ],
     });

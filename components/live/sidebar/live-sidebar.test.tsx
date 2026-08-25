@@ -28,7 +28,17 @@ function buildSidebar(
 
 function renderSidebar(
   overrides: Partial<LiveSidebarViewModel> = {},
-  { isCollapsed = false, onToggleCollapsed = vi.fn() } = {},
+  {
+    isCollapsed = false,
+    onToggleCollapsed = vi.fn(),
+    pagination,
+    onPageChange,
+  }: {
+    isCollapsed?: boolean;
+    onToggleCollapsed?: () => void;
+    pagination?: { page: number; totalPages: number };
+    onPageChange?: (page: number) => void;
+  } = {},
 ) {
   return render(
     <LiveSidebar
@@ -41,6 +51,8 @@ function renderSidebar(
       onToggleExpanded={vi.fn()}
       onToggleFleet={vi.fn()}
       onToggleVehicle={vi.fn()}
+      pagination={pagination}
+      onPageChange={onPageChange}
     />,
   );
 }
@@ -135,5 +147,53 @@ describe("LiveSidebar", () => {
 
     expect(screen.queryByText(EMPTY_FLEETS_LABEL)).not.toBeInTheDocument();
     expect(screen.getByText("North Fleet")).toBeInTheDocument();
+  });
+
+  it("keeps the pagination controller in a visible footer below the scrolling list", () => {
+    const onPageChange = vi.fn();
+    const { container } = renderSidebar(
+      {
+        fleets: [
+          {
+            fleetId: "fleet-north",
+            label: "North Fleet",
+            isExpanded: false,
+            isSelected: false,
+            counts: { online: 1, total: 2 },
+            vehicles: [],
+          },
+        ],
+      },
+      { pagination: { page: 1, totalPages: 1 }, onPageChange },
+    );
+
+    const listRegion = container.querySelector(".overflow-y-auto");
+    const footer = screen.getByRole("navigation", { name: "Paginación de vehículos" });
+    const previous = screen.getByRole("button", { name: "Página anterior" });
+    const next = screen.getByRole("button", { name: "Página siguiente" });
+
+    expect(listRegion).not.toContainElement(footer);
+    expect(footer).toHaveClass("shrink-0");
+    expect(previous).toBeDisabled();
+    expect(next).toBeDisabled();
+    expect(footer).toHaveTextContent("1 de 1");
+
+    fireEvent.click(next);
+    expect(onPageChange).not.toHaveBeenCalled();
+  });
+
+  it("shows five selectable pages and jumps by ten pages", () => {
+    const onPageChange = vi.fn();
+    renderSidebar({}, { pagination: { page: 3, totalPages: 90 }, onPageChange });
+
+    expect(screen.getByRole("button", { name: "Ir a la página 1" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ir a la página 5" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ir a la página 6" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ir a la página 5" }));
+    expect(onPageChange).toHaveBeenCalledWith(5);
+
+    fireEvent.click(screen.getByRole("button", { name: "Avanzar 10 páginas" }));
+    expect(onPageChange).toHaveBeenCalledWith(13);
   });
 });

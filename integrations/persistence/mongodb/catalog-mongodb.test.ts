@@ -12,6 +12,26 @@ afterAll(async () => { await client?.close(); await replSet?.stop(); });
 const vehicle = (id: string, plate = "ABC123") => ({ id, normalizedPlate: plate, plate, placementFleetId: `fleet-${id}` });
 
 describe("catalog Mongo persistence", () => {
+  it("filters and paginates organization vehicles in MongoDB", async () => {
+    const db = client.db(`catalog_live_page_${Date.now()}`);
+    await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.groups.save({ id: "group-1", label: "North" });
+    await repos.vehicles.save({ ...vehicle("vehicle-1", "AAA111"), placementFleetId: "group-1" });
+    await repos.vehicles.save({ ...vehicle("vehicle-2", "BBB222"), placementFleetId: "group-1" });
+    await repos.vehicles.save({ ...vehicle("vehicle-3", "AAA333"), placementFleetId: "group-1" });
+    await repos.grants.save({ organizationId: "organization-1", vehicleId: "vehicle-1" });
+    await repos.grants.save({ organizationId: "organization-1", vehicleId: "vehicle-2" });
+    await repos.grants.save({ organizationId: "organization-1", vehicleId: "vehicle-3" });
+
+    await expect(repos.vehicles.listByOrganizationAndGroupId("organization-1", "group-1", { page: 1, pageSize: 1, plate: "AAA" })).resolves.toEqual({
+      total: 2,
+      items: [{ ...vehicle("vehicle-1", "AAA111"), placementFleetId: "group-1" }],
+    });
+    await expect(repos.vehicles.countByOrganizationAndGroup("organization-1", ["group-1"], "AAA")).resolves.toEqual({ "group-1": 2 });
+    await expect(repos.vehicles.listByOrganizationAndGroupRanges("organization-1", [{ groupId: "group-1", skip: 1, limit: 1 }], "AAA")).resolves.toEqual([{ ...vehicle("vehicle-3", "AAA333"), placementFleetId: "group-1" }]);
+  });
+
   it("lists the canonical records required by the Live projection", async () => {
     const db = client.db(`catalog_live_${Date.now()}`);
     await initializeCatalogDatabase(db);
