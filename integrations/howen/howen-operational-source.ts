@@ -8,7 +8,7 @@ import { mapHowenRoster } from "./map-howen-roster";
 import { HOWEN_PROVIDER } from "./provider";
 
 type CreateHowenOperationalSourceInput = {
-  client: HowenClient;
+  client: Pick<HowenClient, "fetchRoster">;
   identity?: OperationalSourceIdentity;
 };
 

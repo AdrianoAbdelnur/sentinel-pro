@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ProviderConnection, ProviderContribution } from "@/domain/catalog";
+import type { CatalogDevice, CatalogVehicle, ProviderConnection, ProviderContribution, ProviderVehicleObservation } from "@/domain/catalog";
 
 import { createSynchronizeConnectionApplication, type CatalogSyncPorts, type CatalogSyncRun } from "./synchronize-connection";
 
@@ -98,6 +98,15 @@ describe("synchronize catalog connection", () => {
     expect(contributions.find((item) => item.externalId === "missing")?.presence).toBe("present");
   });
 
+  it("reconciles omissions on the first complete snapshot", async () => {
+    const { ports, contributions } = fixture();
+    contributions.push({ id: "old", connectionId: connection.id, externalId: "missing", vehicleId: "vehicle-1", capabilities: { gps: "eligible" }, presence: "present" });
+    const result = await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate], evidence })) } });
+
+    expect(result).toMatchObject({ kind: "succeeded", run: { counts: { absent: 1 } } });
+    expect(contributions.find((item) => item.externalId === "missing")?.presence).toBe("absent");
+  });
+
   it("marks a contribution absent once a later complete snapshot omits it", async () => {
     const { ports, contributions, setNow } = fixture();
     const application = createSynchronizeConnectionApplication(ports);
@@ -111,6 +120,39 @@ describe("synchronize catalog connection", () => {
     expect(result).toMatchObject({ kind: "succeeded", run: { counts: { absent: 1 } } });
     expect(contributions.find((item) => item.externalId === "external-1")).toMatchObject({ presence: "absent" });
     expect(contributions.find((item) => item.externalId === "external-2")).toMatchObject({ presence: "present" });
+  });
+
+  it("marks only the omitted provider device absent and derives activity from the remaining active device", async () => {
+    const { ports, contributions } = fixture();
+    contributions.push({ id: "omitted-contribution", connectionId: connection.id, externalId: "omitted", vehicleId: "shared", capabilities: {}, presence: "present" });
+    const devices: CatalogDevice[] = [
+      { id: "omitted-device", connectionId: connection.id, deviceId: "omitted", vehicleId: "shared", status: "active", capabilities: {}, presence: "present" },
+      { id: "other-device", connectionId: "connection-2", deviceId: "other", vehicleId: "shared", status: "active", capabilities: {}, presence: "present" },
+    ];
+    const observations: ProviderVehicleObservation[] = [
+      { id: "omitted-observation", contributionId: "omitted-contribution", connectionId: connection.id, deviceId: "omitted", providerKey: "cybermapa", company: "Old", companyResolution: "direct", presence: "present", active: true, observedAt: new Date() },
+    ];
+    const vehicles = new Map<string, CatalogVehicle>([["shared", { id: "shared", normalizedPlate: "ABC123", plate: "ABC123", placementFleetId: "fleet", active: true }]]);
+    ports.devices = {
+      findByConnectionAndDeviceId: vi.fn(async (connectionId, deviceId) => devices.find((device) => device.connectionId === connectionId && device.deviceId === deviceId)),
+      listByConnectionId: vi.fn(async (connectionId) => devices.filter((device) => device.connectionId === connectionId)),
+      listByVehicleId: vi.fn(async (vehicleId) => devices.filter((device) => device.vehicleId === vehicleId)),
+      save: vi.fn(async (value) => { const index = devices.findIndex((device) => device.id === value.id); devices[index] = value; }),
+    };
+    ports.observations = {
+      save: vi.fn(async () => undefined),
+      listByVehicleId: vi.fn(async () => observations),
+      markAbsent: vi.fn(async (connectionId, deviceId) => { for (let index = 0; index < observations.length; index += 1) if (observations[index].connectionId === connectionId && observations[index].deviceId === deviceId) observations[index] = { ...observations[index], presence: "absent", active: false }; }),
+    };
+    ports.vehicles.findById = vi.fn(async (id) => vehicles.get(id));
+    ports.vehicles.save = vi.fn(async (value) => { vehicles.set(value.id, value); });
+
+    await createSynchronizeConnectionApplication(ports).synchronize({ connectionId: connection.id, trigger: "manual", source: { loadSnapshot: vi.fn(async () => ({ kind: "complete" as const, candidates: [candidate], evidence })) } });
+
+    expect(devices.find((device) => device.id === "omitted-device")).toMatchObject({ presence: "absent", status: "active" });
+    expect(devices.find((device) => device.id === "other-device")).toMatchObject({ presence: "present", status: "active" });
+    expect(observations[0]).toMatchObject({ presence: "absent", active: false });
+    expect(vehicles.get("shared")).toMatchObject({ id: "shared", active: true });
   });
 
   it("stops processing when the lease renewal is lost but keeps the committed checkpoint", async () => {

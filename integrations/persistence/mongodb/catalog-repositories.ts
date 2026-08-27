@@ -8,9 +8,11 @@ import {
   toProviderDocument, toProviderDomain, toProviderFleetMembershipDocument, toProviderFleetMembershipDomain,
   toOrganizationVehicleAccessDocument, toOrganizationVehicleAccessDomain,
   toCatalogGroupDocument, toCatalogGroupDomain, toGroupEvidenceBindingDocument, toGroupEvidenceBindingDomain,
+  toCatalogDeviceDocument, toCatalogDeviceDomain, toProviderVehicleObservationDocument, toProviderVehicleObservationDomain, toCatalogConflictDocument, toCatalogConflictDomain,
   type CatalogReviewDocument, type CatalogVehicleDocument, type ProviderConnectionDocument, type ProviderContributionDocument,
   type ProviderDocument, type ProviderFleetMembershipDocument, type OrganizationVehicleAccessDocument,
   type CatalogGroupDocument, type GroupEvidenceBindingDocument,
+  type CatalogDeviceDocument, type ProviderVehicleObservationDocument, type CatalogConflictDocument,
 } from "./catalog-documents";
 import { createCatalogSyncRepositories } from "./catalog-sync-repositories";
 
@@ -18,7 +20,9 @@ const options = (session?: ClientSession) => session ? { session } : {};
 const now = () => new Date();
 const atomicSave = async <T extends { schemaVersion: number; createdAt: Date; updatedAt: Date }>(collection: Collection<T>, filter: Filter<T>, document: T, session?: ClientSession) => {
   const { schemaVersion, createdAt, ...mutable } = document;
-  await collection.updateOne(filter, { $set: mutable, $setOnInsert: { schemaVersion, createdAt } } as UpdateFilter<T>, { upsert: true, ...options(session) });
+  const unset = Object.fromEntries(Object.entries(mutable).filter(([, value]) => value === undefined).map(([key]) => [key, ""]));
+  const set = Object.fromEntries(Object.entries(mutable).filter(([, value]) => value !== undefined));
+  await collection.updateOne(filter, { $set: set, ...(Object.keys(unset).length ? { $unset: unset } : {}), $setOnInsert: { schemaVersion, createdAt } } as UpdateFilter<T>, { upsert: true, ...options(session) });
 };
 
 type CatalogLiveReadRepositories = {
@@ -46,6 +50,9 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
   const providers = db.collection<ProviderDocument>("providers");
   const connections = db.collection<ProviderConnectionDocument>("provider_connections");
   const contributions = db.collection<ProviderContributionDocument>("provider_contributions");
+  const devices = db.collection<CatalogDeviceDocument>("catalog_devices");
+  const observations = db.collection<ProviderVehicleObservationDocument>("provider_vehicle_observations");
+  const conflicts = db.collection<CatalogConflictDocument>("catalog_conflicts");
   const memberships = db.collection<ProviderFleetMembershipDocument>("provider_fleet_memberships");
   const grants = db.collection<OrganizationVehicleAccessDocument>("organization_vehicle_access");
   const reviews = db.collection<CatalogReviewDocument>("catalog_reviews");
@@ -157,10 +164,27 @@ export function createCatalogRepositories(db: Db, session?: ClientSession): Cata
       async listByVehicleId(vehicleId) { return (await contributions.find({ vehicleId }, options(session)).sort({ id: 1 }).toArray()).map(toProviderContributionDomain); },
       async save(contribution) { await atomicSave(contributions, { id: contribution.id }, toProviderContributionDocument(contribution, now()), session); },
     },
+    devices: {
+      async findByConnectionAndDeviceId(connectionId, deviceId) { const document = await devices.findOne({ connectionId, deviceId }, options(session)); return document ? toCatalogDeviceDomain(document) : undefined; },
+      async listByConnectionId(connectionId) { return (await devices.find({ connectionId }, options(session)).sort({ deviceId: 1 }).toArray()).map(toCatalogDeviceDomain); },
+      async listByVehicleId(vehicleId) { return (await devices.find({ vehicleId }, options(session)).sort({ connectionId: 1, deviceId: 1 }).toArray()).map(toCatalogDeviceDomain); },
+      async save(device) { const existing = await devices.findOne({ id: device.id }, options(session)); await atomicSave(devices, { id: device.id }, toCatalogDeviceDocument(device, now(), existing ?? undefined), session); },
+    },
+    observations: {
+      async save(observation) { const existing = await observations.findOne({ id: observation.id }, options(session)); await atomicSave(observations, { contributionId: observation.contributionId }, toProviderVehicleObservationDocument(observation, now(), existing ?? undefined), session); },
+      async listByVehicleId(vehicleId) { const contributionIds = await contributions.find({ vehicleId }, options(session)).project({ id: 1 }).toArray(); return (await observations.find({ contributionId: { $in: contributionIds.map((item) => item.id) } }, options(session)).sort({ id: 1 }).toArray()).map(toProviderVehicleObservationDomain); },
+      async markAbsent(connectionId, deviceId) { await observations.updateMany({ connectionId, deviceId }, { $set: { presence: "absent", active: false, updatedAt: now() } }, options(session)); },
+    },
+    conflicts: {
+      async save(conflict) { const existing = await conflicts.findOne({ id: conflict.id }, options(session)); await atomicSave(conflicts, { id: conflict.id }, toCatalogConflictDocument(conflict, now(), existing ?? undefined), session); },
+      async findByVehicleId(vehicleId) { return (await conflicts.find({ vehicleId }, options(session)).sort({ id: 1 }).toArray()).map(toCatalogConflictDomain); },
+    },
     memberships: {
       async listByVehicleId(vehicleId) { return (await memberships.find({ vehicleId }, options(session)).sort({ connectionId: 1, externalFleetId: 1 }).toArray()).map(toProviderFleetMembershipDomain); },
       async listByConnectionAndExternalFleet(connectionId, externalFleetId) { return (await memberships.find({ connectionId, externalFleetId }, options(session)).sort({ vehicleId: 1 }).toArray()).map(toProviderFleetMembershipDomain); },
       async save(membership) { await atomicSave(memberships, { connectionId: membership.connectionId, externalFleetId: membership.externalFleetId, vehicleId: membership.vehicleId }, toProviderFleetMembershipDocument(membership, now()), session); },
+      async replaceCurrent(membership) { await memberships.deleteMany({ connectionId: membership.connectionId, vehicleId: membership.vehicleId }, options(session)); await atomicSave(memberships, { connectionId: membership.connectionId, externalFleetId: membership.externalFleetId, vehicleId: membership.vehicleId }, toProviderFleetMembershipDocument(membership, now()), session); },
+      async clearCurrent(connectionId, vehicleId) { await memberships.deleteMany({ connectionId, vehicleId }, options(session)); },
     },
     grants: {
       async listByOrganizationId(organizationId) { return (await grants.find({ organizationId }, options(session)).sort({ vehicleId: 1 }).toArray()).map(toOrganizationVehicleAccessDomain); },

@@ -1,6 +1,8 @@
 import { matchAndApplyProviderCandidate, type ProviderCandidate } from "./match-and-apply-provider-candidate";
 import type { CatalogRepositories } from "./ports";
 import type { ProviderConnection, Provider } from "@/domain/catalog";
+import type { CatalogDevice } from "@/domain/catalog";
+import { reconcileCanonicalVehicle } from "./reconcile-canonical-vehicle";
 
 export type CatalogSyncTrigger = "initial" | "manual" | "internal" | "scheduler";
 export type CatalogSyncFailureCategory = "authentication" | "connectivity" | "invalid-response" | "timeout" | "rate-limited" | "internal";
@@ -23,6 +25,7 @@ export type CatalogSyncOutcome =
 export type CatalogSyncStatus = { connectionId: string; latestRun?: CatalogSyncRun; lastSuccessAt?: Date; isDue: boolean };
 
 export type CatalogSyncPorts = CatalogRepositories & {
+  devices?: { listByConnectionId?(connectionId: string): Promise<CatalogDevice[]>; save(device: CatalogDevice): Promise<void> };
   clock: { now(): Date };
   ids: { create(): string };
   connections: CatalogRepositories["connections"];
@@ -43,6 +46,7 @@ export type CatalogSyncPorts = CatalogRepositories & {
     run<T>(work: (repositories: CatalogRepositories) => Promise<T>): Promise<T>;
     isConflict(error: unknown): boolean;
   };
+  canonicalSourcePrecedence?: readonly string[];
 };
 
 export const GLOBAL_SYNC_LEASE_DURATION_MS = 5 * 60 * 1000;
@@ -108,7 +112,27 @@ export function createSynchronizeConnectionApplication(ports: CatalogSyncPorts) 
       await ports.contributions.save({ ...contribution, presence: "absent" });
       absent += 1;
     }
+    if (ports.devices?.listByConnectionId) {
+      for (const device of await ports.devices.listByConnectionId(connectionId)) {
+        if (seen.has(device.deviceId) || device.presence === "absent") continue;
+        await ports.devices.save({ ...device, presence: "absent" });
+        await ports.observations?.markAbsent?.(connectionId, device.deviceId);
+        const vehicle = await ports.vehicles.findById(device.vehicleId);
+        const observations = await ports.observations?.listByVehicleId?.(device.vehicleId);
+        if (vehicle && observations) {
+          const projection = reconcileCanonicalVehicle(vehicle, observations, undefined, await ports.devices?.listByVehicleId?.(device.vehicleId));
+          await ports.vehicles.save(projection.vehicle);
+          if (projection.conflict) await ports.conflicts?.save(projection.conflict);
+          else if (ports.conflicts?.findByVehicleId) for (const conflict of await ports.conflicts.findByVehicleId(device.vehicleId)) if (conflict.status === "open") await ports.conflicts.save({ ...conflict, status: "resolved" });
+        }
+      }
+    }
     return { ...counts, absent };
+  }
+
+  async function finalizeSnapshot(connectionId: string, seen: Set<string>, snapshotStatus: "complete" | "partial", run: CatalogSyncRun): Promise<CatalogSyncRun> {
+    if (snapshotStatus === "partial") return run;
+    return { ...run, counts: await reconcileAbsence(connectionId, seen, run.counts) };
   }
 
   async function synchronize({ connectionId, trigger, source, onProgress }: { connectionId: string; trigger: CatalogSyncTrigger; source: CatalogSyncSource; onProgress?: CatalogSyncProgressListener }): Promise<CatalogSyncOutcome> {
@@ -156,28 +180,33 @@ export function createSynchronizeConnectionApplication(ports: CatalogSyncPorts) 
     const uniqueCandidates = sortedCandidates.filter((candidate, index) => index === 0 || candidate.externalId !== sortedCandidates[index - 1].externalId);
     const found = foundFromCandidates(uniqueCandidates);
     const assessment = assessSnapshot(snapshot.evidence, uniqueCandidates.length, priorConfirmed, sortedCandidates.length - uniqueCandidates.length);
-    let run = { ...initial, total: Math.max(initial.total, uniqueCandidates.length), snapshot: assessment };
+    let run: CatalogSyncRun = { ...initial, total: Math.max(initial.total, uniqueCandidates.length), snapshot: assessment };
     await ports.runs.save(run);
     publish(run, undefined, found);
     const candidates = uniqueCandidates.filter((candidate) => run.checkpoint === undefined || candidate.externalId > run.checkpoint);
-    const seen = new Set(snapshot.candidates.map((candidate) => candidate.externalId));
+    const seen = new Set(snapshot.candidates.flatMap((candidate) => [candidate.externalId, candidate.deviceId ?? candidate.externalId]));
     try {
       for (const candidate of candidates) {
         const lease = await ports.leases.renew(connectionId, runId, ports.clock.now(), GLOBAL_SYNC_LEASE_DURATION_MS);
         if (lease.outcome === "held") throw new Error("catalog synchronization lease was lost");
-        const result = await ports.transactions.run((repositories) => matchAndApplyProviderCandidate({ ...repositories, ids: ports.ids, candidate, transactions: ports.transactions }));
+        const result = await ports.transactions.run((repositories) => matchAndApplyProviderCandidate({ ...repositories, ids: ports.ids, candidate, transactions: ports.transactions, canonicalSourcePrecedence: ports.canonicalSourcePrecedence }));
         const counts = withOutcomeCount(run.counts, result.kind === "review" ? "review" : result.kind);
         run = { ...run, checkpoint: candidate.externalId, counts };
         await ports.runs.save(run);
         publish(run, candidate.groupEvidence?.label, found);
       }
-      if (assessment.status === "complete" && priorConfirmed) run = { ...run, counts: await reconcileAbsence(connectionId, seen, run.counts) };
+      run = await finalizeSnapshot(connectionId, seen, assessment.status, run);
       const completed = { ...run, status: "succeeded" as const, completedAt: ports.clock.now() };
       await ports.runs.save(completed);
       publish(completed, undefined, found);
       await ports.leases.release(connectionId, runId);
       return { kind: "succeeded", run: completed };
-    } catch {
+    } catch (error) {
+      console.error("[catalog-sync] candidate processing failed", {
+        connectionId,
+        checkpoint: run.checkpoint,
+        error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+      });
       const failure: CatalogSyncFailure = { category: "internal" };
       const failed = { ...run, status: "failed" as const, completedAt: ports.clock.now(), failure };
       await ports.runs.save(failed);

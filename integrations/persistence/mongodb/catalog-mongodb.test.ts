@@ -51,6 +51,16 @@ describe("catalog Mongo persistence", () => {
     await expect(repos.grants.listByOrganizationId("organization-1")).resolves.toEqual([{ organizationId: "organization-1", vehicleId: "vehicle-1" }]);
     await expect(repos.policies.list()).resolves.toEqual([{ id: "gps", capability: "gps", sourceOrder: ["provider-1"] }]);
   });
+
+  it("keeps tenant access independent from canonical business company", async () => {
+    const db = client.db(`catalog_company_access_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.vehicles.save({ ...vehicle("vehicle"), company: "Business Company" });
+    await repos.grants.save({ organizationId: "tenant-organization", vehicleId: "vehicle" });
+
+    await expect(repos.vehicles.findById("vehicle")).resolves.toMatchObject({ company: "Business Company" });
+    await expect(repos.grants.find("tenant-organization", "vehicle")).resolves.toEqual({ organizationId: "tenant-organization", vehicleId: "vehicle" });
+  });
   it("initializes only the definitive strict collections and indexes idempotently", async () => {
     const db = client.db(`catalog_${Date.now()}`);
     await initializeCatalogDatabase(db);
@@ -63,6 +73,30 @@ describe("catalog Mongo persistence", () => {
     const now = new Date();
     await expect(db.collection("catalog_vehicles").insertOne({ schemaVersion: 1, id: "bad", normalizedPlate: "ABC", plate: "ABC", placementFleetId: "fleet", createdAt: now, updatedAt: now, organizationId: "org" } as never)).rejects.toThrow();
     await expect(db.collection("provider_contributions").insertOne({ schemaVersion: 1, id: "bad", connectionId: "c", externalId: "e", vehicleId: "v", capabilities: { gps: "invalid" }, presence: "present", createdAt: now, updatedAt: now } as never)).rejects.toThrow();
+  });
+
+  it("repairs an existing catalog index when its options are outdated", async () => {
+    const db = client.db(`catalog_index_upgrade_${Date.now()}`);
+    await db.createCollection("catalog_vehicles");
+    await db.collection("catalog_vehicles").createIndex({ normalizedPlate: 1 }, { unique: true, name: "catalog_vehicles_plate_unique" });
+
+    await initializeCatalogDatabase(db);
+
+    await expect(db.collection("catalog_vehicles").indexes()).resolves.toContainEqual(expect.objectContaining({ name: "catalog_vehicles_plate_unique", unique: true, sparse: true }));
+  });
+
+  it("upgrades an existing strict observation collection before enriched writes", async () => {
+    const db = client.db(`catalog_upgrade_${Date.now()}`);
+    const text = { bsonType: "string", minLength: 1 };
+    const date = { bsonType: "date" };
+    await db.createCollection("provider_vehicle_observations", { validationLevel: "strict", validationAction: "error", validator: { $jsonSchema: { bsonType: "object", additionalProperties: false, required: ["_id", "schemaVersion", "id", "contributionId", "connectionId", "deviceId", "companyResolution", "observedAt", "createdAt", "updatedAt"], properties: { _id: { bsonType: "objectId" }, schemaVersion: { bsonType: "int" }, id: text, contributionId: text, connectionId: text, deviceId: text, companyResolution: { enum: ["direct", "ancestor", "unresolved", "not-applicable"] }, observedAt: date, createdAt: date, updatedAt: date } } } });
+
+    await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.contributions.save({ id: "contribution", connectionId: "connection", externalId: "device", vehicleId: "vehicle", capabilities: {}, presence: "present" });
+
+    await expect(repos.observations!.save({ id: "observation", contributionId: "contribution", connectionId: "connection", deviceId: "device", providerKey: "howen", companyResolution: "direct", presence: "present", active: true, observedAt: new Date() })).resolves.toBeUndefined();
+    await expect(db.collection("provider_vehicle_observations").findOne({ id: "observation" })).resolves.toMatchObject({ providerKey: "howen", presence: "present", active: true });
   });
 
   it("enforces catalog identity and contribution uniqueness without tenant identity", async () => {
@@ -209,5 +243,103 @@ describe("catalog Mongo persistence", () => {
 
     await expect(repos.reviews.findById("review-1")).resolves.toEqual({ id: "review-1", subject: "vehicle-identity", connectionId: "connection", externalId: "vehicle", reason: "ambiguous-group-evidence", evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"], candidateVehicleIds: [], status: "pending" });
     await expect(db.collection("catalog_reviews").findOne({ id: "review-1" })).resolves.toEqual(expect.objectContaining({ evidenceKey: "fleet-label:north", candidateGroupIds: ["group-a", "group-b"] }));
+  });
+
+  it("round-trips current provider observations through the strict validator", async () => {
+    const db = client.db(`catalog_observation_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.contributions.save({ id: "contribution", connectionId: "connection", externalId: "device", deviceId: "device", vehicleId: "vehicle", capabilities: {}, presence: "present" });
+    const observation = { id: "observation", contributionId: "contribution", connectionId: "connection", deviceId: "device", providerKey: "howen", company: "Acme", companyResolution: "direct" as const, presence: "present" as const, active: true, observedAt: new Date("2026-08-25T12:00:00.000Z") };
+
+    await repos.observations!.save(observation);
+
+    await expect(repos.observations!.listByVehicleId!("vehicle")).resolves.toEqual([observation]);
+    const replacement = { ...observation, company: undefined, active: false, observedAt: new Date("2026-08-25T13:00:00.000Z") };
+    await repos.observations!.save(replacement);
+    await expect(repos.observations!.listByVehicleId!("vehicle")).resolves.toEqual([replacement]);
+    await expect(db.collection("provider_vehicle_observations").findOne({ contributionId: "contribution" })).resolves.not.toHaveProperty("company");
+    await expect(db.collection("provider_vehicle_observations").insertOne({ ...observation, id: "invalid", providerKey: 7, schemaVersion: 1, createdAt: new Date(), updatedAt: new Date() } as never)).rejects.toThrow();
+    await expect(db.collection("provider_vehicle_observations").insertOne({ ...observation, id: "invalid-extra", unexpected: true, schemaVersion: 1, createdAt: new Date(), updatedAt: new Date() } as never)).rejects.toThrow();
+  });
+
+  it("unsets canonical optional fields when reconciliation clears them", async () => {
+    const db = client.db(`catalog_vehicle_unset_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.vehicles.save({ ...vehicle("vehicle", "OLD123"), name: "Old", make: "Old", model: "Old", company: "Old" });
+
+    await repos.vehicles.save({ id: "vehicle", normalizedPlate: "", plate: "", placementFleetId: "fleet-vehicle", name: undefined, make: undefined, model: undefined, company: undefined, active: false });
+
+    await expect(db.collection("catalog_vehicles").findOne({ id: "vehicle" })).resolves.not.toHaveProperty("plate");
+    await expect(db.collection("catalog_vehicles").findOne({ id: "vehicle" })).resolves.not.toHaveProperty("normalizedPlate");
+    await expect(repos.vehicles.findById("vehicle")).resolves.toEqual({ id: "vehicle", normalizedPlate: "", plate: "", placementFleetId: "fleet-vehicle", active: false });
+  });
+
+  it("replaces one connection's current fleet membership without touching another provider", async () => {
+    const db = client.db(`catalog_membership_replace_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.memberships.save({ connectionId: "howen", externalFleetId: "old", vehicleId: "vehicle", label: "Old" });
+    await repos.memberships.save({ connectionId: "cybermapa", externalFleetId: "company", vehicleId: "vehicle", label: "Company" });
+
+    await repos.memberships.replaceCurrent!({ connectionId: "howen", externalFleetId: "new", vehicleId: "vehicle", label: "New" });
+
+    await expect(repos.memberships.listByVehicleId("vehicle")).resolves.toEqual([
+      { connectionId: "cybermapa", externalFleetId: "company", vehicleId: "vehicle", label: "Company" },
+      { connectionId: "howen", externalFleetId: "new", vehicleId: "vehicle", label: "New" },
+    ]);
+  });
+
+  it("atomically self-heals an eligible legacy review and remains idempotent", async () => {
+    const db = client.db(`catalog_legacy_heal_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.reviews.save({ id: "legacy", subject: "vehicle-identity", connectionId: "connection", externalId: "device", reason: "missing-plate", candidateVehicleIds: [], status: "pending" });
+    let sequence = 0;
+    const dependencies = (): MatchAndApplyDependencies => ({
+      candidate: { connectionId: "connection", externalId: "device", deviceId: "device", placementFleetId: "fleet", providerFleetMembership: { externalFleetId: "provider-fleet", label: "Provider Fleet" }, capabilities: { gps: "eligible" }, presence: "present", device: { kind: "gps", status: "active" }, observation: { providerKey: "cybermapa", company: "Acme", companyResolution: "direct", observedAt: new Date("2026-08-25T12:00:00.000Z") } },
+      ids: { create: () => `generated-${++sequence}` }, vehicles: undefined as never, contributions: undefined as never, reviews: undefined as never,
+      transactions: { isConflict: () => false, run: async (work) => { const session = client.startSession(); try { let result; await session.withTransaction(async () => { result = await work(createCatalogRepositories(db, session)); }); return result as Awaited<ReturnType<typeof work>>; } finally { await session.endSession(); } } },
+    });
+
+    const first = await matchAndApplyProviderCandidate(dependencies());
+    const second = await matchAndApplyProviderCandidate(dependencies());
+
+    expect(first.kind).toBe("created");
+    expect(second.kind).toBe("reused");
+    expect(await db.collection("catalog_vehicles").countDocuments()).toBe(1);
+    expect(await db.collection("catalog_devices").countDocuments()).toBe(1);
+    expect(await db.collection("provider_contributions").countDocuments()).toBe(1);
+    expect(await db.collection("provider_vehicle_observations").countDocuments()).toBe(1);
+    expect(await db.collection("provider_fleet_memberships").countDocuments()).toBe(1);
+    await expect(repos.reviews.findById("legacy")).resolves.toMatchObject({ status: "resolved", resolvedVehicleId: first.kind === "review" ? undefined : first.vehicleId });
+  }, 60_000);
+
+  it("rolls back eligible review reconciliation when review closure fails", async () => {
+    const db = client.db(`catalog_legacy_rollback_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.reviews.save({ id: "legacy", subject: "vehicle-identity", connectionId: "connection", externalId: "device", reason: "malformed-plate", candidateVehicleIds: [], status: "pending" });
+    const dependencies: MatchAndApplyDependencies = {
+      candidate: { connectionId: "connection", externalId: "device", deviceId: "device", placementFleetId: "fleet", providerFleetMembership: { externalFleetId: "provider-fleet", label: "Provider Fleet" }, capabilities: {}, presence: "present", observation: { providerKey: "howen", companyResolution: "unresolved", observedAt: new Date() } },
+      ids: { create: () => crypto.randomUUID() }, vehicles: undefined as never, contributions: undefined as never, reviews: undefined as never,
+      transactions: { isConflict: () => false, run: async (work) => { const session = client.startSession(); try { let result; await session.withTransaction(async () => { const transactional = createCatalogRepositories(db, session); result = await work({ ...transactional, reviews: { ...transactional.reviews, save: async (review) => { if (review.status === "resolved") throw new Error("closure failed"); await transactional.reviews.save(review); } } }); }); return result as Awaited<ReturnType<typeof work>>; } finally { await session.endSession(); } } },
+    };
+
+    await expect(matchAndApplyProviderCandidate(dependencies)).rejects.toThrow("closure failed");
+
+    expect(await db.collection("catalog_vehicles").countDocuments()).toBe(0);
+    expect(await db.collection("catalog_devices").countDocuments()).toBe(0);
+    expect(await db.collection("provider_contributions").countDocuments()).toBe(0);
+    expect(await db.collection("provider_vehicle_observations").countDocuments()).toBe(0);
+    expect(await db.collection("provider_fleet_memberships").countDocuments()).toBe(0);
+    await expect(repos.reviews.findById("legacy")).resolves.toMatchObject({ status: "pending" });
+  }, 60_000);
+
+  it("leaves an ineligible legacy review pending without creating identity records", async () => {
+    const db = client.db(`catalog_legacy_manual_${Date.now()}`); await initializeCatalogDatabase(db);
+    const repos = createCatalogRepositories(db);
+    await repos.reviews.save({ id: "legacy", subject: "vehicle-identity", connectionId: "connection", externalId: "device", reason: "missing-placement", candidateVehicleIds: [], status: "pending" });
+    const result = await matchAndApplyProviderCandidate({ candidate: { connectionId: "connection", externalId: "device", deviceId: "device", placementFleetId: "fleet", capabilities: {}, presence: "present" }, ids: { create: () => "generated" }, vehicles: repos.vehicles, contributions: repos.contributions, reviews: repos.reviews, devices: repos.devices, observations: repos.observations, conflicts: repos.conflicts, memberships: repos.memberships, transactions: { isConflict: () => false, run: async (work) => work(repos) } });
+
+    expect(result).toMatchObject({ kind: "review", review: { id: "legacy", status: "pending" } });
+    expect(await db.collection("catalog_vehicles").countDocuments()).toBe(0);
+    expect(await db.collection("provider_contributions").countDocuments()).toBe(0);
   });
 });

@@ -1,6 +1,6 @@
 import type { HowenConfig } from "./config";
 import { HowenSessionError } from "./session";
-import { parseHowenRosterResponse, type HowenRosterRecord } from "./responses";
+import { parseHowenFleetResponse, parseHowenRosterResponse, type HowenFleetRecord, type HowenRosterRecord } from "./responses";
 import type {
   HowenFetch,
   HowenSession,
@@ -28,6 +28,7 @@ export class HowenRequestError extends Error {
 
 export type HowenClient = {
   fetchRoster(): Promise<HowenRosterRecord[]>;
+  fetchFleets(): Promise<HowenFleetRecord[]>;
 };
 
 function unavailable(category: CatalogSyncFailureCategory = "connectivity", httpStatus?: number): HowenRequestError {
@@ -52,16 +53,17 @@ export function createHowenClient({
   session,
   fetch = globalThis.fetch,
 }: CreateHowenClientInput): HowenClient {
-  const requestRoster = async (
+  const requestPayload = async (
+    path: string,
     hasRetried: boolean,
-  ): Promise<HowenRosterRecord[]> => {
+  ): Promise<unknown> => {
     const activeSession = await session.getSession();
     let response: Response;
     let payload: unknown;
 
     try {
       response = await fetch(
-        `${config.baseUrl}/vss/vehicle/findAll.action`,
+        `${config.baseUrl}${path}`,
         rosterRequest(activeSession, config.timeoutMs),
       );
     } catch (error) {
@@ -81,7 +83,7 @@ export function createHowenClient({
       session.invalidate(activeSession);
 
       if (!hasRetried) {
-        return requestRoster(true);
+        return requestPayload(path, true);
       }
 
       throw unavailable("authentication", typeof status === "number" ? status : response.status);
@@ -94,7 +96,7 @@ export function createHowenClient({
     session.recordAuthenticatedActivity(activeSession);
 
     try {
-      return parseHowenRosterResponse(payload);
+      return payload;
     } catch (error) {
       if (error instanceof HowenRequestError) throw error;
       throw unavailable("invalid-response", response.status);
@@ -104,7 +106,16 @@ export function createHowenClient({
   return {
     async fetchRoster() {
       try {
-        return await requestRoster(false);
+        return parseHowenRosterResponse(await requestPayload("/vss/vehicle/findAll.action", false));
+      } catch (error) {
+        if (error instanceof HowenSessionError) throw unavailable(error.category, error.httpStatus);
+        if (error instanceof HowenRequestError) throw error;
+        throw unavailable("internal");
+      }
+    },
+    async fetchFleets() {
+      try {
+        return parseHowenFleetResponse(await requestPayload("/vss/fleet/findAll.action", false));
       } catch (error) {
         if (error instanceof HowenSessionError) throw unavailable(error.category, error.httpStatus);
         if (error instanceof HowenRequestError) throw error;

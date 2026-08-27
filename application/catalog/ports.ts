@@ -6,7 +6,7 @@ import type {
   Provider,
   ProviderFleetMembership,
   OrganizationVehicleAccess,
-  CatalogGroup, GroupEvidenceBinding,
+  CatalogGroup, GroupEvidenceBinding, CatalogDevice, ProviderVehicleObservation,
 } from "@/domain/catalog";
 
 export type CatalogIdGenerator = { create(): string };
@@ -45,6 +45,8 @@ export type ProviderFleetMembershipRepository = {
   listByVehicleId(vehicleId: string): Promise<ProviderFleetMembership[]>;
   listByConnectionAndExternalFleet(connectionId: string, externalFleetId: string): Promise<ProviderFleetMembership[]>;
   save(membership: ProviderFleetMembership): Promise<void>;
+  replaceCurrent?(membership: ProviderFleetMembership): Promise<void>;
+  clearCurrent?(connectionId: string, vehicleId: string): Promise<void>;
 };
 
 export type OrganizationVehicleAccessRepository = {
@@ -70,6 +72,9 @@ export type CatalogRepositories = {
   reviews: CatalogReviewRepository;
   groups: CatalogGroupRepository;
   evidenceBindings: GroupEvidenceBindingRepository;
+  devices?: { findByConnectionAndDeviceId(connectionId: string, deviceId: string): Promise<CatalogDevice | undefined>; listByConnectionId?(connectionId: string): Promise<CatalogDevice[]>; listByVehicleId?(vehicleId: string): Promise<CatalogDevice[]>; save(device: CatalogDevice): Promise<void> };
+  observations?: { save(observation: ProviderVehicleObservation): Promise<void>; listByVehicleId?(vehicleId: string): Promise<ProviderVehicleObservation[]>; markAbsent?(connectionId: string, deviceId: string): Promise<void> };
+  conflicts?: { save(conflict: import("@/domain/catalog").CatalogConflict): Promise<void>; findByVehicleId?(vehicleId: string): Promise<import("@/domain/catalog").CatalogConflict[]> };
 };
 
 export type CatalogTransactionRunner = {

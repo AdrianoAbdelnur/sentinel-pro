@@ -8,3 +8,6 @@ export * from "./organization-vehicle-access";
 export * from "./review";
 export * from "./catalog-group";
 export * from "./capability-policy";
+export * from "./device";
+export * from "./provider-vehicle-observation";
+export * from "./catalog-conflict";

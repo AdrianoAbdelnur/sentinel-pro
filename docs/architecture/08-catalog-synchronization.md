@@ -31,9 +31,9 @@ candidate. A failed run resumes after its last checkpoint through a stable
 lineage and cumulative counts, while contribution and group-evidence identity
 make repeated application idempotent.
 
-Cybermapa may replace a Howen-derived placement for the same plate. Howen may
-enrich a Cybermapa placement but cannot replace it. Provider fleet IDs and
-labels remain metadata; canonical group IDs are Sentinel-owned.
+The contribution that creates a vehicle establishes its placement. Later
+providers may enrich the same vehicle but cannot move it. Provider fleet IDs
+and labels remain metadata; canonical group IDs are Sentinel-owned.
 
 Failures are classified without persisting provider secrets. Connectivity,
 timeout, rate-limit, and internal failures are retryable. Authentication and
@@ -62,13 +62,42 @@ number, plus last successful completion, due state, checkpoint, counts, snapshot
 assessment, and sanitized failure classification. Credentials and raw provider
 errors are never returned.
 
-## Schema initialization
+## Runtime composition
 
-`npm run init:catalog` creates the twelve canonical collections with strict
-validators and their indexes. It is idempotent and MUST run before the first
-synchronization against an empty database; otherwise MongoDB auto-creates
-unvalidated, unindexed collections and the uniqueness guarantees that the
-matcher relies on do not exist.
+`app/api/admin/import/composition.ts` initializes the catalog schema, registers
+the configured adapters, and constructs the synchronizer. The internal
+scheduler composition uses the same complete repository set from
+`createCatalogRepositories`: vehicles, devices, contributions, observations,
+memberships, conflicts, reviews, runs, and leases. `bootstrap-catalog.ts`
+registers providers and connections; it is not the synchronizer composition
+root and requires no synchronization-specific repositories.
+
+## Rollout
+
+1. Run `npm run migrate:catalog`. Initialization creates missing collections,
+   upgrades existing strict validators with `collMod`, creates indexes, and
+   backfills devices from existing contributions without changing vehicle IDs,
+   placement, access grants, reviews, or known facts.
+2. Deploy the application and run a complete Cybermapa synchronization.
+3. Run a complete Howen synchronization. Its request-scoped Fleet index is not
+   persisted; only current membership and company-resolution provenance remain.
+4. Compare run counts and review reasons before enabling scheduled execution.
+
+Run counts distinguish processed, created, linked, reviewed, rejected, and
+absent records. Pending reviews remain manual for missing placement, ambiguous
+plate matches, conflicting identities, and ambiguous group evidence. Eligible
+legacy missing-plate and malformed-plate reviews resolve only through exact
+connection-scoped device identity in the same transaction as catalog writes.
+
+Verify rollout with lint, typecheck, focused catalog tests, MongoDB transaction
+tests, and a complete snapshot audit. Confirm that repeated synchronization is
+idempotent, omitted devices alone become absent, first placement remains stable,
+and canonical conflicts retain every current source value.
+
+Rollback disables synchronization entry points and reverts the application
+matcher. Additive collections and upgraded validators may remain because they
+do not redefine authorization or vehicle ownership. Do not delete devices,
+observations, conflicts, memberships, reviews, or grants during rollback.
 
 ## Operational notes
 

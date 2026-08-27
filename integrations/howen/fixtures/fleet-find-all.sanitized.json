@@ -1,0 +1,51 @@
+{
+  "status": 10000,
+  "data": {
+    "dataList": [
+      {
+        "guid": "fleet-root-001",
+        "fleetname": "Example Root Fleet",
+        "parentid": "",
+        "contacts": "Example Logistics",
+        "email": "",
+        "tel": "+000000001",
+        "createtime": "redacted-createtime-1",
+        "modifytime": "redacted-modifytime-1",
+        "parentfleetname": null,
+        "totalcount": 1,
+        "offlinecount": 1,
+        "onlinecount": 1,
+        "vehiclecount": null,
+        "isdefault": 1,
+        "treeList": null,
+        "driverList": null,
+        "roleNumber": null,
+        "createUsername": null,
+        "bindResCleanId": null,
+        "bindResCleanName": null
+      },
+      {
+        "guid": "fleet-child-001",
+        "fleetname": "Example SubFleet",
+        "parentid": "fleet-root-001",
+        "contacts": "",
+        "email": "",
+        "tel": "",
+        "createtime": "redacted-createtime-2",
+        "modifytime": "redacted-modifytime-2",
+        "parentfleetname": "Example Root Fleet",
+        "totalcount": 2,
+        "offlinecount": 2,
+        "onlinecount": 2,
+        "vehiclecount": null,
+        "isdefault": 2,
+        "treeList": null,
+        "driverList": null,
+        "roleNumber": null,
+        "createUsername": null,
+        "bindResCleanId": null,
+        "bindResCleanName": null
+      }
+    ]
+  }
+}

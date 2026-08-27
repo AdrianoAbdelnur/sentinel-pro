@@ -1,6 +1,9 @@
 export type HowenRosterRecord = {
   deviceno?: string;
   devicename?: string;
+  plateno?: string;
+  deviceModel?: string;
+  devicetype?: string;
   fleetid?: string;
   fleetname?: string;
   accessmode?: number | string;
@@ -11,10 +14,14 @@ export type HowenRosterRecord = {
   direct?: number | string;
   dtu?: string;
 };
+export type HowenFleetRecord = { guid?: string; parentid?: string; contacts?: string; fleetname?: string };
 
 const stringFields = [
   "deviceno",
   "devicename",
+  "plateno",
+  "deviceModel",
+  "devicetype",
   "fleetid",
   "fleetname",
   "dtu",
@@ -55,6 +62,13 @@ function parseRecord(value: unknown): HowenRosterRecord | undefined {
   return record;
 }
 
+function parseFleet(value: unknown): HowenFleetRecord | undefined {
+  if (!isObject(value)) return undefined;
+  const fleet: HowenFleetRecord = {};
+  for (const field of ["guid", "parentid", "contacts", "fleetname"] as const) if (typeof value[field] === "string") fleet[field] = value[field];
+  return fleet;
+}
+
 export function parseHowenRosterResponse(value: unknown): HowenRosterRecord[] {
   if (
     !isObject(value) ||
@@ -69,6 +83,13 @@ export function parseHowenRosterResponse(value: unknown): HowenRosterRecord[] {
     const record = parseRecord(item);
     return record ? [record] : [];
   });
+  Object.defineProperty(records, "receivedRecordCount", { value: value.data.dataList.length });
+  return records;
+}
+
+export function parseHowenFleetResponse(value: unknown): HowenFleetRecord[] {
+  if (!isObject(value) || value.status !== 10000 || !isObject(value.data) || !Array.isArray(value.data.dataList)) throw new Error("Invalid Howen Fleet response");
+  const records = value.data.dataList.flatMap((item) => { const record = parseFleet(item); return record ? [record] : []; });
   Object.defineProperty(records, "receivedRecordCount", { value: value.data.dataList.length });
   return records;
 }
