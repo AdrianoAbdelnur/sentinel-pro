@@ -42,6 +42,10 @@ function roster(deviceNumber = "device-1"): Response {
   });
 }
 
+function fleets(): Response {
+  return response({ status: 10000, data: { dataList: [{ guid: "fleet-1", parentid: "", contacts: "Travil SAS" }] } });
+}
+
 function createClient(
   fetch: HowenFetch,
   now: () => number = () => 0,
@@ -95,6 +99,14 @@ describe("createHowenClient", () => {
       expect.objectContaining({ deviceno: "device-2" }),
     ]);
     expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("fetches the request-scoped Fleet tree from the required endpoint", async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(login("token-1")).mockResolvedValueOnce(fleets());
+    const client = createClient(fetch);
+
+    await expect(client.fetchFleets()).resolves.toEqual([{ guid: "fleet-1", parentid: "", contacts: "Travil SAS" }]);
+    expect(fetch).toHaveBeenNthCalledWith(2, "https://howen.example/vss/fleet/findAll.action", expect.objectContaining({ method: "POST", body: JSON.stringify({ token: "token-1", pageNum: -1, pageCount: -1 }) }));
   });
 
   it.each([10004, 10023])(

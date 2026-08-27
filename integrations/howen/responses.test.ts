@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { parseHowenRosterResponse } from "./responses";
+import fleetFixture from "./fixtures/fleet-find-all.sanitized.json";
+import { resolveHowenFleetCompany } from "./fleet";
+import { parseHowenFleetResponse, parseHowenRosterResponse } from "./responses";
 
 describe("parseHowenRosterResponse", () => {
   it("keeps only verified roster fields from a successful envelope", () => {
@@ -77,5 +79,16 @@ describe("parseHowenRosterResponse", () => {
         fleetname: "Travil SAS",
       },
     ]);
+  });
+});
+
+describe("parseHowenFleetResponse", () => {
+  it("preserves the verified Fleet label and ancestry fields from the sanitized contract fixture", () => {
+    const fleets = parseHowenFleetResponse(fleetFixture);
+    expect(fleets).toEqual([
+      { guid: "fleet-root-001", parentid: "", contacts: "Example Logistics", fleetname: "Example Root Fleet" },
+      { guid: "fleet-child-001", parentid: "fleet-root-001", contacts: "", fleetname: "Example SubFleet" },
+    ]);
+    expect(resolveHowenFleetCompany(fleets, "fleet-child-001")).toEqual({ directFleetId: "fleet-child-001", companySourceFleetId: "fleet-root-001", company: "Example Logistics", outcome: "ancestor" });
   });
 });

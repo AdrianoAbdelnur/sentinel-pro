@@ -9,6 +9,13 @@ export type ProviderContribution = Readonly<{
   vehicleId: string;
   capabilities: CapabilityStates;
   presence: ProviderContributionPresence;
+  deviceId?: string;
+  observedCompany?: string;
+  observedPlate?: string;
+  observedName?: string;
+  observedMake?: string;
+  observedModel?: string;
+  observedAt?: Date;
 }>;
 
 export type ProviderContributionInput = {
@@ -18,6 +25,13 @@ export type ProviderContributionInput = {
   vehicleId: string;
   capabilities: CapabilityStates;
   presence: ProviderContributionPresence;
+  deviceId?: string;
+  observedCompany?: string;
+  observedPlate?: string;
+  observedName?: string;
+  observedMake?: string;
+  observedModel?: string;
+  observedAt?: Date;
 };
 
 export function createProviderContribution(input: ProviderContributionInput): ProviderContribution {

@@ -7,6 +7,7 @@ import { createHowenClient, HowenRequestError } from "@/integrations/howen/clien
 import { readHowenConfig } from "@/integrations/howen/config";
 import { createHowenSessionManager } from "@/integrations/howen/session";
 import { mapHowenCatalog } from "@/integrations/howen/seed-howen-catalog";
+import { createHowenFleetCompanyResolver } from "@/integrations/howen/fleet";
 
 export type CatalogSyncSourceRegistry = { resolve(connection: CatalogConnection, provider: Provider): CatalogSyncSource | undefined };
 type SourceFactory = (connection: CatalogConnection) => CatalogSyncSource | undefined;
@@ -27,7 +28,7 @@ function createHowenSource(connection: CatalogConnection): CatalogSyncSource | u
   try {
     const config = readHowenConfig();
     const client = createHowenClient({ config, session: createHowenSessionManager({ config }) });
-    return { async loadSnapshot(): Promise<CatalogSnapshot> { try { const records = await client.fetchRoster(); const candidates = mapHowenCatalog(records, { connectionId: connection.id, resolveInitialPlacementFleetId: () => undefined }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
+    return { async loadSnapshot(): Promise<CatalogSnapshot> { try { const fleets = await client.fetchFleets(); const records = await client.fetchRoster(); const resolveFleetCompany = createHowenFleetCompanyResolver(fleets); const candidates = mapHowenCatalog(records, { connectionId: connection.id, resolveInitialPlacementFleetId: () => undefined, resolveFleetCompany: (fleetId) => { const result = resolveFleetCompany(fleetId); return { company: result.company, companySourceFleetId: result.companySourceFleetId, outcome: result.outcome }; } }); const receivedRecordCount = (records as typeof records & { receivedRecordCount?: number }).receivedRecordCount ?? records.length; return { kind: "complete", candidates, evidence: { retrievalComplete: true, paginationComplete: true, receivedRecordCount, parseableRecordCount: records.length } }; } catch (error) { return { kind: "failed", failure: failure(error) }; } } };
   } catch { return undefined; }
 }
 

@@ -20,11 +20,11 @@ const baseVehicle: LiveVehicleNode = {
 };
 
 describe("LiveVehicleRow", () => {
-  it("renders the plate as the headline and the label beneath it", () => {
+  it("renders the label as the headline and the plate beneath it", () => {
     render(<LiveVehicleRow vehicle={baseVehicle} onToggle={vi.fn()} />);
 
-    expect(screen.getByText("ABC123")).toBeInTheDocument();
     expect(screen.getByText("Unit 101")).toBeInTheDocument();
+    expect(screen.getByText("ABC123")).toBeInTheDocument();
   });
 
   it("uses the label as the headline when there is no plate", () => {
@@ -34,7 +34,7 @@ describe("LiveVehicleRow", () => {
     expect(screen.getAllByText("Unit 101")).toHaveLength(1);
   });
 
-  it("renders only the plate when the secondary label is absent", () => {
+  it("renders only the plate when the label is absent", () => {
     const vehicle: LiveVehicleNode = { ...baseVehicle, label: undefined };
     render(<LiveVehicleRow vehicle={vehicle} onToggle={vi.fn()} />);
 
@@ -118,11 +118,11 @@ describe("LiveVehicleRow", () => {
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 
-  it("names the checkbox after the plate and the label", () => {
+  it("names the checkbox after the label and the plate", () => {
     render(<LiveVehicleRow vehicle={baseVehicle} onToggle={vi.fn()} />);
 
     expect(
-      screen.getByRole("checkbox", { name: "ABC123 · Unit 101" }),
+      screen.getByRole("checkbox", { name: "Unit 101 · ABC123" }),
     ).toBeInTheDocument();
   });
 

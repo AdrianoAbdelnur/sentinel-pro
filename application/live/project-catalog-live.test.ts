@@ -40,7 +40,7 @@ const input: CatalogLiveInput = {
   organizationId: "org-1",
   fleets: [{ id: "fleet-1", label: "North" }],
   vehicles: [
-    { id: "vehicle-assigned", normalizedPlate: "AAA", plate: "AAA", placementFleetId: "fleet-1" },
+    { id: "vehicle-assigned", normalizedPlate: "AAA", plate: "AAA", name: "Unit%20101", placementFleetId: "fleet-1" },
     { id: "vehicle-hidden", normalizedPlate: "BBB", plate: "BBB", placementFleetId: "fleet-1" },
   ],
   contributions: [
@@ -158,6 +158,7 @@ describe("projectCatalogLive", () => {
         vehicle: {
           id: "vehicle-assigned",
           fleetId: "fleet-1",
+          label: "Unit 101",
           plate: "AAA",
           isActive: true,
         },

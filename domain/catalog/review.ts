@@ -1,4 +1,5 @@
 export type CatalogReviewReason = "missing-plate" | "malformed-plate" | "missing-placement" | "ambiguous-match" | "conflicting-identity" | "ambiguous-group-evidence";
+export const isEligibleLegacyPlateReview = (review: Pick<CatalogReview, "reason">): boolean => review.reason === "missing-plate" || review.reason === "malformed-plate";
 
 export type CatalogReview = Readonly<{
   id: string;

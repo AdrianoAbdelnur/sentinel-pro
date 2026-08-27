@@ -165,6 +165,7 @@ function projectVehicle(vehicle: CatalogVehicle, input: CatalogLiveInput, provid
     vehicle: {
       id: vehicle.id,
       fleetId: vehicle.placementFleetId,
+      label: decodeVehicleLabel(vehicle.name),
       plate: vehicle.plate,
       isActive: true,
     },
@@ -175,6 +176,15 @@ function projectVehicle(vehicle: CatalogVehicle, input: CatalogLiveInput, provid
       : { kind: "unavailable" },
     videoAlerts: videoAlertsSource ? { kind: "resolved", source: videoAlertsSource.source } : { kind: "unavailable" },
   };
+}
+
+function decodeVehicleLabel(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 export function createCatalogLiveProjector() {

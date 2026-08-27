@@ -14,10 +14,10 @@ type LiveVehicleRowProps = {
 
 export function LiveVehicleRow({ vehicle, onToggle }: LiveVehicleRowProps) {
   const tone = VEHICLE_STATUS_TONE[vehicle.status];
-  const headline = vehicle.plate ?? vehicle.label ?? MISSING_VALUE;
-  const showSecondaryLabel = Boolean(vehicle.plate && vehicle.label);
-  const checkboxName = vehicle.plate && vehicle.label
-    ? `${vehicle.plate} · ${vehicle.label}`
+  const headline = vehicle.label ?? vehicle.plate ?? MISSING_VALUE;
+  const showSecondaryPlate = Boolean(vehicle.label && vehicle.plate);
+  const checkboxName = vehicle.label && vehicle.plate
+    ? `${vehicle.label} · ${vehicle.plate}`
     : headline;
 
   return (
@@ -47,8 +47,10 @@ export function LiveVehicleRow({ vehicle, onToggle }: LiveVehicleRowProps) {
           </span>
 
           <span className="mt-0.5 flex items-baseline gap-1.5 text-[11px]">
-            {showSecondaryLabel && (
-              <span className="truncate text-slate-500">{vehicle.label}</span>
+            {showSecondaryPlate && (
+              <span className="truncate font-mono text-[10px] text-slate-500">
+                {vehicle.plate}
+              </span>
             )}
             <span className={`shrink-0 font-mono tabular-nums ${tone.speed}`}>
               {formatSpeed(vehicle.speedKmH)}

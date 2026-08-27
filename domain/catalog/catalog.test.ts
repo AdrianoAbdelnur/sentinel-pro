@@ -16,6 +16,10 @@ import {
   type CatalogVehicle,
   type ProviderContribution,
   type ProviderFleetMembership,
+  createCatalogDevice,
+  createProviderVehicleObservation,
+  createCatalogConflict,
+  isEligibleLegacyPlateReview,
 } from "./index";
 
 describe("canonical catalog domain", () => {
@@ -227,6 +231,27 @@ describe("canonical catalog domain", () => {
     ];
 
     expect(values.every((value) => Object.isFrozen(value))).toBe(true);
+  });
+
+  it("allows a canonical vehicle to exist without a plate", () => {
+    const vehicle = createCatalogVehicle({ id: "vehicle-plate-less", normalizedPlate: "", plate: "", placementFleetId: "fleet-1", active: true });
+    expect(vehicle.normalizedPlate).toBe("");
+    expect(vehicle.active).toBe(true);
+  });
+
+  it("keeps device identity scoped to its connection and preserves observations and conflicts", () => {
+    const device = createCatalogDevice({ id: "device-1", vehicleId: "vehicle-1", connectionId: "connection-1", deviceId: "same", presence: "present" });
+    const observation = createProviderVehicleObservation({ id: "observation-1", contributionId: "contribution-1", connectionId: "connection-1", deviceId: "same", company: "Company", companyResolution: "direct", observedAt: new Date("2026-01-01") });
+    const conflict = createCatalogConflict({ id: "conflict-1", vehicleId: "vehicle-1", kind: "company", values: ["Company", "Other"], status: "open", canonicalValue: "Company" });
+    expect(device.connectionId).toBe("connection-1");
+    expect(observation.company).toBe("Company");
+    expect(conflict.values).toEqual(["Company", "Other"]);
+  });
+
+  it("identifies only obsolete plate reviews as eligible for exact identity reconciliation", () => {
+    expect(isEligibleLegacyPlateReview({ reason: "missing-plate" })).toBe(true);
+    expect(isEligibleLegacyPlateReview({ reason: "malformed-plate" })).toBe(true);
+    expect(isEligibleLegacyPlateReview({ reason: "ambiguous-match" })).toBe(false);
   });
 });
 

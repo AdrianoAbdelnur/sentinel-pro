@@ -50,7 +50,11 @@ export async function POST(request: Request) {
           const outcome = await runtime.synchronize({ connectionId: connection.id, trigger: "manual", source, onProgress: (progress) => send({ type: "progress", data: progress }) });
           if (outcome.kind === "succeeded" || outcome.kind === "failed") send({ type: "progress", data: runProgress(outcome.run) });
           send(resultEvent(outcome));
-        } catch {
+        } catch (error) {
+          console.error("[catalog-import] import failed", {
+            provider,
+            error: error instanceof Error ? { name: error.name, message: error.message, stack: error.stack } : String(error),
+          });
           send({ type: "result", data: { provider, status: "failed", code: "provider-failure" } });
         } finally {
           request.signal.removeEventListener("abort", detach);
