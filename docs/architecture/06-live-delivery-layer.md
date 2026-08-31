@@ -175,6 +175,35 @@ These are the ones that bite. Each is enforced by exactly one place in the code.
 | Tailwind class names must be complete literals | Tailwind v4 extracts classes by scanning source text, so `bg-${hue}-500/15` produces no CSS at all. `sidebar/vehicle-status-tone.ts` holds full literal class strings per status, which doubles as an exhaustiveness guarantee: a new `VehicleStatus` is a type error until it has a tone. |
 | Timestamps are formatted with a pinned locale and time zone | `Intl`'s implicit locale and time zone can differ between the Node server render and the browser, making anything clock-derived a hydration-mismatch source. `sidebar/format-last-report.ts` pins both, and sets `hourCycle: "h23"` because `hour12: false` alone leaves the hour cycle implementation-defined and can render midnight as `24:mm`. |
 
+## Live map clustering boundary
+
+React Leaflet remains the only map renderer. `supercluster@8.0.1` is used only
+as an immutable spatial index: it receives provider-neutral logical marker
+coordinates and returns point or cluster entries for settled map bounds and
+zoom. The integration does not install a Leaflet clustering plugin, import
+plugin CSS, patch the Leaflet runtime, or own imperative marker layers.
+
+The index stores only `vehicleId` in GeoJSON properties and is rebuilt from a
+stable coordinate signature. Labels and headings are resolved from a separate
+lookup, so telemetry presentation changes do not rebuild spatial data. Map
+queries run after `moveend` and `zoomend`, and their results render through
+ordinary declarative React Leaflet `Marker` and `Polyline` components.
+
+Cluster activation below maximum zoom fits immutable member bounds and caps
+the viewport at Supercluster's expansion zoom. Exact overlaps at maximum zoom
+fan into deterministic display positions sorted by vehicle ID. Those derived
+positions never replace source coordinates, which remain the inputs for map
+fit and application state. Any active fan is cleared after a settled move or
+zoom.
+
+The client-only `LiveMapPanel` dynamic-import boundary continues to prevent
+server evaluation of Leaflet and clustering code. Before clustering was wired
+into `/live`, the development-only 621-point Turbopack harness proved index
+construction, viewport queries, expansion, fan, collapse, resize, heartbeat,
+and next-frame click feedback in a real browser. The recorded gate remains in
+the archived change evidence; the harness route returns `notFound()` outside
+development.
+
 ### The map is never replaced by a sentence
 
 `LiveMapPanel` renders the map even when `LiveMapViewModel` carries an
