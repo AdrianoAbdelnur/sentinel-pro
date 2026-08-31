@@ -1,36 +1,51 @@
-# live-core-contracts Specification
+# Live Core Contracts Specification
 
 ## Purpose
-
-Define the normalized live domain and playback contracts that every provider integration must map into.
+Define provider-neutral operational Live and playback contracts.
 
 ## Requirements
 
 ### Requirement: Operational live entities
-The system MUST project global vehicles with independently resolved capability sources, then filter them through tenant access assignments. Tenants MUST NOT influence ingestion, matching, placement, or source resolution, and UI MUST remain provider-agnostic.
-(Previously: Live projected a tenant-owned Company/Fleet catalog with multi-provider capabilities.)
+
+Live MUST consume only the canonical catalog application projection. It MUST filter vehicles by active organization membership and `OrganizationVehicleAccess`, project each `CatalogGroup` as a provider-neutral Live fleet, and resolve each capability independently from eligible contributions. It MUST NOT load provider rosters directly or treat provider fleets as canonical grouping.
+(Previously: Live allowed a global projection but did not require it as the sole production source.)
 
 #### Scenario: Tenant opens Live
-- GIVEN global vehicle sources are resolved and access assignments exist
-- WHEN Live is projected for a tenant
-- THEN only assigned vehicles appear with provider-neutral capability contracts
+- GIVEN an active member and organization vehicle grants exist
+- WHEN Live is projected
+- THEN only granted canonical vehicles appear under their canonical groups
 
 #### Scenario: Provider source changes
-- GIVEN SUPER ADMIN changes one capability source
+- GIVEN source policy changes one capability to another eligible contribution
 - WHEN Live is projected
-- THEN the UI contract is unchanged
+- THEN the provider-neutral UI contract remains unchanged
+
+#### Scenario: Multiple providers contribute
+- GIVEN one vehicle has eligible telemetry and video from different contributions
+- WHEN Live is projected
+- THEN one vehicle exposes both provider-neutral capabilities
+
+#### Scenario: Provider fleet differs
+- GIVEN a contribution reports a provider fleet unlike canonical placement
+- WHEN Live is projected
+- THEN grouping follows `CatalogGroup` and provider fleet remains metadata
+
+#### Scenario: Direct roster source is requested
+- GIVEN the canonical catalog projection is available
+- WHEN operational Live data is composed
+- THEN no provider-specific roster is used as catalog ownership
+
 ### Requirement: Playback contract is provider-agnostic
 
-The system MUST define a playback contract centered on a global monitor and individually playable tiles.
+The system MUST define playback around one global monitor and reproducible tiles. Each playable video MUST be one tile, and rendering MUST branch on renderer and status rather than provider identity.
+(Previously: The contract did not explicitly require tile reproducibility.)
 
 #### Scenario: Playback is modeled as tiles
-
-- GIVEN multiple providers can contribute live video
-- WHEN playback is represented in Sentinel Pro
-- THEN each playable video is represented as one tile in a global monitor
+- GIVEN multiple contributions can provide video
+- WHEN playback is represented
+- THEN each selected playable video is one reproducible tile in the global monitor
 
 #### Scenario: UI branches on renderer, not provider
-
 - GIVEN a live tile is rendered
-- WHEN the UI chooses how to display it
-- THEN the decision is based on renderer and status rather than provider identity
+- WHEN display strategy is selected
+- THEN renderer and status determine it without provider branching
